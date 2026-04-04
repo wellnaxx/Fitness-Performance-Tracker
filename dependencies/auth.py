@@ -6,16 +6,18 @@ from typing import Optional
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-
+from dependencies.providers import get_user_repository
+from repositories.user_repository import UserRepository
 from auth.jwt_handler import decode_token
 from schemas.user_schema import UserInternal
-from repositories.user_repository import get_user_by_id
+from repositories.user_repository import get_by_id
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
 
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
+    user_repo: UserRepository = Depends(get_user_repository),
 ) -> UserInternal:
     """
     Validate the JWT access token and return the authenticated user.
@@ -47,15 +49,13 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user_data = get_user_by_id(user_id)
-    if user_data is None:
+    user = user_repo.get_by_id(user_id)
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found. Account may have been deleted.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-    user = UserInternal(**user_data)
 
     try:
         token_version = int(payload.get("token_version"))
