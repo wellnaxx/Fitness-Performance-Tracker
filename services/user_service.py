@@ -1,0 +1,331 @@
+"""
+User Service - Business Logic Layer for User operations.
+
+This module handles all business logic for user operations including:
+- Registration and authentication
+- Profile management
+- Password changes
+- Admin operations (promote, block, search)
+- Permission checks
+"""
+
+import logging
+from repositories.user_repository import UserRepository
+from schemas.user_schema import (
+    UserCreate, 
+    UserUpdate,
+    ChangeUserPassword, 
+    UserProfile, 
+    UserInternal,
+    UserLogin
+)
+from schemas.token_schema import TokenPairResponse, RefreshRequest
+from auth.hashing import hash_password, verify_password
+from auth.jwt_handler import create_access_token, create_refresh_token, decode_token
+from utils.errors import (
+    UsernameAlreadyExistsError,
+    EmailAlreadyExistsError,
+    UserDeleteError,
+    InvalidCredentialsError,
+    IdenticalPasswordsError,
+    UserNotFoundError,
+    UserCreationError,
+    IncorrectOldPasswordError,
+    InvalidRefreshTokenError)
+
+
+class UserService:
+    """
+    Business logic for user operations.
+    
+    Responsibilities:
+    - Validate business rules
+    - Check permissions
+    - Orchestrate repository calls
+    - Transform between model types
+    """
+    
+    def __init__(self, user_repo: UserRepository):
+        """
+        Initialize UserService with repository dependency.
+        
+        Args:
+            user_repo: UserRepository instance for database operations
+        """
+        self.user_repo = user_repo
+        self._log = logging.getLogger(__name__)
+    
+    
+    def register_user(self, user_data: UserCreate) -> UserProfile:
+        """
+        Register a new user account.
+        
+        Business Rules:
+        - Username must be unique
+        - Email must be unique
+        - Password must meet complexity requirements (validated by Pydantic)
+        
+        Args:
+            user_data: User registration data from request
+            
+        Returns:
+            UserProfile: Newly created user (public view)
+            
+        Raises:
+            UsernameAlreadyExists
+            EmailAlreadyExists
+            UserNotFoundError: Database operation failed
+        """
+        if self.user_repo.username_exists(user_data.username):
+            raise UsernameAlreadyExistsError("Username already taken! Please choose a different username.")
+            # )
+        
+        if self.user_repo.email_exists(user_data.email):
+            raise EmailAlreadyExistsError("Email already registered! Please use a different email or login.")
+        
+        password_hash = hash_password(user_data.password)
+        
+        try:
+            user_internal = self.user_repo.create(user_data, password_hash)
+        except RuntimeError as exc:
+            raise UserCreationError(str(exc)) from exc
+        
+        self._log.info("User registered: id=%d username=%s", user_internal.id, user_internal.username)
+        return UserProfile(**user_internal.model_dump())
+    
+
+    def login_user(self, data: UserLogin) -> TokenPairResponse:
+        """
+        Authenticate a user and return a new access/refresh token pair.
+
+        Business Rules:
+        - Email must exist
+        - Password must match the stored password hash
+        - Error message should not reveal whether email or password was wrong
+
+        Args:
+            data: Login credentials
+
+        Returns:
+            TokenPairResponse: New JWT access/refresh token pair
+
+        Raises:
+            InvalidCredentialsError: If email does not exist or password is incorrect
+        """
+        user = self.user_repo.get_by_email(data.email)
+
+        if not user or not verify_password(data.password, user.password_hash):
+            raise InvalidCredentialsError("Invalid email or password.")
+
+        token_data = {
+            "user_id": user.id,
+            "username": user.username,
+            "token_version": user.token_version,
+        }
+
+        access_token = create_access_token(token_data)
+        refresh_token = create_refresh_token(token_data)
+
+        self._log.info("User logged in: id=%d username=%s", user.id, user.username)
+
+        return TokenPairResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+        )
+    
+    def get_my_profile(self, current_user: UserInternal) -> UserProfile:
+        """
+        Get authenticated user's own profile.
+        
+        Shows information that the user themselves should see.
+        
+        Args:
+            current_user: Currently authenticated user
+            
+        Returns:
+            UserProfile: User's profile data
+        """
+        return UserProfile(**current_user.model_dump())
+    
+    
+    def update_my_profile(
+        self, 
+        current_user: UserInternal, 
+        updates: UserUpdate
+    ) -> UserProfile:
+        """
+        Update authenticated user's own profile.
+        
+        Business Rules:
+        - Email must remain unique if changed
+        
+        Args:
+            current_user: Currently authenticated user
+            updates: Fields to update
+            
+        Returns:
+            UserProfile: Updated user profile
+            
+        Raises:
+            EmailAlreadyExistsError
+            UserNotFoundError (shouldn't happen)
+        """
+        
+        if updates.email and updates.email != current_user.email:
+            if self.user_repo.email_exists(updates.email):
+                raise EmailAlreadyExistsError("Email already in use by another account!")
+
+        update_dict = updates.model_dump(exclude_none=True)
+        
+        updated_user = self.user_repo.update(current_user.id, **update_dict)
+        
+        if not updated_user:
+            raise UserNotFoundError("User not found!")
+            
+        
+        return UserProfile(**updated_user.model_dump())
+    
+    
+    def change_password(
+        self, 
+        current_user: UserInternal, 
+        data: ChangeUserPassword
+    ) -> None:
+        """
+        Change user's password.
+        
+        Business Rules:
+        - Must provide correct old password
+        - New password must meet complexity requirements
+        
+        Args:
+            current_user: Currently authenticated user
+            old_password: Current password (for verification)
+            new_password: New password to set
+            
+        Returns:
+            True if password changed successfully
+            
+        Raises:
+            IncorrectOldPasswordError
+            IdenticalPasswordsError
+            UserNotFound
+        """
+        
+        if not verify_password(data.old_password, current_user.password_hash):
+            # Idempotent behavior: if the user already has the requested new password,
+            # treat this as success (useful for retries / reruns).
+            if verify_password(data.new_password, current_user.password_hash):
+                return None
+            raise IncorrectOldPasswordError("Current password is incorrect!")
+        
+        if data.new_password == data.old_password:
+            raise IdenticalPasswordsError("New password must be different from current password.")
+        
+        new_password_hash = hash_password(data.new_password)
+        
+        updated = self.user_repo.update_password(current_user.id, new_password_hash)
+
+        if not updated:
+            raise UserNotFoundError("User not found!")
+        
+        return None
+    
+    
+    def delete_my_account(self, current_user: UserInternal) -> None:
+        """
+        Delete authenticated user's own account.
+        
+        WARNING: This is irreversible. All user data will be deleted.
+        
+        Business Rules:
+        - Users can delete their own account
+        - May fail if user has content (workouts/exercises) due to foreign keys
+        
+        Args:
+            current_user: Currently authenticated user
+            
+        Raises:
+            UserDeleteError: User has content that prevents deletion
+            UserNotFoundError
+        """
+        if not self.user_repo.get_by_id(current_user.id):
+            raise UserNotFoundError("User not found!")
+
+        deleted = self.user_repo.delete(current_user.id)
+        if not deleted:
+            raise UserDeleteError("Cannot delete account. You may have workouts or exercises that need to be removed first.")
+
+    
+
+    def update_profile_picture(
+        self,
+        current_user: UserInternal,
+        profile_picture_url: str | None,
+    ) -> UserProfile:
+        """Set or clear the authenticated user's profile picture URL."""
+
+        url_value = str(profile_picture_url) if profile_picture_url is not None else None
+        updated_user = self.user_repo.set_profile_picture_url(current_user.id, url_value)
+        if not updated_user:
+            raise UserNotFoundError("User not found!")
+
+        return UserProfile(**updated_user.model_dump())
+    
+
+    def refresh_access_token(self, data: RefreshRequest) -> TokenPairResponse:
+        """
+        Validate a refresh token and issue a new access/refresh token pair.
+
+        Business Rules:
+        - Refresh token must be valid and unexpired
+        - Refresh token must be of type "refresh"
+        - User from token must still exist
+        - Token version in JWT must match the current user's token_version
+
+        Args:
+            data: Request containing the refresh token
+
+        Returns:
+            TokenPairResponse: New JWT access/refresh token pair
+
+        Raises:
+            InvalidRefreshTokenError: If token is invalid, expired, malformed, or revoked
+            UserNotFoundError: If the user no longer exists
+        """
+        payload = decode_token(data.refresh_token, expected_type="refresh")
+        if payload is None:
+            raise InvalidRefreshTokenError("Invalid or expired refresh token.")
+
+        user_id_raw = payload.get("sub")
+        token_version_raw = payload.get("token_version")
+
+        try:
+            user_id = int(user_id_raw)
+            token_version = int(token_version_raw)
+        except (TypeError, ValueError):
+            raise InvalidRefreshTokenError("Invalid refresh token payload.")
+
+        user = self.user_repo.get_by_id(user_id)
+        if not user:
+            raise UserNotFoundError("User not found.")
+
+        if user.token_version != token_version:
+            raise InvalidRefreshTokenError("Refresh token has been revoked.")
+
+        token_data = {
+            "user_id": user.id,
+            "username": user.username,
+            "token_version": user.token_version,
+        }
+
+        access_token = create_access_token(token_data)
+        refresh_token = create_refresh_token(token_data)
+
+        self._log.info("Tokens refreshed: id=%d username=%s", user.id, user.username)
+
+        return TokenPairResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+        )
+    
