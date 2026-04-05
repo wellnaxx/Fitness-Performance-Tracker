@@ -32,7 +32,10 @@ CREATE TABLE IF NOT EXISTS public.user_goals (
     is_active BOOLEAN NOT NULL,
 
     FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE
+    
 );
+CREATE INDEX ON public.user_goals (user_id);
+CREATE INDEX ON public.user_goals (user_id) WHERE is_active = TRUE;
 
 -- =========================
 -- EXERCISES
@@ -51,6 +54,8 @@ CREATE TABLE IF NOT EXISTS public.exercises (
 
     FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL
 );
+CREATE INDEX ON public.exercises (created_by) WHERE is_custom = TRUE;
+CREATE INDEX ON public.exercises (muscle_group);
 
 -- =========================
 -- WORKOUTS
@@ -69,6 +74,7 @@ CREATE TABLE IF NOT EXISTS public.workouts (
 
     FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE
 );
+CREATE INDEX ON public.workouts (user_id, workout_date DESC);
 
 -- =========================
 -- WORKOUT EXERCISES
@@ -84,6 +90,8 @@ CREATE TABLE IF NOT EXISTS public.workout_exercises (
     FOREIGN KEY (workout_id) REFERENCES public.workouts(id) ON DELETE CASCADE,
     FOREIGN KEY (exercise_id) REFERENCES public.exercises(id)
 );
+CREATE INDEX ON public.workout_exercises (workout_id);
+CREATE INDEX ON public.workout_exercises (exercise_id);
 
 -- =========================
 -- SET ENTRIES
@@ -101,6 +109,7 @@ CREATE TABLE IF NOT EXISTS public.set_entries (
 
     FOREIGN KEY (workout_exercise_id) REFERENCES public.workout_exercises(id) ON DELETE CASCADE
 );
+CREATE INDEX ON public.set_entries (workout_exercise_id);
 
 -- =========================
 -- WORKOUT TEMPLATES
@@ -115,6 +124,7 @@ CREATE TABLE IF NOT EXISTS public.workout_templates (
 
     FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE
 );
+CREATE INDEX ON public.workout_templates (user_id);
 
 -- =========================
 -- WORKOUT TEMPLATE EXERCISES
@@ -133,6 +143,7 @@ CREATE TABLE IF NOT EXISTS public.workout_template_exercises (
     FOREIGN KEY (workout_template_id) REFERENCES public.workout_templates(id) ON DELETE CASCADE,
     FOREIGN KEY (exercise_id) REFERENCES public.exercises(id)
 );
+CREATE INDEX ON public.workout_template_exercises (workout_template_id);
 
 -- =========================
 -- MEALS
@@ -152,6 +163,7 @@ CREATE TABLE IF NOT EXISTS public.meals (
 
     FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE
 );
+CREATE INDEX ON public.meals (user_id, eaten_at DESC);
 
 -- =========================
 -- MEAL ITEMS
@@ -169,6 +181,7 @@ CREATE TABLE IF NOT EXISTS public.meal_items (
 
     FOREIGN KEY (meal_id) REFERENCES public.meals(id) ON DELETE CASCADE
 );
+CREATE INDEX ON public.meal_items (meal_id);
 
 -- =========================
 -- BODY WEIGHT
@@ -218,3 +231,4 @@ CREATE TABLE IF NOT EXISTS public.progress_photos (
 
     FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE
 );
+CREATE INDEX ON public.progress_photos (user_id, entry_date DESC);
