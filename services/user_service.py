@@ -21,7 +21,7 @@ from schemas.user_schema import (
 )
 from schemas.token_schema import TokenPairResponse, RefreshRequest
 from auth.hashing import hash_password, verify_password
-from auth.jwt_handler import create_access_token, create_refresh_token, decode_token
+from auth.jwt_handler import TokenInput, create_access_token, create_refresh_token, decode_token
 from utils.errors import (
     UsernameAlreadyExistsError,
     EmailAlreadyExistsError,
@@ -117,7 +117,7 @@ class UserService:
         if not user or not verify_password(data.password, user.password_hash):
             raise InvalidCredentialsError("Invalid email or password.")
 
-        token_data = {
+        token_data: TokenInput = {
             "user_id": user.id,
             "username": user.username,
             "token_version": user.token_version,
@@ -297,12 +297,11 @@ class UserService:
         if payload is None:
             raise InvalidRefreshTokenError("Invalid or expired refresh token.")
 
-        user_id_raw = payload.get("sub")
-        token_version_raw = payload.get("token_version")
+        user_id_raw = payload.sub
+        token_version = payload.token_version
 
         try:
             user_id = int(user_id_raw)
-            token_version = int(token_version_raw)
         except (TypeError, ValueError):
             raise InvalidRefreshTokenError("Invalid refresh token payload.")
 
@@ -313,7 +312,7 @@ class UserService:
         if user.token_version != token_version:
             raise InvalidRefreshTokenError("Refresh token has been revoked.")
 
-        token_data = {
+        token_data: TokenInput = {
             "user_id": user.id,
             "username": user.username,
             "token_version": user.token_version,
