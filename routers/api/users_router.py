@@ -170,7 +170,7 @@ def update_profile_picture(
 ):
     """Set or clear the authenticated user's profile picture URL."""
     try:
-        return service.update_profile_picture(current_user, data.profile_picture_url)
+        return service.update_profile_picture(current_user, str(data.profile_picture_url))
     except UserNotFoundError as exc:
         raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
