@@ -2,15 +2,13 @@
 FastAPI dependencies for authentication and authorization.
 """
 
-from typing import Optional
-
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+
+from auth.jwt_handler import decode_token
 from dependencies.providers import get_user_repository
 from repositories.user_repository import UserRepository
-from auth.jwt_handler import decode_token
 from schemas.user_schema import UserInternal
-from repositories.user_repository import get_by_id
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
 
@@ -32,7 +30,7 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user_id_str: Optional[str] = payload.get("sub")
+    user_id_str = payload.sub
     if not user_id_str:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -42,12 +40,12 @@ def get_current_user(
 
     try:
         user_id = int(user_id_str)
-    except (ValueError, TypeError):
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload: subject must be a valid user ID.",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from exc
 
     user = user_repo.get_by_id(user_id)
     if user is None:
@@ -57,15 +55,7 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    try:
-        token_version = int(payload.get("token_version"))
-    except (ValueError, TypeError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload: missing or invalid token_version.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
+    token_version = payload.token_version
     if token_version != user.token_version:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
