@@ -1,6 +1,8 @@
-from typing import Any
+from __future__ import annotations
+from typing import TypeAlias, cast
 
 from psycopg import Cursor
+from psycopg.abc import QueryNoTemplate
 
 from data.connection import get_connection
 from utils.errors import DatabaseError
@@ -8,21 +10,35 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+SQLParams: TypeAlias = tuple[object, ...]
+SQLQuery: TypeAlias = str | QueryNoTemplate
+Row: TypeAlias = tuple[object, ...]
+RowDict: TypeAlias = dict[str, object]
 
-def _cursor_to_dicts(cursor: Cursor) -> list[dict[str, Any]]:
+def _as_query(sql: SQLQuery) -> QueryNoTemplate:
+    return cast(QueryNoTemplate, sql)
+
+
+def _get_column_names(cursor: Cursor[Row]) -> list[str]:
+    if cursor.description is None:
+        raise DatabaseError("Query did not return a result set.")
+
+    return [col.name for col in cursor.description]
+
+def _cursor_to_dicts(cursor: Cursor[Row]) -> list[RowDict]:
     """Convert all cursor rows to column-name-keyed dicts."""
-    columns = [col[0] for col in cursor.description]
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    columns = _get_column_names(cursor)
+    rows = cursor.fetchall()
+    return [dict(zip(columns, row)) for row in rows]
 
-
-def fetch_all(sql: str, params: tuple = ()) -> list[dict[str, Any]]:
+def fetch_all(sql: SQLQuery, params: SQLParams = ()) -> list[RowDict]:
     """Execute a SELECT and return all rows as dicts."""
     logger.debug("SELECT %s | params=%s", sql, params)
 
     try:
         with get_connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute(sql, params)
+                cursor.execute(_as_query(sql), params)
                 return _cursor_to_dicts(cursor)
 
     except Exception as exc:
@@ -32,20 +48,21 @@ def fetch_all(sql: str, params: tuple = ()) -> list[dict[str, Any]]:
         ) from exc
 
 
-def fetch_one(sql: str, params: tuple = ()) -> dict[str, Any] | None:
+def fetch_one(sql: SQLQuery, params: SQLParams = ()) -> RowDict | None:
     """Execute a SELECT and return the first row as a dict, or None."""
     logger.debug("SELECT (one) %s | params=%s", sql, params)
 
     try:
         with get_connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute(sql, params)
-                row = cursor.fetchone()
+                typed_cursor = cursor
+                typed_cursor.execute(_as_query(sql), params)
+                row = typed_cursor.fetchone()
 
                 if row is None:
                     return None
 
-                columns = [col[0] for col in cursor.description]
+                columns = _get_column_names(typed_cursor)
                 return dict(zip(columns, row))
 
     except Exception as exc:
@@ -55,7 +72,7 @@ def fetch_one(sql: str, params: tuple = ()) -> dict[str, Any] | None:
         ) from exc
 
 
-def execute_insert(sql: str, params: tuple = ()) -> int:
+def execute_insert(sql: SQLQuery, params: SQLParams = ()) -> int:
     """
     Execute an INSERT and return the new row's id.
     IMPORTANT: SQL must include RETURNING id.
@@ -65,10 +82,23 @@ def execute_insert(sql: str, params: tuple = ()) -> int:
     try:
         with get_connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute(sql, params)
-                new_id = cursor.fetchone()[0]
+                typed_cursor = cursor
+                typed_cursor.execute(_as_query(sql), params)
+
+                row = typed_cursor.fetchone()
+                if row is None:
+                    raise DatabaseError(
+                        "INSERT did not return an id. Did you forget 'RETURNING id'?"
+                    )
+
+                new_id = row[0]
+                if not isinstance(new_id, int):
+                    raise DatabaseError(
+                        f"Expected returned id to be int, got {type(new_id).__name__}."
+                    )
+
                 conn.commit()
-                return int(new_id)
+                return new_id
 
     except Exception as exc:
         logger.exception("Database insert failed")
@@ -77,15 +107,16 @@ def execute_insert(sql: str, params: tuple = ()) -> int:
         ) from exc
 
 
-def execute_write(sql: str, params: tuple = ()) -> int:
+def execute_write(sql: SQLQuery, params: SQLParams = ()) -> int:
     """Execute an UPDATE or DELETE and return affected row count."""
     logger.debug("WRITE %s | params=%s", sql, params)
 
     try:
         with get_connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute(sql, params)
-                affected = cursor.rowcount
+                typed_cursor = cursor
+                typed_cursor.execute(_as_query(sql), params)
+                affected = typed_cursor.rowcount
                 conn.commit()
                 return int(affected)
 
