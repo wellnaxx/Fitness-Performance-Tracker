@@ -1,5 +1,4 @@
 import re
-import datetime
 
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_]{2,16}$")
 
@@ -24,7 +23,7 @@ def validate_username(username: str) -> str:
 
 def validate_password_strength(password: str) -> str:
     """Validate password meets security requirements."""
-    errors = []
+    errors: list[str] = []
     
     if not re.search(r'[A-Z]', password):
         errors.append('at least one uppercase letter')
