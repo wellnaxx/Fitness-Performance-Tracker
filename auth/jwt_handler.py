@@ -5,14 +5,99 @@ This module handles creation and validation of JWT tokens for user authenticatio
 Implements RFC 7519 standard claims for security and interoperability.
 """
 
+from __future__ import annotations
 import uuid
 from datetime import datetime, timezone, timedelta
 from jose import JWTError, jwt
-from typing import Any, Literal
+from typing import Any, Literal, Final, TypedDict
 from core.config import get_auth_config
+from dataclasses import asdict, dataclass
+
+TokenType = Literal["access", "refresh"]
 
 
-def create_token(data: dict, token_type: Literal["access", "refresh"] = "access") -> str:
+class TokenInput(TypedDict):
+    user_id: str | int
+    username: str
+    token_version: int
+
+
+@dataclass(frozen=True, slots=True)
+class TokenPayload:
+    sub: str
+    iat: int
+    exp: int
+    jti: str
+    type: TokenType
+    username: str
+    token_version: int
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> TokenPayload | None:
+        sub = data.get("sub")
+        iat = data.get("iat")
+        exp = data.get("exp")
+        jti = data.get("jti")
+        token_type = data.get("type")
+        username = data.get("username")
+        token_version = data.get("token_version")
+
+        if not isinstance(sub, str):
+            return None
+        if not isinstance(iat, int):
+            return None
+        if not isinstance(exp, int):
+            return None
+        if not isinstance(jti, str):
+            return None
+        if token_type not in (_ACCESS, _REFRESH):
+            return None
+        if not isinstance(username, str):
+            return None
+        if not isinstance(token_version, int):
+            return None
+
+        return cls(
+            sub=sub,
+            iat=iat,
+            exp=exp,
+            jti=jti,
+            type=token_type,
+            username=username,
+            token_version=token_version,
+        )
+
+
+_ACCESS: Final[TokenType] = "access"
+_REFRESH: Final[TokenType] = "refresh"
+
+
+def _get_expiration_time(token_type: TokenType) -> datetime:
+    config = get_auth_config()
+    now = datetime.now(timezone.utc)
+
+    if token_type == _ACCESS:
+        return now + timedelta(minutes=config.access_token_expire_minutes)
+
+    return now + timedelta(days=config.refresh_token_expire_days)
+
+
+def _build_payload(data: TokenInput, token_type: TokenType) -> TokenPayload:
+    now = datetime.now(timezone.utc)
+    expire = _get_expiration_time(token_type)
+
+    return TokenPayload(
+        sub=str(data["user_id"]),
+        iat=int(now.timestamp()),
+        exp=int(expire.timestamp()),
+        jti=str(uuid.uuid4()),
+        type=token_type,
+        username=data["username"],
+        token_version=data["token_version"],
+    )
+
+
+def create_token(data: TokenInput, token_type: TokenType = _ACCESS) -> str:
     """
     Create a JWT token with standard RFC 7519 claims.
     
@@ -44,43 +129,20 @@ def create_token(data: dict, token_type: Literal["access", "refresh"] = "access"
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
     """
     config = get_auth_config()
+    payload = _build_payload(data, token_type)
 
-    user_id = data.get("user_id")
-    username = data.get("username")
-    token_version = data.get("token_version")
-    
-    if not user_id:
-        raise ValueError("user_id is required in token data")
-    if not username:
-        raise ValueError("username is required in token data")
-    if token_version is None:
-        raise ValueError("token_version is required in token data")
-    
-    now = datetime.now(timezone.utc)
-    expire = now + (timedelta(minutes=config.access_token_expire_minutes)
-                    if token_type == "access"
-                    else timedelta(days=config.refresh_token_expire_days))
-    
-    payload = {
-        "sub": str(user_id),          
-        "iat": now,   
-        "exp": expire, 
-        "jti": str(uuid.uuid4()),     
-        
-        "type": token_type,            
-        "username": data.get("username"),
-        "token_version": int(token_version),
-    }
-    
-    encoded_jwt = jwt.encode(payload, config.jwt_secret, algorithm=config.jwt_algorithm)
-    
+    encoded_jwt = jwt.encode(
+        asdict(payload),
+        config.jwt_secret,
+        algorithm=config.jwt_algorithm,
+    )
     return encoded_jwt
 
 
 def decode_token(
-    token: str, 
-    expected_type: Literal["access", "refresh"] = "access"
-) -> dict[str, Any] | None:
+    token: str,
+    expected_type: TokenType = _ACCESS,
+) -> TokenPayload | None:
     """
     Decode and verify a JWT token.
     
@@ -112,20 +174,27 @@ def decode_token(
         ...     print("Invalid or expired token")
     """
     config = get_auth_config()
+
     try:
-        payload = jwt.decode(token, config.jwt_secret, algorithms=[config.jwt_algorithm])
-        
-        token_type = payload.get("type")
-        if token_type != expected_type:
-            return None
-        
-        return payload
-        
+        raw_payload = jwt.decode(
+            token,
+            config.jwt_secret,
+            algorithms=[config.jwt_algorithm],
+        )
     except JWTError:
         return None
 
+    payload = TokenPayload.from_dict(raw_payload)
+    if payload is None:
+        return None
 
-def create_access_token(user_data: dict) -> str:
+    if payload.type != expected_type:
+        return None
+
+    return payload
+
+
+def create_access_token(user_data: TokenInput) -> str:
     """
     Create an access token (short-lived).
     
@@ -140,7 +209,7 @@ def create_access_token(user_data: dict) -> str:
     return create_token(user_data, token_type="access")
 
 
-def create_refresh_token(user_data: dict) -> str:
+def create_refresh_token(user_data: TokenInput) -> str:
     """
     Create a refresh token (long-lived).
     
