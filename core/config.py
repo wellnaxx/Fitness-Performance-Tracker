@@ -39,7 +39,7 @@ def load_db_config() -> DBConfig:
 
 def load_auth_config() -> AuthConfig:
     return AuthConfig(
-        jwt_secret=get_env_var("JWT_SECRET"),
+        jwt_secret=get_env_var("JWT_SECRET_KEY"),
         jwt_algorithm=get_env_var("JWT_ALGORITHM", "HS256"),
         access_token_expire_minutes=int(
             get_env_var("ACCESS_TOKEN_EXPIRE_MINUTES", "15")
