@@ -2,27 +2,29 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from dependencies.auth import get_current_user
 from dependencies.providers import get_user_service
+from schemas.token_schema import RefreshRequest, TokenPairResponse
 from schemas.user_schema import (
     ChangeUserPassword,
-    UserInternal,
-    UserProfile,
-    UserUpdate,
     ProfilePictureUpdate,
     UserCreate,
-    UserLogin
+    UserInternal,
+    UserLogin,
+    UserProfile,
+    UserUpdate,
 )
-from schemas.token_schema import TokenPairResponse, RefreshRequest
 from services.user_service import UserService
 from utils.errors import (
-    UsernameAlreadyExistsError,
     EmailAlreadyExistsError,
-    UserDeleteError,
-    UserCreationError,
-    InvalidCredentialsError,
     IdenticalPasswordsError,
-    UserNotFoundError,
     IncorrectOldPasswordError,
-    InvalidRefreshTokenError)
+    InvalidCredentialsError,
+    InvalidRefreshTokenError,
+    UserCreationError,
+    UserDeleteError,
+    UsernameAlreadyExistsError,
+    UserNotFoundError,
+)
+
 users_router = APIRouter(prefix="/users", tags=["users"])
 
 
@@ -31,7 +33,9 @@ users_router = APIRouter(prefix="/users", tags=["users"])
     response_model=UserProfile,
     status_code=status.HTTP_201_CREATED,
 )
-def register(user_data: UserCreate, service: UserService = Depends(get_user_service)) -> UserProfile:
+def register(
+    user_data: UserCreate, service: UserService = Depends(get_user_service)
+) -> UserProfile:
     try:
         return service.register_user(user_data)
     except UsernameAlreadyExistsError as exc:
@@ -52,8 +56,7 @@ def register(user_data: UserCreate, service: UserService = Depends(get_user_serv
     status_code=status.HTTP_200_OK,
 )
 def login(
-    data: UserLogin,
-    service: UserService = Depends(get_user_service)
+    data: UserLogin, service: UserService = Depends(get_user_service)
 ) -> TokenPairResponse:
     try:
         return service.login_user(data)
@@ -64,12 +67,15 @@ def login(
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
 
+
 @users_router.post(
     "/refresh",
     response_model=TokenPairResponse,
     status_code=status.HTTP_200_OK,
 )
-def refresh(refresh_request: RefreshRequest, service: UserService = Depends(get_user_service)) -> TokenPairResponse:
+def refresh(
+    refresh_request: RefreshRequest, service: UserService = Depends(get_user_service)
+) -> TokenPairResponse:
     try:
         return service.refresh_access_token(refresh_request)
     except InvalidRefreshTokenError as exc:
@@ -106,15 +112,13 @@ def update_profile(
         return service.update_my_profile(current_user, updates)
     except EmailAlreadyExistsError as exc:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(exc)
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
         ) from exc
     except UserNotFoundError as exc:
         raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=str(exc)
-            ) from exc
-        
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+
 
 @users_router.post("/me/change-password", status_code=status.HTTP_204_NO_CONTENT)
 def change_password(
@@ -127,18 +131,15 @@ def change_password(
         service.change_password(current_user, data)
     except IncorrectOldPasswordError as exc:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc)
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
     except IdenticalPasswordsError as exc:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc)
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
     except UserNotFoundError as exc:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc)
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
 
 
@@ -152,13 +153,11 @@ def delete_account(
         service.delete_my_account(current_user)
     except UserDeleteError as exc:
         raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(exc)
-            ) from exc
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
     except UserNotFoundError as exc:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc)
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
 
 
@@ -170,9 +169,10 @@ def update_profile_picture(
 ):
     """Set or clear the authenticated user's profile picture URL."""
     try:
-        return service.update_profile_picture(current_user, str(data.profile_picture_url))
+        return service.update_profile_picture(
+            current_user, str(data.profile_picture_url)
+        )
     except UserNotFoundError as exc:
         raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=str(exc)
-            ) from exc
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc

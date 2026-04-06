@@ -1,5 +1,6 @@
 import psycopg
 from psycopg import Connection
+
 from core.config import get_db_config
 
 

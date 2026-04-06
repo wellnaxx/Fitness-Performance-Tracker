@@ -2,15 +2,14 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import TypeAlias, cast
+from typing import cast
 
 from psycopg import Cursor
 from psycopg.abc import Query
 
 from data.connection import get_connection
 
-
-Row: TypeAlias = tuple[object, ...]
+type Row = tuple[object, ...]
 
 
 BASE_DIR = Path(__file__).resolve().parent

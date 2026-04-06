@@ -6,12 +6,15 @@ Implements RFC 7519 standard claims for security and interoperability.
 """
 
 from __future__ import annotations
+
 import uuid
-from datetime import datetime, timezone, timedelta
-from jose import JWTError, jwt
-from typing import Any, Literal, Final, TypedDict
-from core.config import get_auth_config
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime, timedelta
+from typing import Any, Final, Literal, TypedDict
+
+from jose import JWTError, jwt
+
+from core.config import get_auth_config
 
 TokenType = Literal["access", "refresh"]
 
@@ -42,19 +45,15 @@ class TokenPayload:
         username = data.get("username")
         token_version = data.get("token_version")
 
-        if not isinstance(sub, str):
-            return None
-        if not isinstance(iat, int):
-            return None
-        if not isinstance(exp, int):
-            return None
-        if not isinstance(jti, str):
-            return None
-        if token_type not in (_ACCESS, _REFRESH):
-            return None
-        if not isinstance(username, str):
-            return None
-        if not isinstance(token_version, int):
+        if (
+            not isinstance(sub, str)
+            or not isinstance(iat, int)
+            or not isinstance(exp, int)
+            or not isinstance(jti, str)
+            or token_type not in (_ACCESS, _REFRESH)
+            or not isinstance(username, str)
+            or not isinstance(token_version, int)
+        ):
             return None
 
         return cls(
@@ -74,7 +73,7 @@ _REFRESH: Final[TokenType] = "refresh"
 
 def _get_expiration_time(token_type: TokenType) -> datetime:
     config = get_auth_config()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     if token_type == _ACCESS:
         return now + timedelta(minutes=config.access_token_expire_minutes)
@@ -83,7 +82,7 @@ def _get_expiration_time(token_type: TokenType) -> datetime:
 
 
 def _build_payload(data: TokenInput, token_type: TokenType) -> TokenPayload:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expire = _get_expiration_time(token_type)
 
     return TokenPayload(
@@ -100,43 +99,43 @@ def _build_payload(data: TokenInput, token_type: TokenType) -> TokenPayload:
 def create_token(data: TokenInput, token_type: TokenType = _ACCESS) -> str:
     """
     Create a JWT token with standard RFC 7519 claims.
-    
+
     Standard Claims Included:
     - sub (subject): User ID who the token is for
     - iat (issued at): When the token was created
     - exp (expiration): When the token expires
     - jti (JWT ID): Unique identifier for this token
-    
+
     Custom Claims:
     - type: "access" or "refresh" to prevent token confusion
     - username: User's username
-    
+
     Args:
         data: Dictionary containing user information.
               Must include: user_id, username
         token_type: Type of token to create ("access" or "refresh")
-              
+
     Returns:
         str: Encoded JWT token
-        
+
     Raises:
         ValueError: If user_id is missing from data
-        
+
     Example:
         >>> token_data = {"user_id": 123, "username": "johndoe"}
         >>> token = create_token(token_data)
         >>> print(token)
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+
     """
     config = get_auth_config()
     payload = _build_payload(data, token_type)
 
-    encoded_jwt = jwt.encode(
+    return jwt.encode(
         asdict(payload),
         config.jwt_secret,
         algorithm=config.jwt_algorithm,
     )
-    return encoded_jwt
 
 
 def decode_token(
@@ -145,16 +144,16 @@ def decode_token(
 ) -> TokenPayload | None:
     """
     Decode and verify a JWT token.
-    
+
     Validates:
     - Token signature (using SECRET_KEY)
     - Token expiration (exp claim)
     - Token type matches expected type
-    
+
     Args:
         token: JWT token string to decode
         expected_type: Expected token type ("access" or "refresh")
-        
+
     Returns:
         dict: Token payload if valid, containing:
               - sub: User ID (as string)
@@ -164,7 +163,7 @@ def decode_token(
               - type: Token type
               - username: User's username
         None: If token is invalid, expired, malformed, or wrong type
-        
+
     Example:
         >>> payload = decode_token(access_token, expected_type="access")
         >>> if payload:
@@ -172,6 +171,7 @@ def decode_token(
         ...     print(f"Valid token for user {user_id}")
         ... else:
         ...     print("Invalid or expired token")
+
     """
     config = get_auth_config()
 
@@ -197,34 +197,36 @@ def decode_token(
 def create_access_token(user_data: TokenInput) -> str:
     """
     Create an access token (short-lived).
-    
+
     Convenience wrapper around create_token() for access tokens.
-    
+
     Args:
         user_data: Dict with user_id, username
-        
+
     Returns:
         str: Access token
+
     """
-    return create_token(user_data, token_type="access")
+    return create_token(user_data, token_type="access")  # noqa: S106
 
 
 def create_refresh_token(user_data: TokenInput) -> str:
     """
     Create a refresh token (long-lived).
-    
+
     Refresh tokens are used to obtain new access tokens without re-authentication.
     They have much longer expiration (typically 7-30 days).
-    
+
     Security Note:
     - Store refresh token hash in database for revocation
     - Implement token rotation on refresh
     - Add revocation mechanism
-    
+
     Args:
         user_data: Dict with user_id, username
-        
+
     Returns:
         str: Refresh token
+
     """
-    return create_token(user_data, token_type="refresh")
+    return create_token(user_data, token_type="refresh")  # noqa: S106

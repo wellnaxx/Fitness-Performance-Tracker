@@ -29,11 +29,14 @@ class InvalidRefreshTokenError(UserServiceError):
 class UserNotFoundError(UserServiceError):
     pass
 
+
 class UserCreationError(UserServiceError):
     pass
 
+
 class IncorrectOldPasswordError(UserServiceError):
     pass
+
 
 class UserDeleteError(UserServiceError):
     pass

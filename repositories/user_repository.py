@@ -1,11 +1,11 @@
-from __future__ import annotations
-
 """
 User Repository - Data Access Layer for User operations.
 
 This module handles all database interactions for the User entity.
 It translates between database rows (now dicts) and Pydantic models.
 """
+
+from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Final, TypedDict
@@ -79,16 +79,22 @@ class UserRepository:
         return user
 
     def username_exists(self, username: str) -> bool:
-        return fetch_one(
-            "SELECT 1 FROM users WHERE username = %s LIMIT 1",
-            (username,),
-        ) is not None
+        return (
+            fetch_one(
+                "SELECT 1 FROM users WHERE username = %s LIMIT 1",
+                (username,),
+            )
+            is not None
+        )
 
     def email_exists(self, email: str) -> bool:
-        return fetch_one(
-            "SELECT 1 FROM users WHERE email = %s LIMIT 1",
-            (email,),
-        ) is not None
+        return (
+            fetch_one(
+                "SELECT 1 FROM users WHERE email = %s LIMIT 1",
+                (email,),
+            )
+            is not None
+        )
 
     def get_by_id(self, user_id: int) -> UserInternal | None:
         row = fetch_one(f"{self._BASE_SELECT} WHERE id = %s", (user_id,))
@@ -129,9 +135,7 @@ class UserRepository:
 
         unknown = set(updates.keys()) - self._PROFILE_UPDATE_WHITELIST
         if unknown:
-            raise ValueError(
-                f"Invalid fields for update: {', '.join(sorted(unknown))}"
-            )
+            raise ValueError(f"Invalid fields for update: {', '.join(sorted(unknown))}")
 
         filtered: dict[str, object] = {
             key: value for key, value in updates.items() if value is not None

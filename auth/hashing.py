@@ -1,4 +1,5 @@
-"""Password hashing utilities.
+"""
+Password hashing utilities.
 
 Primary implementation uses Passlib (bcrypt scheme). A small bcrypt-only
 fallback is provided so unit tests that mock hashing can run even if Passlib is
