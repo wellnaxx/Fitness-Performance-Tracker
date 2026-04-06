@@ -21,6 +21,7 @@ class GoalRow(TypedDict):
     end_date: date | None
     is_active: bool
 
+
 class UserGoalsRepository:
     """
     Repository for user goal database operations.
@@ -34,7 +35,7 @@ class UserGoalsRepository:
     - Business rules such as 'only one active goal per user' should be enforced
       in the service layer, not in this repository.
     """
-        
+
     _BASE_SELECT: Final[str] = """
     SELECT
     id, user_id, daily_calorie_target,
@@ -114,7 +115,25 @@ class UserGoalsRepository:
         if row is None:
             return None
         return self._row_to_goal(row)
-    
+
+    def get_by_user_and_id(self, user_id: int, goal_id: int) -> UserGoalPublic | None:
+        """
+        Retrieve a goal by its ID, but only if it belongs to the specified user.
+
+        Args:
+            user_id: Owner user ID.
+            goal_id: Goal ID.
+
+        Returns:
+            UserGoalPublic if found and belongs to user, otherwise None.
+        """
+
+        sql = self._BASE_SELECT + " WHERE id = %s AND user_id = %s"
+        row = fetch_one(sql, (goal_id, user_id))
+        if row is None:
+            return None
+        return self._row_to_goal(row)
+
     def get_active_goal(self, user_id: int) -> UserGoalPublic | None:
         """
         Retrieve the currently active goal for a user.
@@ -134,7 +153,7 @@ class UserGoalsRepository:
         if row is None:
             return None
         return self._row_to_goal(row)
-    
+
     def get_all(self, user_id: int, limit: int = 100, offset: int = 0) -> list[UserGoalPublic]:
         """
         Retrieve all goals for a specific user with pagination.
@@ -153,7 +172,7 @@ class UserGoalsRepository:
         sql = self._BASE_SELECT + " WHERE user_id = %s ORDER BY start_date DESC, id DESC LIMIT %s OFFSET %s"
         rows = fetch_all(sql, (user_id, safe_limit, safe_offset))
         return [self._row_to_goal(row) for row in rows]
-    
+
     def update(self, goal_id: int, update_data: UserGoalUpdate) -> UserGoalPublic | None:
         """
         Partially update a goal by ID.
@@ -170,25 +189,21 @@ class UserGoalsRepository:
 
         Raises:
             ValueError: If no valid updatable fields were provided.
+            ValueError: If any provided fields are not in the update whitelist.
         """
 
-        set_clauses: list[str] = []
-        params: list[str | int] = []
+        fields = update_data.model_dump(exclude_none=True)
 
-        for field in self._GOAL_UPDATE_WHITELIST:
-            value = getattr(update_data, field)
-            if value is not None:
-                set_clauses.append(f"{field} = %s")
-                params.append(value)
-
-        if not set_clauses:
+        if not fields:
             raise ValueError("No valid fields provided for update")
-
-        params.append(goal_id)
-        sql = f"UPDATE user_goals SET {', '.join(set_clauses)} WHERE id = %s"
-        execute_write(sql, tuple(params))
+        unknown = set(fields) - self._GOAL_UPDATE_WHITELIST
+        if unknown:
+            raise ValueError(f"Invalid fields: {', '.join(sorted(unknown))}")
+        set_clause = ", ".join(f"{k} = %s" for k in fields)
+        sql = f"UPDATE user_goals SET {set_clause} WHERE id = %s"
+        execute_write(sql, (*fields.values(), goal_id))
         return self.get_by_id(goal_id)
-    
+
     def deactivate_goal(self, goal_id: int) -> UserGoalPublic | None:
         """
         Mark a goal as inactive.
@@ -203,26 +218,26 @@ class UserGoalsRepository:
         sql = "UPDATE user_goals SET is_active = FALSE WHERE id = %s"
         execute_write(sql, (goal_id,))
         return self.get_by_id(goal_id)
-    
-    def activate_goal(self, goal_id: int) -> UserGoalPublic | None:
+
+    def activate_goal(self, user_id: int, goal_id: int) -> UserGoalPublic | None:
         """
         Mark a goal as active.
 
         Args:
+            user_id: User ID.
             goal_id: Goal ID.
 
         Returns:
             The updated goal if it exists, otherwise None.
 
         Notes:
-            This method does not enforce the 'only one active goal per user' rule.
-            That rule should be handled in the service layer.
+            Atomically set one goal as active and deactivate all others for the user.
+            Ensures that at most one goal is active per user.
         """
 
-        sql = "UPDATE user_goals SET is_active = TRUE WHERE id = %s"
-        execute_write(sql, (goal_id,))
+        sql = "UPDATE user_goals SET is_active = (id = %s) WHERE user_id = %s"
+        execute_write(sql, (goal_id, user_id))
         return self.get_by_id(goal_id)
-    
 
     @staticmethod
     def _parse_goal_row(row: dict[str, object]) -> GoalRow:
@@ -273,7 +288,7 @@ class UserGoalsRepository:
             raise ValueError("Invalid type for end_date")
         if not isinstance(is_active_value, bool):
             raise ValueError("Invalid type for is_active")
-        
+
         return GoalRow(
             id=id_value,
             user_id=user_id_value,
