@@ -124,7 +124,6 @@ class UserProfile(UserBase):
     """
 
     id: int
-    username: str = Field(min_length=2, max_length=16)
     first_name: str = Field(min_length=2, max_length=32)
     last_name: str = Field(min_length=2, max_length=32)
     date_of_birth: date
