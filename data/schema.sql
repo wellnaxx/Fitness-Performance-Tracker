@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS public.users (
     password_hash TEXT NOT NULL,
     profile_picture_url TEXT,
     token_version INT NOT NULL DEFAULT 0,
+    weight_unit_preference VARCHAR(10) NOT NULL DEFAULT 'kg' CHECK (weight_unit_preference IN ('kg', 'lb')),
+    measurement_unit_preference VARCHAR(10) NOT NULL DEFAULT 'cm' CHECK (measurement_unit_preference IN ('cm', 'in')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -151,7 +153,7 @@ CREATE INDEX ON public.workout_template_exercises (workout_template_id);
 CREATE TABLE IF NOT EXISTS public.meals (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id INT NOT NULL,
-    name VARCHAR(100),
+    name VARCHAR(100) NOT NULL,
     description TEXT,
     eaten_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     meal_type VARCHAR(20) NOT NULL CHECK (
@@ -204,15 +206,22 @@ CREATE TABLE IF NOT EXISTS public.body_measurements (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id INT NOT NULL,
     entry_date DATE NOT NULL,
-    waist DECIMAL(5,2) CHECK (waist >= 0),
-    chest DECIMAL(5,2) CHECK (chest >= 0),
-    hips DECIMAL(5,2) CHECK (hips >= 0),
-    left_arm DECIMAL(5,2) CHECK (left_arm >= 0),
-    right_arm DECIMAL(5,2) CHECK (right_arm >= 0),
-    left_thigh DECIMAL(5,2) CHECK (left_thigh >= 0),
-    right_thigh DECIMAL(5,2) CHECK (right_thigh >= 0),
+    neck DECIMAL(5,2) CHECK (neck > 0),
+    shoulders DECIMAL(5,2) CHECK (shoulders > 0),
+    waist DECIMAL(5,2) CHECK (waist > 0),
+    chest DECIMAL(5,2) CHECK (chest > 0),
+    hips DECIMAL(5,2) CHECK (hips > 0),
+    left_bicep DECIMAL(5,2) CHECK (left_bicep > 0),
+    right_bicep DECIMAL(5,2) CHECK (right_bicep > 0),
+    left_forearm DECIMAL(5,2) CHECK (left_forearm > 0),
+    right_forearm DECIMAL(5,2) CHECK (right_forearm > 0),
+    left_thigh DECIMAL(5,2) CHECK (left_thigh > 0),
+    right_thigh DECIMAL(5,2) CHECK (right_thigh > 0),
+    left_calf DECIMAL(5,2) CHECK (left_calf > 0),
+    right_calf DECIMAL(5,2) CHECK (right_calf > 0),
     notes TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE,
     UNIQUE (user_id, entry_date)
