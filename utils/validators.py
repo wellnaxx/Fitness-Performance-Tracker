@@ -40,3 +40,11 @@ def validate_password_strength(password: str) -> str:
         raise ValueError(f"Password must contain {', '.join(errors)}")
 
     return password
+
+
+def validate_meal_type(meal_type: str) -> str:
+    """Validate meal type is one of the allowed values."""
+    valid_types = {"breakfast", "lunch", "dinner", "snack"}
+    if meal_type.lower().strip() not in valid_types:
+        raise ValueError(f"meal_type must be one of {valid_types}")
+    return meal_type
