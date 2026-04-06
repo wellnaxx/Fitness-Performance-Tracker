@@ -114,7 +114,7 @@ class ProfilePictureUpdate(BaseModel):
 
     profile_picture_url: AnyHttpUrl | None = Field(
         default=None,
-        description="Publicly accessible URL of the profile picture, or null to remove it.",  # noqa: E501
+        description="Publicly accessible URL of the profile picture, or null to remove it.",
     )
 
 

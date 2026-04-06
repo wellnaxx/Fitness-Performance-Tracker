@@ -1,7 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
-from pydantic import BaseModel, Field, model_validator, NonNegativeInt
+from pydantic import BaseModel, Field, NonNegativeInt, model_validator
 
 
 class UserGoalBase(BaseModel):
@@ -27,11 +27,11 @@ class UserGoalCreate(UserGoalBase):
 
 
 class UserGoalUpdate(BaseModel):
-    daily_calorie_target: int | None = Field(default=None, gt=0)
-    protein_target: int | None = Field(default=None, ge=0)
-    carbs_target: int | None = Field(default=None, ge=0)
-    fat_target: int | None = Field(default=None, ge=0)
-    weekly_workout_target: int | None = Field(default=None, ge=0)
+    daily_calorie_target: NonNegativeInt | None = Field(default=None, gt=0)
+    protein_target: NonNegativeInt | None = Field(default=None, ge=0)
+    carbs_target: NonNegativeInt | None = Field(default=None, ge=0)
+    fat_target: NonNegativeInt | None = Field(default=None, ge=0)
+    weekly_workout_target: NonNegativeInt | None = Field(default=None, ge=0)
     target_body_weight: Decimal | None = Field(default=None, gt=0)
     start_date: date | None = None
     end_date: date | None = None

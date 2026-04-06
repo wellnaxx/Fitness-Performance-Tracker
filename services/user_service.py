@@ -265,7 +265,7 @@ class UserService:
         deleted = self.user_repo.delete(current_user.id)
         if not deleted:
             raise UserDeleteError(
-                "Cannot delete account. You may have workouts or exercises that need to be removed first."  # noqa: E501
+                "Cannot delete account. You may have workouts or exercises that need to be removed first." 
             )
 
     def update_profile_picture(
@@ -305,7 +305,7 @@ class UserService:
         Raises:
             InvalidRefreshTokenError: If token is invalid, expired, malformed, or revoked
             UserNotFoundError: If the user no longer exists
-        """  # noqa: E501
+        """
         payload = decode_token(data.refresh_token, expected_type="refresh")
         if payload is None:
             raise InvalidRefreshTokenError("Invalid or expired refresh token.")

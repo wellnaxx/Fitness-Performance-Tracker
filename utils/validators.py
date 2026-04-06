@@ -17,7 +17,7 @@ def validate_username(username: str) -> str:
 
     if not USERNAME_PATTERN.fullmatch(username):
         raise ValueError(
-            "Username must be 2-16 characters long and contain only letters, digits, or underscores."  # noqa: E501
+            "Username must be 2-16 characters long and contain only letters, digits, or underscores."
         )
 
     return username
