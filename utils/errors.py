@@ -2,41 +2,57 @@ class DatabaseError(RuntimeError):
     """Raised when a database operation fails."""
 
 
-class UserServiceError(Exception):
-    """Base auth/service error."""
+class AppError(RuntimeError):
+    """Base application error."""
+
+
+class ServiceError(AppError):
+    """Base service-layer error."""
+
+
+class UserServiceError(ServiceError):
+    """Base user-related service error."""
 
 
 class UsernameAlreadyExistsError(UserServiceError):
-    pass
+    """Raised when username already exists."""
 
 
 class EmailAlreadyExistsError(UserServiceError):
-    pass
+    """Raised when email already exists."""
 
 
 class InvalidCredentialsError(UserServiceError):
-    pass
+    """Raised when login credentials are invalid."""
 
 
 class IdenticalPasswordsError(UserServiceError):
-    pass
+    """Raised when new password equals old password."""
 
 
 class InvalidRefreshTokenError(UserServiceError):
-    pass
+    """Raised when refresh token is invalid."""
 
 
 class UserNotFoundError(UserServiceError):
-    pass
+    """Raised when user is not found."""
 
 
 class UserCreationError(UserServiceError):
-    pass
+    """Raised when user creation fails."""
 
 
 class IncorrectOldPasswordError(UserServiceError):
-    pass
+    """Raised when old password is incorrect."""
 
 
 class UserDeleteError(UserServiceError):
-    pass
+    """Raised when user deletion fails."""
+
+
+class UserGoalsError(ServiceError):
+    """Base error for user goals operations."""
+
+
+class UserGoalNotFoundError(UserGoalsError):
+    """Raised when a goal is not found or does not belong to the user."""
