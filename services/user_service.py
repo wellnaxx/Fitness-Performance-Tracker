@@ -86,7 +86,6 @@ class UserService:
             raise UsernameAlreadyExistsError(
                 "Username already taken! Please choose a different username."
             )
-            # )
 
         if self.user_repo.email_exists(user_data.email):
             raise EmailAlreadyExistsError(
