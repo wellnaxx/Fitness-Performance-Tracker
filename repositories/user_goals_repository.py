@@ -1,3 +1,10 @@
+"""
+User Goals Repository
+
+This module handles all database interactions for the User Goal entity.
+It translates between database rows (now dicts) and Pydantic models.
+"""
+
 from __future__ import annotations
 
 from datetime import date

@@ -64,7 +64,7 @@ CREATE INDEX ON public.exercises (muscle_group);
 -- =========================
 CREATE TABLE IF NOT EXISTS public.workouts (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id INT NOT NULL,
+    user_id INT NULL,
     name VARCHAR(100) NOT NULL,
     description TEXT,
     workout_date DATE NOT NULL,

@@ -24,6 +24,8 @@ class UserRow(TypedDict):
     password_hash: str
     profile_picture_url: str | None
     token_version: int
+    weight_unit_preference: str
+    measurement_unit_preference: str
     created_at: datetime
     updated_at: datetime
 
@@ -40,7 +42,8 @@ class UserRepository:
 
     _BASE_SELECT: Final[str] = """
         SELECT id, username, first_name, last_name, date_of_birth, email, password_hash,
-               profile_picture_url, token_version, created_at, updated_at
+               profile_picture_url, token_version, weight_unit_preference, measurement_unit_preference,
+               created_at, updated_at
         FROM users
     """
 
@@ -50,6 +53,8 @@ class UserRepository:
         "date_of_birth",
         "email",
         "profile_picture_url",
+        "weight_unit_preference",
+        "measurement_unit_preference",
     }
 
     def create(self, user_data: UserCreate, password_hash: str) -> UserInternal:
@@ -168,6 +173,30 @@ class UserRepository:
             (profile_picture_url, user_id),
         )
         return self.get_by_id(user_id)
+    
+    def set_weight_unit_preference(
+        self,
+        user_id: int,
+        weight_unit_preference: str,
+    ) -> UserInternal | None:
+        execute_write(
+            "UPDATE users SET weight_unit_preference = %s, "
+            "updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+            (weight_unit_preference, user_id),
+        )
+        return self.get_by_id(user_id)
+    
+    def set_measurement_unit_preference(
+        self,
+        user_id: int,
+        measurement_unit_preference: str,
+    ) -> UserInternal | None:
+        execute_write(
+            "UPDATE users SET measurement_unit_preference = %s, "
+            "updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+            (measurement_unit_preference, user_id),
+        )
+        return self.get_by_id(user_id)
 
     def update_password(self, user_id: int, new_password_hash: str) -> bool:
         return (
@@ -204,6 +233,8 @@ class UserRepository:
         password_hash = row.get("password_hash")
         profile_picture_url = row.get("profile_picture_url")
         token_version = row.get("token_version")
+        weight_unit_preference = row.get("weight_unit_preference")
+        measurement_unit_preference = row.get("measurement_unit_preference")
         created_at = row.get("created_at")
         updated_at = row.get("updated_at")
 
@@ -227,6 +258,12 @@ class UserRepository:
             )
         if not isinstance(token_version, int):
             raise ValueError("Invalid user row: 'token_version' must be int")
+        if not isinstance(weight_unit_preference, str):
+            raise ValueError("Invalid user row: 'weight_unit_preference' must be str")
+        if not isinstance(measurement_unit_preference, str):
+            raise ValueError(
+                "Invalid user row: 'measurement_unit_preference' must be str"
+            )
         if not isinstance(created_at, datetime):
             raise ValueError("Invalid user row: 'created_at' must be datetime")
         if not isinstance(updated_at, datetime):
@@ -242,6 +279,8 @@ class UserRepository:
             password_hash=password_hash,
             profile_picture_url=profile_picture_url,
             token_version=token_version,
+            weight_unit_preference=weight_unit_preference,
+            measurement_unit_preference=measurement_unit_preference,
             created_at=created_at,
             updated_at=updated_at,
         )

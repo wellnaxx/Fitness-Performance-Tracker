@@ -103,6 +103,6 @@ class WorkoutPublic(WorkoutBase):
     """Schema for returning workout data to clients."""
 
     id: int
-    user_id: int
+    user_id: int | None
     created_at: datetime
     updated_at: datetime
