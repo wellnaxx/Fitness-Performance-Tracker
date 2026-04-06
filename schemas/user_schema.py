@@ -118,6 +118,21 @@ class ProfilePictureUpdate(BaseModel):
     )
 
 
+class UserPreferencesUpdate(BaseModel):
+    """Schema for updating user preferences."""
+
+    weight_unit_preference: str | None = Field(
+        default=None,
+        description="Preferred unit for weight measurements",
+        examples=["kg", "lb"],
+    )
+    measurement_unit_preference: str | None = Field(
+        default=None,
+        description="Preferred unit for body measurements",
+        examples=["cm", "in"],
+    )
+
+
 class UserProfile(UserBase):
     """
     Safe user model for the logged-in user.
@@ -129,6 +144,14 @@ class UserProfile(UserBase):
     date_of_birth: date
     email: EmailStr
     profile_picture_url: AnyHttpUrl | None
+    weight_unit_preference: str = Field(
+        description="Preferred unit for weight measurements",
+        examples=["kg", "lb"],
+    )
+    measurement_unit_preference: str = Field(
+        description="Preferred unit for body measurements",
+        examples=["cm", "in"],
+    )
     created_at: datetime
     updated_at: datetime
 
@@ -149,5 +172,13 @@ class UserInternal(BaseModel):
     password_hash: str
     profile_picture_url: AnyHttpUrl | None
     token_version: NonNegativeInt = 0
+    weight_unit_preference: str = Field(
+        description="Preferred unit for weight measurements",
+        examples=["kg", "lb"],
+    )
+    measurement_unit_preference: str = Field(
+        description="Preferred unit for body measurements",
+        examples=["cm", "in"],
+    )
     created_at: datetime
     updated_at: datetime
