@@ -43,6 +43,11 @@ def register(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(exc),
         ) from exc
+    except EmailAlreadyExistsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
     except UserCreationError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
