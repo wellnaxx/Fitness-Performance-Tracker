@@ -91,6 +91,19 @@ class UserGoalsService:
         if existing_goal is None:
             raise UserGoalNotFoundError("Goal not found.")
 
+        next_start_date = (
+            update_data.start_date
+            if update_data.start_date is not None
+            else existing_goal.start_date
+        )
+        next_end_date = (
+            update_data.end_date
+            if update_data.end_date is not None
+            else existing_goal.end_date
+        )
+        if next_end_date is not None and next_end_date < next_start_date:
+            raise ValueError("end_date cannot be earlier than start_date")
+
         if update_data.is_active is True:
             current_active = self.goals_repo.get_active_goal(current_user.id)
             if current_active is not None and current_active.id != goal_id:
