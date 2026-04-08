@@ -58,6 +58,19 @@ class UserRepository:
     }
 
     def create(self, user_data: UserCreate, password_hash: str) -> UserInternal:
+        """
+        Create a new user account.
+
+        Args:
+            user_data: User creation payload.
+            password_hash: Pre-hashed password to persist.
+
+        Returns:
+            The newly created internal user model.
+
+        Raises:
+            RuntimeError: If the inserted user cannot be retrieved afterwards.
+        """
         sql = """
             INSERT INTO users
             (first_name, last_name, date_of_birth, email, username, password_hash)
@@ -84,6 +97,15 @@ class UserRepository:
         return user
 
     def username_exists(self, username: str) -> bool:
+        """
+        Check whether a username already exists.
+
+        Args:
+            username: Username to look up.
+
+        Returns:
+            True if a matching user exists, otherwise False.
+        """
         return (
             fetch_one(
                 "SELECT 1 FROM users WHERE username = %s LIMIT 1",
@@ -93,6 +115,15 @@ class UserRepository:
         )
 
     def email_exists(self, email: str) -> bool:
+        """
+        Check whether an email address already exists.
+
+        Args:
+            email: Email address to look up.
+
+        Returns:
+            True if a matching user exists, otherwise False.
+        """
         return (
             fetch_one(
                 "SELECT 1 FROM users WHERE email = %s LIMIT 1",
@@ -102,24 +133,61 @@ class UserRepository:
         )
 
     def get_by_id(self, user_id: int) -> UserInternal | None:
+        """
+        Retrieve a user by database ID.
+
+        Args:
+            user_id: User ID.
+
+        Returns:
+            The user if found, otherwise None.
+        """
         row = fetch_one(f"{self._BASE_SELECT} WHERE id = %s", (user_id,))
         if row is None:
             return None
         return self._row_to_user(row)
 
     def get_by_username(self, username: str) -> UserInternal | None:
+        """
+        Retrieve a user by username.
+
+        Args:
+            username: Username value.
+
+        Returns:
+            The user if found, otherwise None.
+        """
         row = fetch_one(f"{self._BASE_SELECT} WHERE username = %s", (username,))
         if row is None:
             return None
         return self._row_to_user(row)
 
     def get_by_email(self, email: str) -> UserInternal | None:
+        """
+        Retrieve a user by email address.
+
+        Args:
+            email: Email value.
+
+        Returns:
+            The user if found, otherwise None.
+        """
         row = fetch_one(f"{self._BASE_SELECT} WHERE email = %s", (email,))
         if row is None:
             return None
         return self._row_to_user(row)
 
     def get_all(self, limit: int = 100, offset: int = 0) -> list[UserInternal]:
+        """
+        Retrieve users with pagination.
+
+        Args:
+            limit: Maximum number of rows to return.
+            offset: Number of rows to skip.
+
+        Returns:
+            Users ordered from newest to oldest.
+        """
         safe_limit = max(1, min(limit, 1000))
         safe_offset = max(0, offset)
 
@@ -167,6 +235,16 @@ class UserRepository:
         user_id: int,
         profile_picture_url: str | None,
     ) -> UserInternal | None:
+        """
+        Set or clear the profile picture URL for a user.
+
+        Args:
+            user_id: User ID.
+            profile_picture_url: New URL value, or None to clear it.
+
+        Returns:
+            The updated user if found, otherwise None.
+        """
         execute_write(
             "UPDATE users SET profile_picture_url = %s, "
             "updated_at = CURRENT_TIMESTAMP WHERE id = %s",
@@ -179,6 +257,16 @@ class UserRepository:
         user_id: int,
         weight_unit_preference: str,
     ) -> UserInternal | None:
+        """
+        Update the user's preferred weight unit.
+
+        Args:
+            user_id: User ID.
+            weight_unit_preference: New weight unit value.
+
+        Returns:
+            The updated user if found, otherwise None.
+        """
         execute_write(
             "UPDATE users SET weight_unit_preference = %s, "
             "updated_at = CURRENT_TIMESTAMP WHERE id = %s",
@@ -191,6 +279,16 @@ class UserRepository:
         user_id: int,
         measurement_unit_preference: str,
     ) -> UserInternal | None:
+        """
+        Update the user's preferred body measurement unit.
+
+        Args:
+            user_id: User ID.
+            measurement_unit_preference: New measurement unit value.
+
+        Returns:
+            The updated user if found, otherwise None.
+        """
         execute_write(
             "UPDATE users SET measurement_unit_preference = %s, "
             "updated_at = CURRENT_TIMESTAMP WHERE id = %s",
@@ -199,6 +297,16 @@ class UserRepository:
         return self.get_by_id(user_id)
 
     def update_password(self, user_id: int, new_password_hash: str) -> bool:
+        """
+        Update the stored password hash and revoke existing tokens.
+
+        Args:
+            user_id: User ID.
+            new_password_hash: New password hash.
+
+        Returns:
+            True if a row was updated, otherwise False.
+        """
         return (
             execute_write(
                 "UPDATE users SET password_hash = %s, "
@@ -210,6 +318,15 @@ class UserRepository:
         )
 
     def bump_token_version(self, user_id: int) -> bool:
+        """
+        Increment the token version for a user.
+
+        Args:
+            user_id: User ID.
+
+        Returns:
+            True if a row was updated, otherwise False.
+        """
         return (
             execute_write(
                 "UPDATE users SET token_version = token_version + 1, "
@@ -220,10 +337,20 @@ class UserRepository:
         )
 
     def delete(self, user_id: int) -> bool:
+        """
+        Delete a user by ID.
+
+        Args:
+            user_id: User ID.
+
+        Returns:
+            True if a row was deleted, otherwise False.
+        """
         return execute_write("DELETE FROM users WHERE id = %s", (user_id,)) > 0
 
     @staticmethod
     def _parse_user_row(row: dict[str, object]) -> UserRow:
+        """Validate and normalize a raw database row into a typed UserRow."""
         id_value = row.get("id")
         username = row.get("username")
         first_name = row.get("first_name")
@@ -287,5 +414,6 @@ class UserRepository:
 
     @classmethod
     def _row_to_user(cls, row: dict[str, object]) -> UserInternal:
+        """Convert a raw database row into a validated UserInternal model."""
         user_row = cls._parse_user_row(row)
         return UserInternal.model_validate(user_row)
