@@ -132,6 +132,28 @@ class UserPreferencesUpdate(BaseModel):
         examples=["cm", "in"],
     )
 
+    @field_validator("weight_unit_preference")
+    @classmethod
+    def validate_weight_unit_preference(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        normalized = v.lower().strip()
+        if normalized not in {"kg", "lb"}:
+            raise ValueError("weight_unit_preference must be either 'kg' or 'lb'")
+        return normalized
+
+    @field_validator("measurement_unit_preference")
+    @classmethod
+    def validate_measurement_unit_preference(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        normalized = v.lower().strip()
+        if normalized not in {"cm", "in"}:
+            raise ValueError(
+                "measurement_unit_preference must be either 'cm' or 'in'"
+            )
+        return normalized
+
 
 class UserProfile(UserBase):
     """
