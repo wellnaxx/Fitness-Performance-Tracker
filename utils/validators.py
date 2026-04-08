@@ -8,7 +8,7 @@ def validate_username(username: str) -> str:
     Validate username format.
 
     Rules:
-    - 2–16 characters
+    - 2-16 characters
     - letters, digits, underscore only
     - no leading/trailing spaces
     """
@@ -43,8 +43,11 @@ def validate_password_strength(password: str) -> str:
 
 
 def validate_meal_type(meal_type: str) -> str:
-    """Validate meal type is one of the allowed values."""
+    """Validate meal type is one of the allowed lowercase values."""
     valid_types = {"breakfast", "lunch", "dinner", "snack"}
-    if meal_type.lower().strip() not in valid_types:
+    normalized = meal_type.lower().strip()
+
+    if normalized not in valid_types:
         raise ValueError(f"meal_type must be one of {valid_types}")
-    return meal_type
+
+    return normalized
