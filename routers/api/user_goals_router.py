@@ -87,6 +87,11 @@ def update_goal(
 ) -> UserGoalPublic:
     try:
         return service.update_goal(current_user, goal_id, update_data)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
     except UserGoalNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
