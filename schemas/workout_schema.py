@@ -98,6 +98,22 @@ class WorkoutUpdate(BaseModel):
         examples=["Felt strong today, increased weights on squats."],
     )
 
+    @field_validator("completed_at", mode="after")
+    @classmethod
+    def validate_completed_at(
+        cls,
+        v: datetime | None,
+        info: ValidationInfo,
+    ) -> datetime | None:
+        if (
+            v is not None
+            and "started_at" in info.data
+            and info.data["started_at"] is not None
+            and v < info.data["started_at"]
+        ):
+            raise ValueError("completed_at cannot be earlier than started_at")
+        return v
+
 
 class WorkoutPublic(WorkoutBase):
     """Schema for returning workout data to clients."""
