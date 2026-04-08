@@ -202,7 +202,7 @@ class UserGoalsRepository:
         fields = update_data.model_dump(exclude_none=True)
 
         if not fields:
-            raise ValueError("No valid fields provided for update")
+            return self.get_by_id(goal_id)
         unknown = set(fields) - self._GOAL_UPDATE_WHITELIST
         if unknown:
             raise ValueError(f"Invalid fields: {', '.join(sorted(unknown))}")
