@@ -29,6 +29,12 @@ class MealBase(BaseModel):
         description="Time of day when the meal was consumed (e.g., 'Breakfast', 'Lunch', 'Dinner', 'Snack')",
         examples=["Breakfast", "Lunch", "Dinner", "Snack"],
     )
+    notes: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Optional notes about the meal",
+        examples=["Felt very satisfied after this meal."],
+    )
 
     @field_validator("meal_type")
     @classmethod
@@ -65,6 +71,13 @@ class MealUpdate(BaseModel):
         default=None,
         description="Time of day when the meal was consumed (e.g., 'Breakfast', 'Lunch', 'Dinner', 'Snack')",
         examples=["Breakfast", "Lunch", "Dinner", "Snack"],
+    )
+
+    notes: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Optional notes about the meal",
+        examples=["Felt very satisfied after this meal."],
     )
 
     @field_validator("meal_type")
