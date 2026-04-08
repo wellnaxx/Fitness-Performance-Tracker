@@ -10,7 +10,7 @@ from dependencies.providers import get_user_repository
 from repositories.user_repository import UserRepository
 from schemas.user_schema import UserInternal
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/token")
 
 
 def get_current_user(
