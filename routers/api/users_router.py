@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 
 from dependencies.auth import get_current_user
 from dependencies.providers import get_user_service
@@ -65,6 +66,31 @@ def login(
 ) -> TokenPairResponse:
     try:
         return service.login_user(data)
+    except InvalidCredentialsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+
+@users_router.post(
+    "/token",
+    response_model=TokenPairResponse,
+    status_code=status.HTTP_200_OK,
+)
+def oauth2_login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    service: UserService = Depends(get_user_service),
+) -> TokenPairResponse:
+    """OAuth2-compatible login endpoint for Swagger UI and password flow clients."""
+    try:
+        return service.login_user(
+            UserLogin(
+                email=form_data.username,
+                password=form_data.password,
+            )
+        )
     except InvalidCredentialsError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -175,7 +201,10 @@ def update_profile_picture(
     """Set or clear the authenticated user's profile picture URL."""
     try:
         return service.update_profile_picture(
-            current_user, str(data.profile_picture_url)
+            current_user,
+            str(data.profile_picture_url)
+            if data.profile_picture_url is not None
+            else None,
         )
     except UserNotFoundError as exc:
         raise HTTPException(
