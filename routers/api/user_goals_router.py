@@ -9,7 +9,7 @@ from schemas.user_goals_schema import (
 )
 from schemas.user_schema import UserInternal
 from services.user_goals_service import UserGoalsService
-from utils.errors import UserGoalNotFoundError
+from utils.errors import UserGoalCreationError, UserGoalNotFoundError
 
 user_goals_router = APIRouter(prefix="/goals", tags=["user-goals"])
 
@@ -20,7 +20,13 @@ def create_goal(
     current_user: UserInternal = Depends(get_current_user),
     service: UserGoalsService = Depends(get_user_goals_service),
 ) -> UserGoalPublic:
-    return service.create_goal(current_user, goal_data)
+    try:
+        return service.create_goal(current_user, goal_data)
+    except UserGoalCreationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
 
 
 @user_goals_router.get(
