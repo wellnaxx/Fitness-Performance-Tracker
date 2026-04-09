@@ -5,7 +5,7 @@ from schemas.user_goals_schema import (
     UserGoalUpdate,
 )
 from schemas.user_schema import UserInternal
-from utils.errors import UserGoalNotFoundError
+from utils.errors import UserGoalCreationError, UserGoalNotFoundError
 
 
 class UserGoalsService:
@@ -38,7 +38,10 @@ class UserGoalsService:
             if current_active is not None:
                 self.goals_repo.deactivate_goal(current_active.id)
 
-        return self.goals_repo.create(current_user.id, goal_data)
+        try:
+            return self.goals_repo.create(current_user.id, goal_data)
+        except RuntimeError as exc:
+            raise UserGoalCreationError("Failed to create goal.") from exc
 
     def get_current_goal(self, current_user: UserInternal) -> UserGoalPublic | None:
         """
