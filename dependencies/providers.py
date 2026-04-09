@@ -7,8 +7,10 @@ provider function it needs — no service is ever instantiated manually in a rou
 
 from fastapi import Depends
 
+from repositories.exercise_repository import ExerciseRepository
 from repositories.user_goals_repository import UserGoalsRepository
 from repositories.user_repository import UserRepository
+from services.exercise_service import ExerciseService
 from services.user_goals_service import UserGoalsService
 from services.user_service import UserService
 
@@ -31,3 +33,13 @@ def get_user_goals_service(
     repo: UserGoalsRepository = Depends(get_user_goals_repository),
 ) -> UserGoalsService:
     return UserGoalsService(repo)
+
+
+def get_exercise_repository() -> ExerciseRepository:
+    return ExerciseRepository()
+
+
+def get_exercise_service(
+    repo: ExerciseRepository = Depends(get_exercise_repository),
+) -> ExerciseService:
+    return ExerciseService(repo)
