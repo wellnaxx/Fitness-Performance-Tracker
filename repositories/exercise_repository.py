@@ -119,11 +119,12 @@ class ExerciseRepository:
         Returns:
             ExercisePublic: The exercise data if found and visible, otherwise None.
         """
-        sql = self._BASE_SELECT + " WHERE id = %s AND (created_by IS NULL OR created_by = %s)"
-        row = fetch_one(sql, (exercise_id, user_id))
-        if row is None:
+        exercise = self.get_by_id(exercise_id)
+        if exercise is None:
             return None
-        return self._row_to_exercise(row)
+        if exercise.created_by is not None and exercise.created_by != user_id:
+            return None
+        return exercise
 
     def list_visible(
         self,
