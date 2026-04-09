@@ -217,7 +217,7 @@ class UserService:
         Raises:
             IncorrectOldPasswordError
             IdenticalPasswordsError
-            UserNotFound
+            UserNotFoundError: User not found (shouldn't happen)
         """
 
         if not verify_password(data.old_password, current_user.password_hash):
@@ -256,7 +256,7 @@ class UserService:
 
         Raises:
             UserDeleteError: User has content that prevents deletion
-            UserNotFoundError
+            UserNotFoundError: User not found (shouldn't happen)
         """
         if not self.user_repo.get_by_id(current_user.id):
             raise UserNotFoundError("User not found!")
