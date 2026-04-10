@@ -18,6 +18,6 @@ def get_env_var(key: str, default: str | None = None) -> str:
     value = os.getenv(key, default)
 
     if value is None:
-        raise OSError(f"Required environment variable '{key}' is not set!")
+        raise OSError(f"Required environment variable '{key}' is not set!")  # noqa: TRY003
 
     return value
