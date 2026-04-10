@@ -207,7 +207,7 @@ def create_access_token(user_data: TokenInput) -> str:
         str: Access token
 
     """
-    return create_token(user_data, token_type="access")  # noqa: S106
+    return create_token(user_data, token_type="access")
 
 
 def create_refresh_token(user_data: TokenInput) -> str:
@@ -229,4 +229,4 @@ def create_refresh_token(user_data: TokenInput) -> str:
         str: Refresh token
 
     """
-    return create_token(user_data, token_type="refresh")  # noqa: S106
+    return create_token(user_data, token_type="refresh")
