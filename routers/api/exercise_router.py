@@ -19,11 +19,11 @@ from utils.errors import (
 exercise_router = APIRouter(prefix="/exercises", tags=["exercises"])
 
 
-@exercise_router.post("/", response_model=ExercisePublic, status_code=status.HTTP_201_CREATED)
+@exercise_router.post("/", status_code=status.HTTP_201_CREATED)
 def create_exercise(
     exercise_data: ExerciseCreate,
-    current_user: UserInternal = Depends(get_current_user),
-    service: ExerciseService = Depends(get_exercise_service),
+    current_user: Annotated[UserInternal, Depends(get_current_user)],
+    service: Annotated[ExerciseService, Depends(get_exercise_service)],
 ) -> ExercisePublic:
     """
     Create a new exercise for the authenticated user.
@@ -42,11 +42,11 @@ def create_exercise(
         ) from exc
 
 
-@exercise_router.get("/{exercise_id}", response_model=ExercisePublic, status_code=status.HTTP_200_OK)
+@exercise_router.get("/{exercise_id}", status_code=status.HTTP_200_OK)
 def get_exercise_by_id(
     exercise_id: int,
-    current_user: UserInternal = Depends(get_current_user),
-    service: ExerciseService = Depends(get_exercise_service),
+    current_user: Annotated[UserInternal, Depends(get_current_user)],
+    service: Annotated[ExerciseService, Depends(get_exercise_service)],
 ) -> ExercisePublic:
     """
     Retrieve an exercise by ID, ensuring it's visible to the user.
@@ -60,10 +60,10 @@ def get_exercise_by_id(
         ) from exc
 
 
-@exercise_router.get("/", response_model=list[ExercisePublic], status_code=status.HTTP_200_OK)
+@exercise_router.get("/", status_code=status.HTTP_200_OK)
 def list_exercises(
-    current_user: UserInternal = Depends(get_current_user),
-    service: ExerciseService = Depends(get_exercise_service),
+    current_user: Annotated[UserInternal, Depends(get_current_user)],
+    service: Annotated[ExerciseService, Depends(get_exercise_service)],
     limit: Annotated[int, Query(ge=1, le=1000, description="Maximum number of exercises to return.")] = 100,
     offset: Annotated[int, Query(ge=0, description="Number of exercises to skip.")] = 0,
     search: Annotated[str | None, Query(description="Search term for exercise names.")] = None,
@@ -87,12 +87,12 @@ def list_exercises(
     )
 
 
-@exercise_router.patch("/{exercise_id}", response_model=ExercisePublic, status_code=status.HTTP_200_OK)
+@exercise_router.patch("/{exercise_id}", status_code=status.HTTP_200_OK)
 def update_exercise(
     exercise_id: int,
     update_data: ExerciseUpdate,
-    current_user: UserInternal = Depends(get_current_user),
-    service: ExerciseService = Depends(get_exercise_service),
+    current_user: Annotated[UserInternal, Depends(get_current_user)],
+    service: Annotated[ExerciseService, Depends(get_exercise_service)],
 ) -> ExercisePublic:
     """
     Update an existing exercise if it belongs to the user.
@@ -114,8 +114,8 @@ def update_exercise(
 @exercise_router.delete("/{exercise_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_exercise(
     exercise_id: int,
-    current_user: UserInternal = Depends(get_current_user),
-    service: ExerciseService = Depends(get_exercise_service),
+    current_user: Annotated[UserInternal, Depends(get_current_user)],
+    service: Annotated[ExerciseService, Depends(get_exercise_service)],
 ) -> None:
     """
     Delete an existing exercise if it belongs to the user.

@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from dependencies.auth import get_current_user
@@ -9,16 +11,20 @@ from schemas.user_goals_schema import (
 )
 from schemas.user_schema import UserInternal
 from services.user_goals_service import UserGoalsService
-from utils.errors import UserGoalCreationError, UserGoalNotFoundError
+from utils.errors import (
+    UserGoalCreationError,
+    UserGoalNotFoundError,
+    UserGoalValidationError,
+)
 
 user_goals_router = APIRouter(prefix="/goals", tags=["user-goals"])
 
 
-@user_goals_router.post("/", response_model=UserGoalPublic, status_code=status.HTTP_201_CREATED)
+@user_goals_router.post("/", status_code=status.HTTP_201_CREATED)
 def create_goal(
     goal_data: UserGoalCreate,
-    current_user: UserInternal = Depends(get_current_user),
-    service: UserGoalsService = Depends(get_user_goals_service),
+    current_user: Annotated[UserInternal, Depends(get_current_user)],
+    service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
 ) -> UserGoalPublic:
     try:
         return service.create_goal(current_user, goal_data)
@@ -31,12 +37,11 @@ def create_goal(
 
 @user_goals_router.get(
     "/current",
-    response_model=UserGoalPublic,
     status_code=status.HTTP_200_OK,
 )
 def get_current_goal(
-    current_user: UserInternal = Depends(get_current_user),
-    service: UserGoalsService = Depends(get_user_goals_service),
+    current_user: Annotated[UserInternal, Depends(get_current_user)],
+    service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
 ) -> UserGoalPublic:
     goal = service.get_current_goal(current_user)
     if goal is None:
@@ -49,27 +54,25 @@ def get_current_goal(
 
 @user_goals_router.get(
     "/history",
-    response_model=list[UserGoalPublic],
     status_code=status.HTTP_200_OK,
 )
 def get_goal_history(
-    current_user: UserInternal = Depends(get_current_user),
-    service: UserGoalsService = Depends(get_user_goals_service),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum number of goals to return."),
-    offset: int = Query(0, ge=0, description="Number of goals to skip."),
+    current_user: Annotated[UserInternal, Depends(get_current_user)],
+    service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
+    limit: Annotated[int, Query(ge=1, le=1000, description="Maximum number of goals to return.")] = 100,
+    offset: Annotated[int, Query(ge=0, description="Number of goals to skip.")] = 0,
 ) -> list[UserGoalPublic]:
     return service.get_goal_history(current_user, limit, offset)
 
 
 @user_goals_router.get(
     "/{goal_id}",
-    response_model=UserGoalPublic,
     status_code=status.HTTP_200_OK,
 )
 def get_goal_by_id(
     goal_id: int,
-    current_user: UserInternal = Depends(get_current_user),
-    service: UserGoalsService = Depends(get_user_goals_service),
+    current_user: Annotated[UserInternal, Depends(get_current_user)],
+    service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
 ) -> UserGoalPublic:
     try:
         return service.get_goal_by_id(current_user, goal_id)
@@ -82,18 +85,17 @@ def get_goal_by_id(
 
 @user_goals_router.patch(
     "/{goal_id}",
-    response_model=UserGoalPublic,
     status_code=status.HTTP_200_OK,
 )
 def update_goal(
     goal_id: int,
     update_data: UserGoalUpdate,
-    current_user: UserInternal = Depends(get_current_user),
-    service: UserGoalsService = Depends(get_user_goals_service),
+    current_user: Annotated[UserInternal, Depends(get_current_user)],
+    service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
 ) -> UserGoalPublic:
     try:
         return service.update_goal(current_user, goal_id, update_data)
-    except ValueError as exc:
+    except UserGoalValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
@@ -107,13 +109,12 @@ def update_goal(
 
 @user_goals_router.post(
     "/{goal_id}/deactivate",
-    response_model=UserGoalPublic,
     status_code=status.HTTP_200_OK,
 )
 def deactivate_goal(
     goal_id: int,
-    current_user: UserInternal = Depends(get_current_user),
-    service: UserGoalsService = Depends(get_user_goals_service),
+    current_user: Annotated[UserInternal, Depends(get_current_user)],
+    service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
 ) -> UserGoalPublic:
     try:
         return service.deactivate_goal(current_user, goal_id)
@@ -126,13 +127,12 @@ def deactivate_goal(
 
 @user_goals_router.post(
     "/{goal_id}/activate",
-    response_model=UserGoalPublic,
     status_code=status.HTTP_200_OK,
 )
 def activate_goal(
     goal_id: int,
-    current_user: UserInternal = Depends(get_current_user),
-    service: UserGoalsService = Depends(get_user_goals_service),
+    current_user: Annotated[UserInternal, Depends(get_current_user)],
+    service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
 ) -> UserGoalPublic:
     try:
         return service.activate_goal(current_user, goal_id)

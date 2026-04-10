@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -31,11 +33,10 @@ users_router = APIRouter(prefix="/users", tags=["users"])
 
 @users_router.post(
     "/register",
-    response_model=UserProfile,
     status_code=status.HTTP_201_CREATED,
 )
 def register(
-    user_data: UserCreate, service: UserService = Depends(get_user_service)
+    user_data: UserCreate, service: Annotated[UserService, Depends(get_user_service)]
 ) -> UserProfile:
     try:
         return service.register_user(user_data)
@@ -58,11 +59,10 @@ def register(
 
 @users_router.post(
     "/login",
-    response_model=TokenPairResponse,
     status_code=status.HTTP_200_OK,
 )
 def login(
-    data: UserLogin, service: UserService = Depends(get_user_service)
+    data: UserLogin, service: Annotated[UserService, Depends(get_user_service)]
 ) -> TokenPairResponse:
     try:
         return service.login_user(data)
@@ -76,12 +76,11 @@ def login(
 
 @users_router.post(
     "/token",
-    response_model=TokenPairResponse,
     status_code=status.HTTP_200_OK,
 )
 def oauth2_login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    service: UserService = Depends(get_user_service),
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    service: Annotated[UserService, Depends(get_user_service)],
 ) -> TokenPairResponse:
     """OAuth2-compatible login endpoint for Swagger UI and password flow clients."""
     try:
@@ -101,11 +100,10 @@ def oauth2_login(
 
 @users_router.post(
     "/refresh",
-    response_model=TokenPairResponse,
     status_code=status.HTTP_200_OK,
 )
 def refresh(
-    refresh_request: RefreshRequest, service: UserService = Depends(get_user_service)
+    refresh_request: RefreshRequest, service: Annotated[UserService, Depends(get_user_service)]
 ) -> TokenPairResponse:
     try:
         return service.refresh_access_token(refresh_request)
@@ -123,21 +121,21 @@ def refresh(
         ) from exc
 
 
-@users_router.get("/me", response_model=UserProfile)
+@users_router.get("/me")
 def my_profile(
-    current_user: UserInternal = Depends(get_current_user),
-    service: UserService = Depends(get_user_service),
-):
+    current_user: Annotated[UserInternal, Depends(get_current_user)],
+    service: Annotated[UserService, Depends(get_user_service)],
+) -> UserProfile:
     """Return the authenticated user's own private profile."""
     return service.get_my_profile(current_user)
 
 
-@users_router.patch("/me", response_model=UserProfile)
+@users_router.patch("/me")
 def update_profile(
     updates: UserUpdate,
-    current_user: UserInternal = Depends(get_current_user),
-    service: UserService = Depends(get_user_service),
-):
+    current_user: Annotated[UserInternal, Depends(get_current_user)],
+    service: Annotated[UserService, Depends(get_user_service)],
+) -> UserProfile:
     """Update the authenticated user's profile."""
     try:
         return service.update_my_profile(current_user, updates)
@@ -154,9 +152,9 @@ def update_profile(
 @users_router.post("/me/change-password", status_code=status.HTTP_204_NO_CONTENT)
 def change_password(
     data: ChangeUserPassword,
-    current_user: UserInternal = Depends(get_current_user),
-    service: UserService = Depends(get_user_service),
-):
+    current_user: Annotated[UserInternal, Depends(get_current_user)],
+    service: Annotated[UserService, Depends(get_user_service)],
+) -> None:
     """Change the authenticated user's password."""
     try:
         service.change_password(current_user, data)
@@ -176,9 +174,9 @@ def change_password(
 
 @users_router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 def delete_account(
-    current_user: UserInternal = Depends(get_current_user),
-    service: UserService = Depends(get_user_service),
-):
+    current_user: Annotated[UserInternal, Depends(get_current_user)],
+    service: Annotated[UserService, Depends(get_user_service)],
+) -> None:
     """Delete the authenticated user's account."""
     try:
         service.delete_my_account(current_user)
@@ -192,12 +190,12 @@ def delete_account(
         ) from exc
 
 
-@users_router.patch("/me/avatar", response_model=UserProfile)
+@users_router.patch("/me/avatar")
 def update_profile_picture(
     data: ProfilePictureUpdate,
-    current_user: UserInternal = Depends(get_current_user),
-    service: UserService = Depends(get_user_service),
-):
+    current_user: Annotated[UserInternal, Depends(get_current_user)],
+    service: Annotated[UserService, Depends(get_user_service)],
+) -> UserProfile:
     """Set or clear the authenticated user's profile picture URL."""
     try:
         return service.update_profile_picture(
