@@ -38,6 +38,7 @@ from utils.errors import (
     UserDeleteError,
     UsernameAlreadyExistsError,
     UserNotFoundError,
+    UserRepositoryError,
 )
 
 
@@ -52,7 +53,7 @@ class UserService:
     - Transform between model types
     """
 
-    def __init__(self, user_repo: UserRepository):
+    def __init__(self, user_repo: UserRepository) -> None:
         """
         Initialize UserService with repository dependency.
 
@@ -83,21 +84,17 @@ class UserService:
             UserNotFoundError: Database operation failed
         """
         if self.user_repo.username_exists(user_data.username):
-            raise UsernameAlreadyExistsError(
-                "Username already taken! Please choose a different username."
-            )
+            raise UsernameAlreadyExistsError.already_taken()
 
         if self.user_repo.email_exists(user_data.email):
-            raise EmailAlreadyExistsError(
-                "Email already registered! Please use a different email or login."
-            )
+            raise EmailAlreadyExistsError.already_registered()
 
         password_hash = hash_password(user_data.password)
 
         try:
             user_internal = self.user_repo.create(user_data, password_hash)
-        except RuntimeError as exc:
-            raise UserCreationError(str(exc)) from exc
+        except UserRepositoryError as exc:
+            raise UserCreationError.create_failed(exc) from exc
 
         self._log.info(
             "User registered: id=%d username=%s",
@@ -127,7 +124,7 @@ class UserService:
         user = self.user_repo.get_by_email(data.email)
 
         if not user or not verify_password(data.password, user.password_hash):
-            raise InvalidCredentialsError("Invalid email or password.")
+            raise InvalidCredentialsError.invalid_login()
 
         token_data: TokenInput = {
             "user_id": user.id,
@@ -159,9 +156,7 @@ class UserService:
         """
         return UserProfile(**current_user.model_dump())
 
-    def update_my_profile(
-        self, current_user: UserInternal, updates: UserUpdate
-    ) -> UserProfile:
+    def update_my_profile(self, current_user: UserInternal, updates: UserUpdate) -> UserProfile:
         """
         Update authenticated user's own profile.
 
@@ -180,25 +175,19 @@ class UserService:
             UserNotFoundError (shouldn't happen)
         """
 
-        if (
-            updates.email
-            and updates.email != current_user.email
-            and self.user_repo.email_exists(updates.email)
-        ):
-            raise EmailAlreadyExistsError("Email already in use by another account!")
+        if updates.email and updates.email != current_user.email and self.user_repo.email_exists(updates.email):
+            raise EmailAlreadyExistsError.already_in_use()
 
         update_dict = updates.model_dump(exclude_none=True)
 
         updated_user = self.user_repo.update(current_user.id, **update_dict)
 
         if not updated_user:
-            raise UserNotFoundError("User not found!")
+            raise UserNotFoundError.not_found()
 
         return UserProfile(**updated_user.model_dump())
 
-    def change_password(
-        self, current_user: UserInternal, data: ChangeUserPassword
-    ) -> None:
+    def change_password(self, current_user: UserInternal, data: ChangeUserPassword) -> None:
         """
         Change user's password.
 
@@ -224,22 +213,20 @@ class UserService:
             # Idempotent behavior: if the user already has the requested new password,
             # treat this as success (useful for retries / reruns).
             if verify_password(data.new_password, current_user.password_hash):
-                return None
-            raise IncorrectOldPasswordError("Current password is incorrect!")
+                return
+            raise IncorrectOldPasswordError.incorrect()
 
         if data.new_password == data.old_password:
-            raise IdenticalPasswordsError(
-                "New password must be different from current password."
-            )
+            raise IdenticalPasswordsError.must_differ()
 
         new_password_hash = hash_password(data.new_password)
 
         updated = self.user_repo.update_password(current_user.id, new_password_hash)
 
         if not updated:
-            raise UserNotFoundError("User not found!")
+            raise UserNotFoundError.not_found()
 
-        return None
+        return
 
     def delete_my_account(self, current_user: UserInternal) -> None:
         """
@@ -259,13 +246,11 @@ class UserService:
             UserNotFoundError: User not found (shouldn't happen)
         """
         if not self.user_repo.get_by_id(current_user.id):
-            raise UserNotFoundError("User not found!")
+            raise UserNotFoundError.not_found()
 
         deleted = self.user_repo.delete(current_user.id)
         if not deleted:
-            raise UserDeleteError(
-                "Cannot delete account. You may have workouts or exercises that need to be removed first." 
-            )
+            raise UserDeleteError.blocked_by_related_records()
 
     def update_profile_picture(
         self,
@@ -274,14 +259,10 @@ class UserService:
     ) -> UserProfile:
         """Set or clear the authenticated user's profile picture URL."""
 
-        url_value = (
-            str(profile_picture_url) if profile_picture_url is not None else None
-        )
-        updated_user = self.user_repo.set_profile_picture_url(
-            current_user.id, url_value
-        )
+        url_value = str(profile_picture_url) if profile_picture_url is not None else None
+        updated_user = self.user_repo.set_profile_picture_url(current_user.id, url_value)
         if not updated_user:
-            raise UserNotFoundError("User not found!")
+            raise UserNotFoundError.not_found()
 
         return UserProfile(**updated_user.model_dump())
 
@@ -307,7 +288,7 @@ class UserService:
         """
         payload = decode_token(data.refresh_token, expected_type="refresh")
         if payload is None:
-            raise InvalidRefreshTokenError("Invalid or expired refresh token.")
+            raise InvalidRefreshTokenError.invalid_or_expired()
 
         user_id_raw = payload.sub
         token_version = payload.token_version
@@ -315,14 +296,14 @@ class UserService:
         try:
             user_id = int(user_id_raw)
         except (TypeError, ValueError) as exc:
-            raise InvalidRefreshTokenError("Invalid refresh token payload.") from exc
+            raise InvalidRefreshTokenError.invalid_payload() from exc
 
         user = self.user_repo.get_by_id(user_id)
         if not user:
-            raise UserNotFoundError("User not found.")
+            raise UserNotFoundError.not_found()
 
         if user.token_version != token_version:
-            raise InvalidRefreshTokenError("Refresh token has been revoked.")
+            raise InvalidRefreshTokenError.revoked()
 
         token_data: TokenInput = {
             "user_id": user.id,

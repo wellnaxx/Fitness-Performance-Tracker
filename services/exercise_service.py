@@ -5,6 +5,7 @@ from utils.errors import (
     ExerciseDeleteError,
     ExerciseNameAlreadyExistsError,
     ExerciseNotFoundError,
+    ExerciseRepositoryError,
     ExerciseUpdateError,
 )
 
@@ -18,7 +19,7 @@ class ExerciseService:
     - Coordinate repository operations
     """
 
-    def __init__(self, exercise_repo: ExerciseRepository):
+    def __init__(self, exercise_repo: ExerciseRepository) -> None:
         self.exercise_repo = exercise_repo
 
     def create_exercise(
@@ -33,12 +34,12 @@ class ExerciseService:
         - Exercise names must be unique for the user.
         """
         if self.exercise_repo.name_exists_visible(exercise_data.name, user_id):
-            raise ExerciseNameAlreadyExistsError("An exercise with this name already exists.")
+            raise ExerciseNameAlreadyExistsError.already_exists()
 
         try:
             return self.exercise_repo.create(exercise_data, user_id)
-        except RuntimeError as exc:
-            raise ExerciseCreationError("Failed to create exercise.") from exc
+        except ExerciseRepositoryError as exc:
+            raise ExerciseCreationError.create_failed() from exc
 
     def get_visible_by_user(self, exercise_id: int, user_id: int) -> ExercisePublic:
         """
@@ -46,7 +47,7 @@ class ExerciseService:
         """
         exercise = self.exercise_repo.get_visible_by_id(exercise_id, user_id)
         if exercise is None:
-            raise ExerciseNotFoundError("Exercise not found.")
+            raise ExerciseNotFoundError.not_found()
         return exercise
 
     def list_visible_by_user(
@@ -89,13 +90,13 @@ class ExerciseService:
         if update_data.name and self.exercise_repo.name_exists_visible(
             update_data.name, user_id, exclude_exercise_id=exercise_id
         ):
-            raise ExerciseUpdateError("An exercise with this name already exists.")
+            raise ExerciseUpdateError.duplicate_name()
         try:
             updated = self.exercise_repo.update_owned(user_id, exercise_id, update_data)
-        except ValueError as exc:
-            raise ExerciseUpdateError("Failed to update exercise.") from exc
+        except ExerciseRepositoryError as exc:
+            raise ExerciseUpdateError.update_failed() from exc
         if updated is None:
-            raise ExerciseNotFoundError("Exercise not found or does not belong to the user.")
+            raise ExerciseNotFoundError.not_accessible()
         return updated
 
     def delete_exercise(self, user_id: int, exercise_id: int) -> None:
@@ -107,10 +108,10 @@ class ExerciseService:
         """
         exercise = self.exercise_repo.get_visible_by_id(exercise_id, user_id)
         if exercise is None:
-            raise ExerciseNotFoundError("Exercise not found or does not belong to the user.")
+            raise ExerciseNotFoundError.not_accessible()
         if exercise.is_custom is False:
-            raise ExerciseDeleteError("Only custom exercises can be deleted.")
+            raise ExerciseDeleteError.custom_only()
 
         deleted = self.exercise_repo.delete_owned(user_id, exercise_id)
         if not deleted:
-            raise ExerciseDeleteError("Exercise not found or does not belong to the user.")
+            raise ExerciseDeleteError.not_accessible()
