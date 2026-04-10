@@ -12,5 +12,5 @@ app.include_router(exercise_router)
 
 
 @app.get("/")
-def root():
+def root() -> dict[str, str]:
     return {"message": "API running"}

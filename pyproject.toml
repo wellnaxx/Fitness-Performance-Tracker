@@ -16,7 +16,34 @@ exclude = [
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+extend-select = [
+    "ARG",
+    "C4",
+    "ICN",
+    "ISC",
+    "N",
+    "PERF",
+    "PIE",
+    "RET",
+    "RUF",
+    "T20",
+    "TRY",
+    "ERA",
+    "FAST",
+    "ANN",
+    "TCH"
+]
 ignore = ["B008"]
+
+# Allow fixes for everything Ruff knows how to fix.
+# This is already the default, but keeping it explicit is nice.
+fixable = ["ALL"]
+
+# Prevent autofixing rules you want to review manually.
+unfixable = [
+    "F401",  # often worth reviewing, especially exports / __init__.py
+]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+"schemas/*.py" = ["TRY003", "TC003"]
