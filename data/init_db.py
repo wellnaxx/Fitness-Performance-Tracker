@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
-from typing import cast
-
-from psycopg import Cursor
-from psycopg.abc import Query
+from typing import TYPE_CHECKING, cast
 
 from data.connection import get_connection
+
+if TYPE_CHECKING:
+    from psycopg import Cursor
+    from psycopg.abc import Query
 
 type Row = tuple[object, ...]
 
@@ -16,16 +18,17 @@ BASE_DIR = Path(__file__).resolve().parent
 SCHEMA_FILE = BASE_DIR / "schema.sql"
 SEED_FILE = BASE_DIR / "seed.sql"
 
+logger = logging.getLogger(__name__)
 
 def run_sql_file(cursor: Cursor[Row], file_path: Path) -> None:
     with file_path.open("r", encoding="utf-8") as file:
         sql = file.read()
-        cursor.execute(cast(Query, sql))
+        cursor.execute(cast("Query", sql))
 
 
 def reset_database(cursor: Cursor[Row]) -> None:
-    cursor.execute(cast(Query, "DROP SCHEMA public CASCADE;"))
-    cursor.execute(cast(Query, "CREATE SCHEMA public;"))
+    cursor.execute(cast("Query", "DROP SCHEMA public CASCADE;"))
+    cursor.execute(cast("Query", "CREATE SCHEMA public;"))
 
 
 def init_db(reset: bool = True, seed: bool = True) -> None:
@@ -37,17 +40,17 @@ def init_db(reset: bool = True, seed: bool = True) -> None:
             typed_cursor: Cursor[Row] = cursor
 
             if reset:
-                print("Resetting database...")
+                logger.info("Resetting database...")
                 reset_database(typed_cursor)
 
-            print("Running schema.sql...")
+            logger.info("Running schema.sql...")
             run_sql_file(typed_cursor, SCHEMA_FILE)
 
             if seed and SEED_FILE.exists():
-                print("Running seed.sql...")
+                logger.info("Running seed.sql...")
                 run_sql_file(typed_cursor, SEED_FILE)
 
-        print("Database initialized successfully.")
+        logger.info("Database initialized successfully.")
 
     finally:
         conn.close()
