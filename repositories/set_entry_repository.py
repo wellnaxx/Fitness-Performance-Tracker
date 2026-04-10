@@ -13,6 +13,7 @@ from typing import Final, TypedDict
 
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.set_entry_schema import SetEntryCreate, SetEntryPublic, SetEntryUpdate
+from utils.errors import SetEntryRepositoryError, SetEntryRowError
 
 
 class SetEntryRow(TypedDict):
@@ -63,7 +64,7 @@ class SetEntryRepository:
             The newly created set entry.
 
         Raises:
-            RuntimeError: If the inserted row cannot be retrieved afterwards.
+            SetEntryRepositoryError: If the inserted row cannot be retrieved afterwards.
         """
         sql = """
             INSERT INTO set_entries
@@ -86,9 +87,7 @@ class SetEntryRepository:
 
         set_entry = self.get_by_id(set_entry_id)
         if set_entry is None:
-            raise RuntimeError(
-                f"Set entry {set_entry_id} was inserted but could not be retrieved."
-            )
+            raise SetEntryRepositoryError.inserted_missing(set_entry_id)
         return set_entry
 
     def get_by_id(self, set_entry_id: int) -> SetEntryPublic | None:
@@ -143,8 +142,7 @@ class SetEntryRepository:
             Set entries ordered by set number.
         """
         rows = fetch_all(
-            f"{self._BASE_SELECT} WHERE workout_exercise_id = %s "
-            "ORDER BY set_number ASC, id ASC",
+            f"{self._BASE_SELECT} WHERE workout_exercise_id = %s ORDER BY set_number ASC, id ASC",
             (workout_exercise_id,),
         )
         return [self._row_to_set_entry(row) for row in rows]
@@ -167,23 +165,18 @@ class SetEntryRepository:
             The updated set entry if found, otherwise None.
 
         Raises:
-            ValueError: If any provided fields are not allowed to be updated.
+            SetEntryRepositoryError: If any provided fields are not allowed to be updated.
         """
         fields = update_data.model_dump(exclude_none=True)
         if not fields:
-            return self.get_by_workout_exercise_and_id(
-                workout_exercise_id, set_entry_id
-            )
+            return self.get_by_workout_exercise_and_id(workout_exercise_id, set_entry_id)
 
         unknown = set(fields) - self._SET_ENTRY_UPDATE_WHITELIST
         if unknown:
-            raise ValueError(f"Invalid fields for update: {', '.join(sorted(unknown))}")
+            raise SetEntryRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
-        sql = (
-            f"UPDATE set_entries SET {set_clause} "
-            "WHERE workout_exercise_id = %s AND id = %s"
-        )
+        sql = f"UPDATE set_entries SET {set_clause} WHERE workout_exercise_id = %s AND id = %s"
         execute_write(sql, (*fields.values(), workout_exercise_id, set_entry_id))
         return self.get_by_workout_exercise_and_id(workout_exercise_id, set_entry_id)
 
@@ -277,9 +270,7 @@ class SetEntryRepository:
         update_data: SetEntryUpdate,
     ) -> SetEntryPublic | None:
         """Compatibility wrapper for `update_in_workout_exercise`."""
-        return self.update_in_workout_exercise(
-            workout_exercise_id, set_entry_id, update_data
-        )
+        return self.update_in_workout_exercise(workout_exercise_id, set_entry_id, update_data)
 
     def delete(self, set_entry_id: int, workout_exercise_id: int) -> bool:
         """Compatibility wrapper for `delete_in_workout_exercise`."""
@@ -299,23 +290,23 @@ class SetEntryRepository:
         created_at = row.get("created_at")
 
         if not isinstance(id_value, int):
-            raise ValueError("Invalid set entry row: 'id' must be int")
+            raise SetEntryRowError.invalid_type("id", "int")
         if not isinstance(workout_exercise_id, int):
-            raise ValueError("Invalid set entry row: 'workout_exercise_id' must be int")
+            raise SetEntryRowError.invalid_type("workout_exercise_id", "int")
         if not isinstance(set_number, int):
-            raise ValueError("Invalid set entry row: 'set_number' must be int")
+            raise SetEntryRowError.invalid_type("set_number", "int")
         if not isinstance(reps, int):
-            raise ValueError("Invalid set entry row: 'reps' must be int")
+            raise SetEntryRowError.invalid_type("reps", "int")
         if not isinstance(weight, (Decimal, int, float)):
-            raise ValueError("Invalid set entry row: 'weight' must be numeric")
+            raise SetEntryRowError.invalid_type("weight", "numeric")
         if rpe is not None and not isinstance(rpe, int):
-            raise ValueError("Invalid set entry row: 'rpe' must be int | None")
+            raise SetEntryRowError.invalid_type("rpe", "int | None")
         if not isinstance(is_warmup, bool):
-            raise ValueError("Invalid set entry row: 'is_warmup' must be bool")
+            raise SetEntryRowError.invalid_type("is_warmup", "bool")
         if not isinstance(completed, bool):
-            raise ValueError("Invalid set entry row: 'completed' must be bool")
+            raise SetEntryRowError.invalid_type("completed", "bool")
         if not isinstance(created_at, datetime):
-            raise ValueError("Invalid set entry row: 'created_at' must be datetime")
+            raise SetEntryRowError.invalid_type("created_at", "datetime")
 
         return SetEntryRow(
             id=id_value,

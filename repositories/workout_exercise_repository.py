@@ -15,6 +15,7 @@ from schemas.workout_exercises_schema import (
     WorkoutExercisePublic,
     WorkoutExerciseUpdate,
 )
+from utils.errors import WorkoutExerciseRepositoryError, WorkoutExerciseRowError
 
 
 class WorkoutExerciseRow(TypedDict):
@@ -62,7 +63,7 @@ class WorkoutExerciseRepository:
             The newly created workout exercise.
 
         Raises:
-            RuntimeError: If the inserted row cannot be retrieved afterwards.
+            WorkoutExerciseRepositoryError: If the inserted row cannot be retrieved afterwards.
         """
         sql = """
             INSERT INTO workout_exercises
@@ -83,9 +84,7 @@ class WorkoutExerciseRepository:
 
         workout_exercise = self.get_by_id(workout_exercise_id)
         if workout_exercise is None:
-            raise RuntimeError(
-                "Workout exercise was inserted but could not be retrieved."
-            )
+            raise WorkoutExerciseRepositoryError.inserted_missing(workout_exercise_id)
         return workout_exercise
 
     def get_by_id(self, workout_exercise_id: int) -> WorkoutExercisePublic | None:
@@ -137,8 +136,7 @@ class WorkoutExerciseRepository:
             Workout exercises ordered by `order_index`.
         """
         rows = fetch_all(
-            f"{self._BASE_SELECT} WHERE workout_id = %s "
-            "ORDER BY order_index ASC, id ASC",
+            f"{self._BASE_SELECT} WHERE workout_id = %s ORDER BY order_index ASC, id ASC",
             (workout_id,),
         )
         return [self._row_to_workout_exercise(row) for row in rows]
@@ -161,7 +159,7 @@ class WorkoutExerciseRepository:
             The updated workout exercise if found, otherwise None.
 
         Raises:
-            ValueError: If any provided fields are not allowed to be updated.
+            WorkoutExerciseRepositoryError: If any provided fields are not allowed to be updated.
         """
         fields = update_data.model_dump(exclude_none=True)
         if not fields:
@@ -169,13 +167,10 @@ class WorkoutExerciseRepository:
 
         unknown = set(fields) - self._WORKOUT_EXERCISE_UPDATE_WHITELIST
         if unknown:
-            raise ValueError(f"Invalid fields for update: {', '.join(sorted(unknown))}")
+            raise WorkoutExerciseRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
-        sql = (
-            f"UPDATE workout_exercises SET {set_clause} "
-            "WHERE workout_id = %s AND id = %s"
-        )
+        sql = f"UPDATE workout_exercises SET {set_clause} WHERE workout_id = %s AND id = %s"
         execute_write(sql, (*fields.values(), workout_id, workout_exercise_id))
         return self.get_by_workout_and_id(workout_id, workout_exercise_id)
 
@@ -284,19 +279,17 @@ class WorkoutExerciseRepository:
         notes = row.get("notes")
 
         if not isinstance(id_value, int):
-            raise ValueError("Invalid workout exercise row: 'id' must be int")
+            raise WorkoutExerciseRowError.invalid_type("id", "int")
         if not isinstance(workout_id, int):
-            raise ValueError("Invalid workout exercise row: 'workout_id' must be int")
+            raise WorkoutExerciseRowError.invalid_type("workout_id", "int")
         if not isinstance(exercise_id, int):
-            raise ValueError("Invalid workout exercise row: 'exercise_id' must be int")
+            raise WorkoutExerciseRowError.invalid_type("exercise_id", "int")
         if not isinstance(order_index, int):
-            raise ValueError("Invalid workout exercise row: 'order_index' must be int")
+            raise WorkoutExerciseRowError.invalid_type("order_index", "int")
         if rest_seconds is not None and not isinstance(rest_seconds, int):
-            raise ValueError(
-                "Invalid workout exercise row: 'rest_seconds' must be int | None"
-            )
+            raise WorkoutExerciseRowError.invalid_type("rest_seconds", "int | None")
         if notes is not None and not isinstance(notes, str):
-            raise ValueError("Invalid workout exercise row: 'notes' must be str | None")
+            raise WorkoutExerciseRowError.invalid_type("notes", "str | None")
 
         return WorkoutExerciseRow(
             id=id_value,

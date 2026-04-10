@@ -12,6 +12,7 @@ from typing import Final, TypedDict
 
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.user_schema import UserCreate, UserInternal
+from utils.errors import UserRepositoryError, UserRowError
 
 
 class UserRow(TypedDict):
@@ -69,7 +70,7 @@ class UserRepository:
             The newly created internal user model.
 
         Raises:
-            RuntimeError: If the inserted user cannot be retrieved afterwards.
+            UserRepositoryError: If the inserted user cannot be retrieved afterwards.
         """
         sql = """
             INSERT INTO users
@@ -91,9 +92,7 @@ class UserRepository:
 
         user = self.get_by_id(user_id)
         if user is None:
-            raise RuntimeError(
-                f"User {user_id} was inserted but could not be retrieved."
-            )
+            raise UserRepositoryError.inserted_missing(user_id)
         return user
 
     def username_exists(self, username: str) -> bool:
@@ -201,33 +200,26 @@ class UserRepository:
         """
         Patch-update allowed profile fields (whitelist-enforced).
 
-        Unknown fields raise ValueError. None values are skipped.
+        Unknown fields raise UserRepositoryError. None values are skipped.
         """
         if not updates:
             return self.get_by_id(user_id)
 
         unknown = set(updates.keys()) - self._PROFILE_UPDATE_WHITELIST
         if unknown:
-            raise ValueError(f"Invalid fields for update: {', '.join(sorted(unknown))}")
+            raise UserRepositoryError.invalid_update_fields(unknown)
 
-        filtered: dict[str, object] = {
-            key: value for key, value in updates.items() if value is not None
-        }
+        filtered: dict[str, object] = {key: value for key, value in updates.items() if value is not None}
         if not filtered:
             return self.get_by_id(user_id)
 
         set_clause = ", ".join(f"{field} = %s" for field in filtered)
-        sql = (
-            f"UPDATE users SET {set_clause}, updated_at = CURRENT_TIMESTAMP "
-            "WHERE id = %s"
-        )
+        sql = f"UPDATE users SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE id = %s"
         execute_write(sql, (*filtered.values(), user_id))
 
         user = self.get_by_id(user_id)
         if user is None:
-            raise RuntimeError(
-                f"User {user_id} was updated but could not be retrieved."
-            )
+            raise UserRepositoryError.updated_missing(user_id)
         return user
 
     def set_profile_picture_url(
@@ -246,12 +238,11 @@ class UserRepository:
             The updated user if found, otherwise None.
         """
         execute_write(
-            "UPDATE users SET profile_picture_url = %s, "
-            "updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+            "UPDATE users SET profile_picture_url = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
             (profile_picture_url, user_id),
         )
         return self.get_by_id(user_id)
-    
+
     def set_weight_unit_preference(
         self,
         user_id: int,
@@ -268,12 +259,11 @@ class UserRepository:
             The updated user if found, otherwise None.
         """
         execute_write(
-            "UPDATE users SET weight_unit_preference = %s, "
-            "updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+            "UPDATE users SET weight_unit_preference = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
             (weight_unit_preference, user_id),
         )
         return self.get_by_id(user_id)
-    
+
     def set_measurement_unit_preference(
         self,
         user_id: int,
@@ -290,8 +280,7 @@ class UserRepository:
             The updated user if found, otherwise None.
         """
         execute_write(
-            "UPDATE users SET measurement_unit_preference = %s, "
-            "updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+            "UPDATE users SET measurement_unit_preference = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
             (measurement_unit_preference, user_id),
         )
         return self.get_by_id(user_id)
@@ -366,35 +355,31 @@ class UserRepository:
         updated_at = row.get("updated_at")
 
         if not isinstance(id_value, int):
-            raise ValueError("Invalid user row: 'id' must be int")
+            raise UserRowError.invalid_type("id", "int")
         if not isinstance(username, str):
-            raise ValueError("Invalid user row: 'username' must be str")
+            raise UserRowError.invalid_type("username", "str")
         if not isinstance(first_name, str):
-            raise ValueError("Invalid user row: 'first_name' must be str")
+            raise UserRowError.invalid_type("first_name", "str")
         if not isinstance(last_name, str):
-            raise ValueError("Invalid user row: 'last_name' must be str")
+            raise UserRowError.invalid_type("last_name", "str")
         if not isinstance(date_of_birth, date):
-            raise ValueError("Invalid user row: 'date_of_birth' must be date")
+            raise UserRowError.invalid_type("date_of_birth", "date")
         if not isinstance(email, str):
-            raise ValueError("Invalid user row: 'email' must be str")
+            raise UserRowError.invalid_type("email", "str")
         if not isinstance(password_hash, str):
-            raise ValueError("Invalid user row: 'password_hash' must be str")
+            raise UserRowError.invalid_type("password_hash", "str")
         if profile_picture_url is not None and not isinstance(profile_picture_url, str):
-            raise ValueError(
-                "Invalid user row: 'profile_picture_url' must be str | None"
-            )
+            raise UserRowError.invalid_type("profile_picture_url", "str | None")
         if not isinstance(token_version, int):
-            raise ValueError("Invalid user row: 'token_version' must be int")
+            raise UserRowError.invalid_type("token_version", "int")
         if not isinstance(weight_unit_preference, str):
-            raise ValueError("Invalid user row: 'weight_unit_preference' must be str")
+            raise UserRowError.invalid_type("weight_unit_preference", "str")
         if not isinstance(measurement_unit_preference, str):
-            raise ValueError(
-                "Invalid user row: 'measurement_unit_preference' must be str"
-            )
+            raise UserRowError.invalid_type("measurement_unit_preference", "str")
         if not isinstance(created_at, datetime):
-            raise ValueError("Invalid user row: 'created_at' must be datetime")
+            raise UserRowError.invalid_type("created_at", "datetime")
         if not isinstance(updated_at, datetime):
-            raise ValueError("Invalid user row: 'updated_at' must be datetime")
+            raise UserRowError.invalid_type("updated_at", "datetime")
 
         return UserRow(
             id=id_value,

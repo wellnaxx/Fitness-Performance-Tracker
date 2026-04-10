@@ -17,6 +17,7 @@ from schemas.body_measurement_schema import (
     BodyMeasurementPublic,
     BodyMeasurementUpdate,
 )
+from utils.errors import BodyMeasurementRepositoryError, BodyMeasurementRowError
 
 
 class BodyMeasurementRow(TypedDict):
@@ -50,6 +51,7 @@ class BodyMeasurementRepository:
     - Convert database row dicts to BodyMeasurementPublic models
     - Handle all body-measurement-related database logic
     """
+
     _BASE_SELECT: Final[str] = """
         SELECT id, user_id, entry_date, neck, shoulders, waist, chest, hips,
                left_bicep, right_bicep, left_forearm, right_forearm,
@@ -92,7 +94,7 @@ class BodyMeasurementRepository:
             The newly created body measurement entry.
 
         Raises:
-            RuntimeError: If the inserted row cannot be retrieved afterwards.
+            BodyMeasurementRepositoryError: If the inserted row cannot be retrieved afterwards.
         """
         entry_id = execute_insert(
             """
@@ -125,9 +127,7 @@ class BodyMeasurementRepository:
 
         entry = self.get_by_id(entry_id)
         if entry is None:
-            raise RuntimeError(
-                f"Body measurement {entry_id} was inserted but could not be retrieved."
-            )
+            raise BodyMeasurementRepositoryError.inserted_missing(entry_id)
         return entry
 
     def get_by_id(self, entry_id: int) -> BodyMeasurementPublic | None:
@@ -202,8 +202,7 @@ class BodyMeasurementRepository:
             The latest entry if one exists, otherwise None.
         """
         row = fetch_one(
-            f"{self._BASE_SELECT} WHERE user_id = %s "
-            "ORDER BY entry_date DESC, id DESC LIMIT 1",
+            f"{self._BASE_SELECT} WHERE user_id = %s ORDER BY entry_date DESC, id DESC LIMIT 1",
             (user_id,),
         )
         if row is None:
@@ -269,7 +268,7 @@ class BodyMeasurementRepository:
             The updated entry if found, otherwise None.
 
         Raises:
-            ValueError: If any provided fields are not allowed to be updated.
+            BodyMeasurementRepositoryError: If any provided fields are not allowed to be updated.
         """
         fields = update_data.model_dump(exclude_none=True)
         if not fields:
@@ -277,7 +276,7 @@ class BodyMeasurementRepository:
 
         unknown = set(fields) - self._BODY_MEASUREMENT_UPDATE_WHITELIST
         if unknown:
-            raise ValueError(f"Invalid fields for update: {', '.join(sorted(unknown))}")
+            raise BodyMeasurementRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
         sql = (
@@ -307,12 +306,12 @@ class BodyMeasurementRepository:
         )
 
     @staticmethod
-    def _to_decimal_or_none(value: object) -> Decimal | None:
+    def _to_decimal_or_none(field_name: str, value: object) -> Decimal | None:
         """Convert a numeric database value into Decimal while preserving None."""
         if value is None:
             return None
         if not isinstance(value, (Decimal, int, float)):
-            raise ValueError("Expected numeric value or None")
+            raise BodyMeasurementRowError.invalid_type(field_name, "numeric | None")
         return Decimal(str(value))
 
     @classmethod
@@ -329,39 +328,35 @@ class BodyMeasurementRepository:
         updated_at = row.get("updated_at")
 
         if not isinstance(id_value, int):
-            raise ValueError("Invalid body measurement row: 'id' must be int")
+            raise BodyMeasurementRowError.invalid_type("id", "int")
         if not isinstance(user_id, int):
-            raise ValueError("Invalid body measurement row: 'user_id' must be int")
+            raise BodyMeasurementRowError.invalid_type("user_id", "int")
         if not isinstance(entry_date, date):
-            raise ValueError("Invalid body measurement row: 'entry_date' must be date")
+            raise BodyMeasurementRowError.invalid_type("entry_date", "date")
         if notes is not None and not isinstance(notes, str):
-            raise ValueError("Invalid body measurement row: 'notes' must be str | None")
+            raise BodyMeasurementRowError.invalid_type("notes", "str | None")
         if not isinstance(created_at, datetime):
-            raise ValueError(
-                "Invalid body measurement row: 'created_at' must be datetime"
-            )
+            raise BodyMeasurementRowError.invalid_type("created_at", "datetime")
         if not isinstance(updated_at, datetime):
-            raise ValueError(
-                "Invalid body measurement row: 'updated_at' must be datetime"
-            )
+            raise BodyMeasurementRowError.invalid_type("updated_at", "datetime")
 
         return BodyMeasurementRow(
             id=id_value,
             user_id=user_id,
             entry_date=entry_date,
-            neck=cls._to_decimal_or_none(row.get("neck")),
-            shoulders=cls._to_decimal_or_none(row.get("shoulders")),
-            waist=cls._to_decimal_or_none(row.get("waist")),
-            chest=cls._to_decimal_or_none(row.get("chest")),
-            hips=cls._to_decimal_or_none(row.get("hips")),
-            left_bicep=cls._to_decimal_or_none(row.get("left_bicep")),
-            right_bicep=cls._to_decimal_or_none(row.get("right_bicep")),
-            left_forearm=cls._to_decimal_or_none(row.get("left_forearm")),
-            right_forearm=cls._to_decimal_or_none(row.get("right_forearm")),
-            left_thigh=cls._to_decimal_or_none(row.get("left_thigh")),
-            right_thigh=cls._to_decimal_or_none(row.get("right_thigh")),
-            left_calf=cls._to_decimal_or_none(row.get("left_calf")),
-            right_calf=cls._to_decimal_or_none(row.get("right_calf")),
+            neck=cls._to_decimal_or_none("neck", row.get("neck")),
+            shoulders=cls._to_decimal_or_none("shoulders", row.get("shoulders")),
+            waist=cls._to_decimal_or_none("waist", row.get("waist")),
+            chest=cls._to_decimal_or_none("chest", row.get("chest")),
+            hips=cls._to_decimal_or_none("hips", row.get("hips")),
+            left_bicep=cls._to_decimal_or_none("left_bicep", row.get("left_bicep")),
+            right_bicep=cls._to_decimal_or_none("right_bicep", row.get("right_bicep")),
+            left_forearm=cls._to_decimal_or_none("left_forearm", row.get("left_forearm")),
+            right_forearm=cls._to_decimal_or_none("right_forearm", row.get("right_forearm")),
+            left_thigh=cls._to_decimal_or_none("left_thigh", row.get("left_thigh")),
+            right_thigh=cls._to_decimal_or_none("right_thigh", row.get("right_thigh")),
+            left_calf=cls._to_decimal_or_none("left_calf", row.get("left_calf")),
+            right_calf=cls._to_decimal_or_none("right_calf", row.get("right_calf")),
             notes=notes,
             created_at=created_at,
             updated_at=updated_at,

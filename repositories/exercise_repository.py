@@ -12,6 +12,7 @@ from typing import Final, TypedDict
 
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.exercise_schema import ExerciseCreate, ExercisePublic, ExerciseUpdate
+from utils.errors import ExerciseRepositoryError, ExerciseRowError
 
 
 class ExerciseRow(TypedDict):
@@ -63,7 +64,7 @@ class ExerciseRepository:
             ExercisePublic: The newly created exercise data.
 
         Raises:
-            RuntimeError: If the exercise could not be retrieved after creation.
+            ExerciseRepositoryError: If the exercise could not be retrieved after creation.
         """
         sql = """
             INSERT INTO exercises
@@ -86,7 +87,7 @@ class ExerciseRepository:
 
         exercise = self.get_by_id(exercise_id)
         if exercise is None:
-            raise RuntimeError(f"Failed to retrieve newly created exercise with id {exercise_id}")
+            raise ExerciseRepositoryError.inserted_missing(exercise_id)
         return exercise
 
     def get_by_id(self, exercise_id: int) -> ExercisePublic | None:
@@ -201,7 +202,7 @@ class ExerciseRepository:
         Returns:
             ExercisePublic: The updated exercise data if the update was successful, otherwise None.
         Raises:
-            ValueError: If invalid update fields are provided.
+            ExerciseRepositoryError: If invalid update fields are provided.
         """
 
         fields = updates.model_dump(exclude_none=True)
@@ -210,7 +211,7 @@ class ExerciseRepository:
 
         unknown = set(fields) - self._EXERCISE_UPDATE_WHITELIST
         if unknown:
-            raise ValueError(f"Invalid fields for update: {', '.join(sorted(unknown))}")
+            raise ExerciseRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
         sql = f"""
@@ -286,25 +287,25 @@ class ExerciseRepository:
         updated_at = row["updated_at"]
 
         if not isinstance(id_value, int):
-            raise ValueError("Invalid exercise row: 'id' must be an integer")
+            raise ExerciseRowError.invalid_type("id", "int")
         if not isinstance(name, str):
-            raise ValueError("Invalid exercise row: 'name' must be a string")
+            raise ExerciseRowError.invalid_type("name", "str")
         if description is not None and not isinstance(description, str):
-            raise ValueError("Invalid exercise row: 'description' must be a string or None")
+            raise ExerciseRowError.invalid_type("description", "str | None")
         if not isinstance(muscle_group, str):
-            raise ValueError("Invalid exercise row: 'muscle_group' must be a string")
+            raise ExerciseRowError.invalid_type("muscle_group", "str")
         if equipment is not None and not isinstance(equipment, str):
-            raise ValueError("Invalid exercise row: 'equipment' must be a string or None")
+            raise ExerciseRowError.invalid_type("equipment", "str | None")
         if not isinstance(is_compound, bool):
-            raise ValueError("Invalid exercise row: 'is_compound' must be a boolean")
+            raise ExerciseRowError.invalid_type("is_compound", "bool")
         if created_by is not None and not isinstance(created_by, int):
-            raise ValueError("Invalid exercise row: 'created_by' must be an integer or None")
+            raise ExerciseRowError.invalid_type("created_by", "int | None")
         if not isinstance(is_custom, bool):
-            raise ValueError("Invalid exercise row: 'is_custom' must be a boolean")
+            raise ExerciseRowError.invalid_type("is_custom", "bool")
         if not isinstance(created_at, datetime):
-            raise ValueError("Invalid exercise row: 'created_at' must be a datetime")
+            raise ExerciseRowError.invalid_type("created_at", "datetime")
         if not isinstance(updated_at, datetime):
-            raise ValueError("Invalid exercise row: 'updated_at' must be a datetime")
+            raise ExerciseRowError.invalid_type("updated_at", "datetime")
         return ExerciseRow(
             id=id_value,
             name=name,

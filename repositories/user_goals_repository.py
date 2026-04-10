@@ -13,6 +13,7 @@ from typing import Final, TypedDict
 
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.user_goals_schema import UserGoalCreate, UserGoalPublic, UserGoalUpdate
+from utils.errors import UserGoalRowError, UserGoalsRepositoryError
 
 
 class GoalRow(TypedDict):
@@ -76,7 +77,7 @@ class UserGoalsRepository:
             UserGoalPublic: The newly created goal.
 
         Raises:
-            RuntimeError: If the goal is inserted but cannot be retrieved afterwards.
+            UserGoalsRepositoryError: If the goal is inserted but cannot be retrieved afterwards.
         """
 
         sql = """
@@ -103,7 +104,7 @@ class UserGoalsRepository:
         )
         goal = self.get_by_id(goal_id)
         if goal is None:
-            raise RuntimeError("Failed to retrieve newly created goal")
+            raise UserGoalsRepositoryError.inserted_missing(goal_id)
         return goal
 
     def get_by_id(self, goal_id: int) -> UserGoalPublic | None:
@@ -195,8 +196,7 @@ class UserGoalsRepository:
             The updated goal if it exists, otherwise None.
 
         Raises:
-            ValueError: If no valid updatable fields were provided.
-            ValueError: If any provided fields are not in the update whitelist.
+            UserGoalsRepositoryError: If any provided fields are not in the update whitelist.
         """
 
         fields = update_data.model_dump(exclude_none=True)
@@ -205,7 +205,7 @@ class UserGoalsRepository:
             return self.get_by_id(goal_id)
         unknown = set(fields) - self._GOAL_UPDATE_WHITELIST
         if unknown:
-            raise ValueError(f"Invalid fields: {', '.join(sorted(unknown))}")
+            raise UserGoalsRepositoryError.invalid_update_fields(unknown)
         set_clause = ", ".join(f"{k} = %s" for k in fields)
         sql = f"UPDATE user_goals SET {set_clause} WHERE id = %s"
         execute_write(sql, (*fields.values(), goal_id))
@@ -258,7 +258,7 @@ class UserGoalsRepository:
             GoalRow: Strongly typed intermediate representation.
 
         Raises:
-            ValueError: If any expected field is missing or has an invalid type.
+            UserGoalRowError: If any expected field is missing or has an invalid type.
         """
 
         id_value = row.get("id")
@@ -274,27 +274,27 @@ class UserGoalsRepository:
         is_active_value = row.get("is_active")
 
         if not isinstance(id_value, int):
-            raise ValueError("Invalid type for id")
+            raise UserGoalRowError.invalid_type("id", "int")
         if not isinstance(user_id_value, int):
-            raise ValueError("Invalid type for user_id")
+            raise UserGoalRowError.invalid_type("user_id", "int")
         if not isinstance(daily_calorie_target_value, int):
-            raise ValueError("Invalid type for daily_calorie_target")
+            raise UserGoalRowError.invalid_type("daily_calorie_target", "int")
         if not isinstance(protein_target_value, int):
-            raise ValueError("Invalid type for protein_target")
+            raise UserGoalRowError.invalid_type("protein_target", "int")
         if not isinstance(carbs_target_value, int):
-            raise ValueError("Invalid type for carbs_target")
+            raise UserGoalRowError.invalid_type("carbs_target", "int")
         if not isinstance(fat_target_value, int):
-            raise ValueError("Invalid type for fat_target")
+            raise UserGoalRowError.invalid_type("fat_target", "int")
         if not isinstance(weekly_workout_target_value, int):
-            raise ValueError("Invalid type for weekly_workout_target")
+            raise UserGoalRowError.invalid_type("weekly_workout_target", "int")
         if not isinstance(target_body_weight_value, (Decimal, float, int)):
-            raise ValueError("Invalid type for target_body_weight")
+            raise UserGoalRowError.invalid_type("target_body_weight", "numeric")
         if not isinstance(start_date_value, date):
-            raise ValueError("Invalid type for start_date")
+            raise UserGoalRowError.invalid_type("start_date", "date")
         if end_date_value is not None and not isinstance(end_date_value, date):
-            raise ValueError("Invalid type for end_date")
+            raise UserGoalRowError.invalid_type("end_date", "date | None")
         if not isinstance(is_active_value, bool):
-            raise ValueError("Invalid type for is_active")
+            raise UserGoalRowError.invalid_type("is_active", "bool")
 
         return GoalRow(
             id=id_value,

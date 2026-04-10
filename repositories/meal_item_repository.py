@@ -13,6 +13,7 @@ from typing import Final, TypedDict
 
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.meal_item_schema import MealItemCreate, MealItemPublic, MealItemUpdate
+from utils.errors import MealItemRepositoryError, MealItemRowError
 
 
 class MealItemRow(TypedDict):
@@ -36,6 +37,7 @@ class MealItemRepository:
     - Convert database row dicts to MealItemPublic models
     - Handle all meal-related database logic
     """
+
     _BASE_SELECT: Final[str] = """
         SELECT id, meal_id, name, serving_size, calories, protein, carbs, fats, created_at
         FROM meal_items
@@ -61,7 +63,7 @@ class MealItemRepository:
             The newly created meal item.
 
         Raises:
-            RuntimeError: If the inserted item cannot be retrieved afterwards.
+            MealItemRepositoryError: If the inserted item cannot be retrieved afterwards.
         """
         sql = """
             INSERT INTO meal_items
@@ -84,9 +86,7 @@ class MealItemRepository:
 
         meal_item = self.get_by_id(meal_item_id)
         if meal_item is None:
-            raise RuntimeError(
-                f"Meal item {meal_item_id} was inserted but could not be retrieved."
-            )
+            raise MealItemRepositoryError.inserted_missing(meal_item_id)
         return meal_item
 
     def get_by_id(self, meal_item_id: int) -> MealItemPublic | None:
@@ -157,7 +157,7 @@ class MealItemRepository:
             The updated meal item if found, otherwise None.
 
         Raises:
-            ValueError: If any provided fields are not allowed to be updated.
+            MealItemRepositoryError: If any provided fields are not allowed to be updated.
         """
         fields = update_data.model_dump(exclude_none=True)
         if not fields:
@@ -165,13 +165,10 @@ class MealItemRepository:
 
         unknown = set(fields) - self._MEAL_ITEM_UPDATE_WHITELIST
         if unknown:
-            raise ValueError(f"Invalid fields for update: {', '.join(sorted(unknown))}")
+            raise MealItemRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
-        sql = (
-            f"UPDATE meal_items SET {set_clause} "
-            "WHERE meal_id = %s AND id = %s"
-        )
+        sql = f"UPDATE meal_items SET {set_clause} WHERE meal_id = %s AND id = %s"
         execute_write(sql, (*fields.values(), meal_id, meal_item_id))
         return self.get_by_meal_and_id(meal_id, meal_item_id)
 
@@ -208,23 +205,23 @@ class MealItemRepository:
         created_at = row.get("created_at")
 
         if not isinstance(id_value, int):
-            raise ValueError("Invalid meal item row: 'id' must be int")
+            raise MealItemRowError.invalid_type("id", "int")
         if not isinstance(meal_id, int):
-            raise ValueError("Invalid meal item row: 'meal_id' must be int")
+            raise MealItemRowError.invalid_type("meal_id", "int")
         if not isinstance(name, str):
-            raise ValueError("Invalid meal item row: 'name' must be str")
+            raise MealItemRowError.invalid_type("name", "str")
         if serving_size is not None and not isinstance(serving_size, (Decimal, int, float)):
-            raise ValueError("Invalid meal item row: 'serving_size' must be numeric | None")
+            raise MealItemRowError.invalid_type("serving_size", "numeric | None")
         if not isinstance(calories, (Decimal, int, float)):
-            raise ValueError("Invalid meal item row: 'calories' must be numeric")
+            raise MealItemRowError.invalid_type("calories", "numeric")
         if not isinstance(protein, (Decimal, int, float)):
-            raise ValueError("Invalid meal item row: 'protein' must be numeric")
+            raise MealItemRowError.invalid_type("protein", "numeric")
         if not isinstance(carbs, (Decimal, int, float)):
-            raise ValueError("Invalid meal item row: 'carbs' must be numeric")
+            raise MealItemRowError.invalid_type("carbs", "numeric")
         if not isinstance(fats, (Decimal, int, float)):
-            raise ValueError("Invalid meal item row: 'fats' must be numeric")
+            raise MealItemRowError.invalid_type("fats", "numeric")
         if not isinstance(created_at, datetime):
-            raise ValueError("Invalid meal item row: 'created_at' must be datetime")
+            raise MealItemRowError.invalid_type("created_at", "datetime")
 
         return MealItemRow(
             id=id_value,

@@ -12,6 +12,7 @@ from typing import Final, TypedDict
 
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.workout_schema import WorkoutCreate, WorkoutPublic, WorkoutUpdate
+from utils.errors import WorkoutRepositoryError, WorkoutRowError
 
 
 class WorkoutRow(TypedDict):
@@ -64,7 +65,7 @@ class WorkoutRepository:
             The newly created workout.
 
         Raises:
-            RuntimeError: If the inserted row cannot be retrieved afterwards.
+            WorkoutRepositoryError: If the inserted row cannot be retrieved afterwards.
         """
         sql = """
             INSERT INTO workouts
@@ -87,9 +88,7 @@ class WorkoutRepository:
 
         workout = self.get_by_id(workout_id)
         if workout is None:
-            raise RuntimeError(
-                f"Workout {workout_id} was inserted but could not be retrieved."
-            )
+            raise WorkoutRepositoryError.inserted_workout_missing(workout_id)
         return workout
 
     def get_by_id(self, workout_id: int) -> WorkoutPublic | None:
@@ -185,7 +184,7 @@ class WorkoutRepository:
             The updated workout if found, otherwise None.
 
         Raises:
-            ValueError: If any provided fields are not allowed to be updated.
+            WorkoutRepositoryError: If any provided fields are not allowed to be updated.
         """
         fields = update_data.model_dump(exclude_none=True)
         if not fields:
@@ -193,13 +192,10 @@ class WorkoutRepository:
 
         unknown = set(fields) - self._WORKOUT_UPDATE_WHITELIST
         if unknown:
-            raise ValueError(f"Invalid fields for update: {', '.join(sorted(unknown))}")
+            raise WorkoutRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
-        sql = (
-            f"UPDATE workouts SET {set_clause}, updated_at = CURRENT_TIMESTAMP "
-            "WHERE id = %s AND user_id = %s"
-        )
+        sql = f"UPDATE workouts SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE id = %s AND user_id = %s"
         execute_write(sql, (*fields.values(), workout_id, user_id))
         return self.get_by_user_and_id(user_id, workout_id)
 
@@ -317,27 +313,25 @@ class WorkoutRepository:
         updated_at = row.get("updated_at")
 
         if not isinstance(id_value, int):
-            raise ValueError("Invalid workout row: 'id' must be int")
+            raise WorkoutRowError.invalid_type("id", "int")
         if user_id is not None and not isinstance(user_id, int):
-            raise ValueError("Invalid workout row: 'user_id' must be int | None")
+            raise WorkoutRowError.invalid_type("user_id", "int | None")
         if not isinstance(name, str):
-            raise ValueError("Invalid workout row: 'name' must be str")
+            raise WorkoutRowError.invalid_type("name", "str")
         if description is not None and not isinstance(description, str):
-            raise ValueError("Invalid workout row: 'description' must be str | None")
+            raise WorkoutRowError.invalid_type("description", "str | None")
         if not isinstance(workout_date, date):
-            raise ValueError("Invalid workout row: 'workout_date' must be date")
+            raise WorkoutRowError.invalid_type("workout_date", "date")
         if started_at is not None and not isinstance(started_at, datetime):
-            raise ValueError("Invalid workout row: 'started_at' must be datetime | None")
+            raise WorkoutRowError.invalid_type("started_at", "datetime | None")
         if completed_at is not None and not isinstance(completed_at, datetime):
-            raise ValueError(
-                "Invalid workout row: 'completed_at' must be datetime | None"
-            )
+            raise WorkoutRowError.invalid_type("completed_at", "datetime | None")
         if notes is not None and not isinstance(notes, str):
-            raise ValueError("Invalid workout row: 'notes' must be str | None")
+            raise WorkoutRowError.invalid_type("notes", "str | None")
         if not isinstance(created_at, datetime):
-            raise ValueError("Invalid workout row: 'created_at' must be datetime")
+            raise WorkoutRowError.invalid_type("created_at", "datetime")
         if not isinstance(updated_at, datetime):
-            raise ValueError("Invalid workout row: 'updated_at' must be datetime")
+            raise WorkoutRowError.invalid_type("updated_at", "datetime")
 
         return WorkoutRow(
             id=id_value,

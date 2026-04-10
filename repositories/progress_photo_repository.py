@@ -16,6 +16,7 @@ from schemas.progress_photo_schema import (
     ProgressPhotoPublic,
     ProgressPhotoUpdate,
 )
+from utils.errors import ProgressPhotoRepositoryError, ProgressPhotoRowError
 
 
 class ProgressPhotoRow(TypedDict):
@@ -36,6 +37,7 @@ class ProgressPhotoRepository:
     - Convert database row dicts to ProgressPhotoPublic models
     - Handle all progress-photo-related database logic
     """
+
     _BASE_SELECT: Final[str] = """
         SELECT id, user_id, photo_url, entry_date, notes, created_at
         FROM progress_photos
@@ -63,7 +65,7 @@ class ProgressPhotoRepository:
             The newly created progress photo.
 
         Raises:
-            RuntimeError: If the inserted row cannot be retrieved afterwards.
+            ProgressPhotoRepositoryError: If the inserted row cannot be retrieved afterwards.
         """
         photo_id = execute_insert(
             """
@@ -76,9 +78,7 @@ class ProgressPhotoRepository:
 
         photo = self.get_by_id(photo_id)
         if photo is None:
-            raise RuntimeError(
-                f"Progress photo {photo_id} was inserted but could not be retrieved."
-            )
+            raise ProgressPhotoRepositoryError.inserted_missing(photo_id)
         return photo
 
     def get_by_id(self, photo_id: int) -> ProgressPhotoPublic | None:
@@ -178,7 +178,7 @@ class ProgressPhotoRepository:
             The updated progress photo if found, otherwise None.
 
         Raises:
-            ValueError: If any provided fields are not allowed to be updated.
+            ProgressPhotoRepositoryError: If any provided fields are not allowed to be updated.
         """
         fields = update_data.model_dump(exclude_none=True)
         if not fields:
@@ -189,13 +189,10 @@ class ProgressPhotoRepository:
 
         unknown = set(fields) - self._PROGRESS_PHOTO_UPDATE_WHITELIST
         if unknown:
-            raise ValueError(f"Invalid fields for update: {', '.join(sorted(unknown))}")
+            raise ProgressPhotoRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
-        sql = (
-            f"UPDATE progress_photos SET {set_clause} "
-            "WHERE user_id = %s AND id = %s"
-        )
+        sql = f"UPDATE progress_photos SET {set_clause} WHERE user_id = %s AND id = %s"
         execute_write(sql, (*fields.values(), user_id, photo_id))
         return self.get_by_user_and_id(user_id, photo_id)
 
@@ -229,17 +226,17 @@ class ProgressPhotoRepository:
         created_at = row.get("created_at")
 
         if not isinstance(id_value, int):
-            raise ValueError("Invalid progress photo row: 'id' must be int")
+            raise ProgressPhotoRowError.invalid_type("id", "int")
         if not isinstance(user_id, int):
-            raise ValueError("Invalid progress photo row: 'user_id' must be int")
+            raise ProgressPhotoRowError.invalid_type("user_id", "int")
         if not isinstance(photo_url, str):
-            raise ValueError("Invalid progress photo row: 'photo_url' must be str")
+            raise ProgressPhotoRowError.invalid_type("photo_url", "str")
         if not isinstance(entry_date, date):
-            raise ValueError("Invalid progress photo row: 'entry_date' must be date")
+            raise ProgressPhotoRowError.invalid_type("entry_date", "date")
         if notes is not None and not isinstance(notes, str):
-            raise ValueError("Invalid progress photo row: 'notes' must be str | None")
+            raise ProgressPhotoRowError.invalid_type("notes", "str | None")
         if not isinstance(created_at, datetime):
-            raise ValueError("Invalid progress photo row: 'created_at' must be datetime")
+            raise ProgressPhotoRowError.invalid_type("created_at", "datetime")
 
         return ProgressPhotoRow(
             id=id_value,

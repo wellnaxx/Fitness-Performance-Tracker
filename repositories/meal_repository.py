@@ -12,6 +12,7 @@ from typing import Final, TypedDict
 
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.meal_schema import MealCreate, MealPublic, MealUpdate
+from utils.errors import MealRepositoryError, MealRowError
 
 
 class MealRow(TypedDict):
@@ -62,7 +63,7 @@ class MealRepository:
             The newly created meal.
 
         Raises:
-            RuntimeError: If the inserted meal cannot be retrieved afterwards.
+            MealRepositoryError: If the inserted meal cannot be retrieved afterwards.
         """
         sql = """
             INSERT INTO meals
@@ -84,7 +85,7 @@ class MealRepository:
 
         meal = self.get_by_id(meal_id)
         if meal is None:
-            raise RuntimeError(f"Meal {meal_id} was inserted but could not be retrieved.")
+            raise MealRepositoryError.inserted_missing(meal_id)
         return meal
 
     def get_by_id(self, meal_id: int) -> MealPublic | None:
@@ -186,7 +187,7 @@ class MealRepository:
             The updated meal if it exists and belongs to the user, otherwise None.
 
         Raises:
-            ValueError: If any provided fields are not allowed to be updated.
+            MealRepositoryError: If any provided fields are not allowed to be updated.
         """
         fields = update_data.model_dump(exclude_none=True)
         if not fields:
@@ -194,13 +195,10 @@ class MealRepository:
 
         unknown = set(fields) - self._MEAL_UPDATE_WHITELIST
         if unknown:
-            raise ValueError(f"Invalid fields for update: {', '.join(sorted(unknown))}")
+            raise MealRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
-        sql = (
-            f"UPDATE meals SET {set_clause}, updated_at = CURRENT_TIMESTAMP "
-            "WHERE user_id = %s AND id = %s"
-        )
+        sql = f"UPDATE meals SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE user_id = %s AND id = %s"
         execute_write(sql, (*fields.values(), user_id, meal_id))
         return self.get_by_user_and_id(user_id, meal_id)
 
@@ -237,23 +235,23 @@ class MealRepository:
         updated_at = row.get("updated_at")
 
         if not isinstance(id_value, int):
-            raise ValueError("Invalid meal row: 'id' must be int")
+            raise MealRowError.invalid_type("id", "int")
         if not isinstance(user_id, int):
-            raise ValueError("Invalid meal row: 'user_id' must be int")
+            raise MealRowError.invalid_type("user_id", "int")
         if not isinstance(name, str):
-            raise ValueError("Invalid meal row: 'name' must be str")
+            raise MealRowError.invalid_type("name", "str")
         if description is not None and not isinstance(description, str):
-            raise ValueError("Invalid meal row: 'description' must be str | None")
+            raise MealRowError.invalid_type("description", "str | None")
         if not isinstance(eaten_at, datetime):
-            raise ValueError("Invalid meal row: 'eaten_at' must be datetime")
+            raise MealRowError.invalid_type("eaten_at", "datetime")
         if not isinstance(meal_type, str):
-            raise ValueError("Invalid meal row: 'meal_type' must be str")
+            raise MealRowError.invalid_type("meal_type", "str")
         if notes is not None and not isinstance(notes, str):
-            raise ValueError("Invalid meal row: 'notes' must be str | None")
+            raise MealRowError.invalid_type("notes", "str | None")
         if not isinstance(created_at, datetime):
-            raise ValueError("Invalid meal row: 'created_at' must be datetime")
+            raise MealRowError.invalid_type("created_at", "datetime")
         if not isinstance(updated_at, datetime):
-            raise ValueError("Invalid meal row: 'updated_at' must be datetime")
+            raise MealRowError.invalid_type("updated_at", "datetime")
 
         return MealRow(
             id=id_value,

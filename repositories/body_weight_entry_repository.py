@@ -17,6 +17,7 @@ from schemas.body_weight_entry_schema import (
     BodyWeightEntryPublic,
     BodyWeightEntryUpdate,
 )
+from utils.errors import BodyWeightEntryRepositoryError, BodyWeightEntryRowError
 
 
 class BodyWeightEntryRow(TypedDict):
@@ -36,6 +37,7 @@ class BodyWeightEntryRepository:
     - Convert database row dicts to BodyWeightEntryPublic models
     - Handle all body-weight-related database logic
     """
+
     _BASE_SELECT: Final[str] = """
         SELECT id, user_id, weight, entry_date, created_at
         FROM body_weight_entries
@@ -62,7 +64,7 @@ class BodyWeightEntryRepository:
             The newly created body weight entry.
 
         Raises:
-            RuntimeError: If the inserted row cannot be retrieved afterwards.
+            BodyWeightEntryRepositoryError: If the inserted row cannot be retrieved afterwards.
         """
         entry_id = execute_insert(
             """
@@ -75,9 +77,7 @@ class BodyWeightEntryRepository:
 
         entry = self.get_by_id(entry_id)
         if entry is None:
-            raise RuntimeError(
-                f"Body weight entry {entry_id} was inserted but could not be retrieved."
-            )
+            raise BodyWeightEntryRepositoryError.inserted_missing(entry_id)
         return entry
 
     def get_by_id(self, entry_id: int) -> BodyWeightEntryPublic | None:
@@ -152,8 +152,7 @@ class BodyWeightEntryRepository:
             The latest entry if one exists, otherwise None.
         """
         row = fetch_one(
-            f"{self._BASE_SELECT} WHERE user_id = %s "
-            "ORDER BY entry_date DESC, id DESC LIMIT 1",
+            f"{self._BASE_SELECT} WHERE user_id = %s ORDER BY entry_date DESC, id DESC LIMIT 1",
             (user_id,),
         )
         if row is None:
@@ -219,7 +218,7 @@ class BodyWeightEntryRepository:
             The updated entry if found, otherwise None.
 
         Raises:
-            ValueError: If any provided fields are not allowed to be updated.
+            BodyWeightEntryRepositoryError: If any provided fields are not allowed to be updated.
         """
         fields = update_data.model_dump(exclude_none=True)
         if not fields:
@@ -227,13 +226,10 @@ class BodyWeightEntryRepository:
 
         unknown = set(fields) - self._BODY_WEIGHT_ENTRY_UPDATE_WHITELIST
         if unknown:
-            raise ValueError(f"Invalid fields for update: {', '.join(sorted(unknown))}")
+            raise BodyWeightEntryRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
-        sql = (
-            f"UPDATE body_weight_entries SET {set_clause} "
-            "WHERE user_id = %s AND id = %s"
-        )
+        sql = f"UPDATE body_weight_entries SET {set_clause} WHERE user_id = %s AND id = %s"
         execute_write(sql, (*fields.values(), user_id, entry_id))
         return self.get_by_user_and_id(user_id, entry_id)
 
@@ -268,17 +264,15 @@ class BodyWeightEntryRepository:
         created_at = row.get("created_at")
 
         if not isinstance(id_value, int):
-            raise ValueError("Invalid body weight entry row: 'id' must be int")
+            raise BodyWeightEntryRowError.invalid_type("id", "int")
         if not isinstance(user_id, int):
-            raise ValueError("Invalid body weight entry row: 'user_id' must be int")
+            raise BodyWeightEntryRowError.invalid_type("user_id", "int")
         if not isinstance(weight, (Decimal, int, float)):
-            raise ValueError("Invalid body weight entry row: 'weight' must be numeric")
+            raise BodyWeightEntryRowError.invalid_type("weight", "numeric")
         if not isinstance(entry_date, date):
-            raise ValueError("Invalid body weight entry row: 'entry_date' must be date")
+            raise BodyWeightEntryRowError.invalid_type("entry_date", "date")
         if not isinstance(created_at, datetime):
-            raise ValueError(
-                "Invalid body weight entry row: 'created_at' must be datetime"
-            )
+            raise BodyWeightEntryRowError.invalid_type("created_at", "datetime")
 
         return BodyWeightEntryRow(
             id=id_value,
