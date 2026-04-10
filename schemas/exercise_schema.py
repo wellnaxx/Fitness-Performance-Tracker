@@ -36,10 +36,10 @@ class ExerciseBase(BaseModel):
         examples=[True, False],
     )
 
+
 class ExerciseCreate(ExerciseBase):
     """Schema for creating a new exercise. All fields are required except description."""
 
-    pass
 
 class ExerciseUpdate(BaseModel):
     """Schema for updating an existing exercise. All fields are optional."""
@@ -75,6 +75,7 @@ class ExerciseUpdate(BaseModel):
         examples=[True, False],
     )
 
+
 class ExercisePublic(ExerciseBase):
     """Schema for returning exercise data to clients."""
 
@@ -84,8 +85,7 @@ class ExercisePublic(ExerciseBase):
         examples=[True, False],
     )
     created_by: int | None = Field(
-        default=None,
-        description="User ID of the creator if it's a custom exercise, otherwise null"
+        default=None, description="User ID of the creator if it's a custom exercise, otherwise null"
     )
     created_at: datetime = Field(description="Timestamp when the exercise was created")
     updated_at: datetime = Field(description="Timestamp when the exercise was last updated")

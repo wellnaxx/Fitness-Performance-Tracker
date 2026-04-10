@@ -149,9 +149,7 @@ class UserPreferencesUpdate(BaseModel):
             return None
         normalized = v.lower().strip()
         if normalized not in {"cm", "in"}:
-            raise ValueError(
-                "measurement_unit_preference must be either 'cm' or 'in'"
-            )
+            raise ValueError("measurement_unit_preference must be either 'cm' or 'in'")
         return normalized
 
 

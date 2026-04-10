@@ -25,8 +25,6 @@ class ProgressPhotoBase(BaseModel):
 class ProgressPhotoCreate(ProgressPhotoBase):
     """Schema for creating a new progress photo entry."""
 
-    pass
-
 
 class ProgressPhotoUpdate(BaseModel):
     """Schema for updating an existing progress photo entry. All fields are optional."""

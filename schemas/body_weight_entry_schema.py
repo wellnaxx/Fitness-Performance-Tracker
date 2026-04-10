@@ -16,8 +16,6 @@ class BodyWeightEntryBase(BaseModel):
 class BodyWeightEntryCreate(BodyWeightEntryBase):
     """Schema for creating a new body weight entry. All fields are required."""
 
-    pass
-
 
 class BodyWeightEntryUpdate(BaseModel):
     """Schema for updating an existing body weight entry. All fields are optional."""

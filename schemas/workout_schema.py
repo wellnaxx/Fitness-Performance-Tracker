@@ -57,8 +57,6 @@ class WorkoutBase(BaseModel):
 class WorkoutCreate(WorkoutBase):
     """Schema for creating a new workout. All fields are required except description, completed_at, and notes."""  # noqa: E501
 
-    pass
-
 
 class WorkoutUpdate(BaseModel):
     """Schema for updating an existing workout. All fields are optional."""

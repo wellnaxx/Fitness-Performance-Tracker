@@ -30,7 +30,6 @@ class WorkoutExerciseBase(BaseModel):
 class WorkoutExerciseCreate(WorkoutExerciseBase):
     """Schema for creating a new workout exercise. All fields are required except weight and notes."""
 
-    pass
 
 
 class WorkoutExerciseUpdate(BaseModel):

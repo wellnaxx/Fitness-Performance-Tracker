@@ -9,6 +9,7 @@ from utils.validators import validate_meal_type
 
 class MealBase(BaseModel):
     """Base meal model with common fields."""
+
     name: str = Field(
         min_length=1,
         max_length=100,
@@ -44,11 +45,11 @@ class MealBase(BaseModel):
 
 class MealCreate(MealBase):
     """Schema for creating a new meal. All fields are required except description."""
-    pass
 
 
 class MealUpdate(BaseModel):
     """Schema for updating an existing meal. All fields are optional."""
+
     name: str | None = Field(
         default=None,
         min_length=1,
@@ -90,6 +91,7 @@ class MealUpdate(BaseModel):
 
 class MealPublic(MealBase):
     """Schema for returning meal data to clients. Includes all fields from MealBase plus id, user_id, created_at, and updated_at."""  # noqa: E501
+
     id: int
     user_id: int
     created_at: datetime
