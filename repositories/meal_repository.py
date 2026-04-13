@@ -10,9 +10,9 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Final, TypedDict
 
+from core.errors.repository import MealRepositoryError, MealRowError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.meal_schema import MealCreate, MealPublic, MealUpdate
-from core.errors.repository import MealRepositoryError, MealRowError
 
 
 class MealRow(TypedDict):

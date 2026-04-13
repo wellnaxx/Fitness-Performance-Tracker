@@ -11,13 +11,13 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Final, TypedDict
 
+from core.errors.repository import BodyWeightEntryRepositoryError, BodyWeightEntryRowError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.body_weight_entry_schema import (
     BodyWeightEntryCreate,
     BodyWeightEntryPublic,
     BodyWeightEntryUpdate,
 )
-from core.errors.repository import BodyWeightEntryRepositoryError, BodyWeightEntryRowError
 
 
 class BodyWeightEntryRow(TypedDict):

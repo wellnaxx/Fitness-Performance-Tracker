@@ -11,9 +11,9 @@ from datetime import date
 from decimal import Decimal
 from typing import Final, TypedDict
 
+from core.errors.repository import UserGoalRowError, UserGoalsRepositoryError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.user_goals_schema import UserGoalCreate, UserGoalPublic, UserGoalUpdate
-from core.errors.repository import UserGoalRowError, UserGoalsRepositoryError
 
 
 class GoalRow(TypedDict):

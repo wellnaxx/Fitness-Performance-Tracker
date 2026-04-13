@@ -11,9 +11,9 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Final, TypedDict
 
+from core.errors.repository import SetEntryRepositoryError, SetEntryRowError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.set_entry_schema import SetEntryCreate, SetEntryPublic, SetEntryUpdate
-from core.errors.repository import SetEntryRepositoryError, SetEntryRowError
 
 
 class SetEntryRow(TypedDict):

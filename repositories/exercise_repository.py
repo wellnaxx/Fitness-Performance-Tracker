@@ -10,9 +10,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Final, TypedDict
 
+from core.errors.repository import ExerciseRepositoryError, ExerciseRowError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.exercise_schema import ExerciseCreate, ExercisePublic, ExerciseUpdate
-from core.errors.repository import ExerciseRepositoryError, ExerciseRowError
 
 
 class ExerciseRow(TypedDict):
@@ -169,7 +169,8 @@ class ExerciseRepository:
 
         if search is not None:
             sql += " AND (name ILIKE %s OR description ILIKE %s)"
-            search_pattern = f"%{search}%"
+            escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            search_pattern = f"%{escaped}%"
             params.extend([search_pattern, search_pattern])
         if muscle_group is not None:
             sql += " AND muscle_group = %s"

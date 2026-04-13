@@ -11,9 +11,9 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Final, TypedDict
 
+from core.errors.repository import MealItemRepositoryError, MealItemRowError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.meal_item_schema import MealItemCreate, MealItemPublic, MealItemUpdate
-from core.errors.repository import MealItemRepositoryError, MealItemRowError
 
 
 class MealItemRow(TypedDict):

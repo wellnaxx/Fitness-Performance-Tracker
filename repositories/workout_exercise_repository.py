@@ -9,13 +9,13 @@ from __future__ import annotations
 
 from typing import Final, TypedDict
 
+from core.errors.repository import WorkoutExerciseRepositoryError, WorkoutExerciseRowError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.workout_exercises_schema import (
     WorkoutExerciseCreate,
     WorkoutExercisePublic,
     WorkoutExerciseUpdate,
 )
-from core.errors.repository import WorkoutExerciseRepositoryError, WorkoutExerciseRowError
 
 
 class WorkoutExerciseRow(TypedDict):
