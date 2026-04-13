@@ -1,3 +1,9 @@
+from core.errors.goals import (
+    UserGoalCreationError,
+    UserGoalNotFoundError,
+    UserGoalValidationError,
+)
+from core.errors.repository import UserGoalsRepositoryError
 from repositories.user_goals_repository import UserGoalsRepository
 from schemas.user_goals_schema import (
     UserGoalCreate,
@@ -5,12 +11,6 @@ from schemas.user_goals_schema import (
     UserGoalUpdate,
 )
 from schemas.user_schema import UserInternal
-from utils.errors import (
-    UserGoalCreationError,
-    UserGoalNotFoundError,
-    UserGoalsRepositoryError,
-    UserGoalValidationError,
-)
 
 
 class UserGoalsService:

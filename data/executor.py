@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING, cast
 
 from psycopg.abc import QueryNoTemplate
 
+from core.errors.database import DatabaseError
 from data.connection import get_connection
-from utils.errors import DatabaseError
 
 if TYPE_CHECKING:
     from psycopg import Cursor

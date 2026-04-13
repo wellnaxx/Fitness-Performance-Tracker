@@ -2,6 +2,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from core.errors.goals import (
+    UserGoalCreationError,
+    UserGoalNotFoundError,
+    UserGoalValidationError,
+)
 from dependencies.auth import get_current_user
 from dependencies.providers import get_user_goals_service
 from schemas.user_goals_schema import (
@@ -11,11 +16,6 @@ from schemas.user_goals_schema import (
 )
 from schemas.user_schema import UserInternal
 from services.user_goals_service import UserGoalsService
-from utils.errors import (
-    UserGoalCreationError,
-    UserGoalNotFoundError,
-    UserGoalValidationError,
-)
 
 user_goals_router = APIRouter(prefix="/goals", tags=["user-goals"])
 

@@ -5,8 +5,6 @@ This module handles all business logic for user operations including:
 - Registration and authentication
 - Profile management
 - Password changes
-- Admin operations (promote, block, search)
-- Permission checks
 """
 
 import logging
@@ -18,17 +16,8 @@ from auth.jwt_handler import (
     create_refresh_token,
     decode_token,
 )
-from repositories.user_repository import UserRepository
-from schemas.token_schema import RefreshRequest, TokenPairResponse
-from schemas.user_schema import (
-    ChangeUserPassword,
-    UserCreate,
-    UserInternal,
-    UserLogin,
-    UserProfile,
-    UserUpdate,
-)
-from utils.errors import (
+from core.errors.repository import UserRepositoryError
+from core.errors.user import (
     EmailAlreadyExistsError,
     IdenticalPasswordsError,
     IncorrectOldPasswordError,
@@ -38,7 +27,16 @@ from utils.errors import (
     UserDeleteError,
     UsernameAlreadyExistsError,
     UserNotFoundError,
-    UserRepositoryError,
+)
+from repositories.user_repository import UserRepository
+from schemas.token_schema import RefreshRequest, TokenPairResponse
+from schemas.user_schema import (
+    ChangeUserPassword,
+    UserCreate,
+    UserInternal,
+    UserLogin,
+    UserProfile,
+    UserUpdate,
 )
 
 

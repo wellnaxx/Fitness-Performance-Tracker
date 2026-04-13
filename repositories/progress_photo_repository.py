@@ -16,7 +16,7 @@ from schemas.progress_photo_schema import (
     ProgressPhotoPublic,
     ProgressPhotoUpdate,
 )
-from utils.errors import ProgressPhotoRepositoryError, ProgressPhotoRowError
+from core.errors.repository import ProgressPhotoRepositoryError, ProgressPhotoRowError
 
 
 class ProgressPhotoRow(TypedDict):

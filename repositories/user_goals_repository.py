@@ -13,7 +13,7 @@ from typing import Final, TypedDict
 
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.user_goals_schema import UserGoalCreate, UserGoalPublic, UserGoalUpdate
-from utils.errors import UserGoalRowError, UserGoalsRepositoryError
+from core.errors.repository import UserGoalRowError, UserGoalsRepositoryError
 
 
 class GoalRow(TypedDict):

@@ -3,18 +3,18 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.params import Query
 
-from dependencies.auth import get_current_user
-from dependencies.providers import get_exercise_service
-from schemas.exercise_schema import ExerciseCreate, ExercisePublic, ExerciseUpdate
-from schemas.user_schema import UserInternal
-from services.exercise_service import ExerciseService
-from utils.errors import (
+from core.errors.exercise import (
     ExerciseCreationError,
     ExerciseDeleteError,
     ExerciseNameAlreadyExistsError,
     ExerciseNotFoundError,
     ExerciseUpdateError,
 )
+from dependencies.auth import get_current_user
+from dependencies.providers import get_exercise_service
+from schemas.exercise_schema import ExerciseCreate, ExercisePublic, ExerciseUpdate
+from schemas.user_schema import UserInternal
+from services.exercise_service import ExerciseService
 
 exercise_router = APIRouter(prefix="/exercises", tags=["exercises"])
 

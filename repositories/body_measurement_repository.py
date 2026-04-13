@@ -17,7 +17,7 @@ from schemas.body_measurement_schema import (
     BodyMeasurementPublic,
     BodyMeasurementUpdate,
 )
-from utils.errors import BodyMeasurementRepositoryError, BodyMeasurementRowError
+from core.errors.repository import BodyMeasurementRepositoryError, BodyMeasurementRowError
 
 
 class BodyMeasurementRow(TypedDict):

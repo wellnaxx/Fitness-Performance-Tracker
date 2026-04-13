@@ -12,7 +12,7 @@ from typing import Final, TypedDict
 
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.exercise_schema import ExerciseCreate, ExercisePublic, ExerciseUpdate
-from utils.errors import ExerciseRepositoryError, ExerciseRowError
+from core.errors.repository import ExerciseRepositoryError, ExerciseRowError
 
 
 class ExerciseRow(TypedDict):

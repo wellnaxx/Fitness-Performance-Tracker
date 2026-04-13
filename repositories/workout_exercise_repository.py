@@ -15,7 +15,7 @@ from schemas.workout_exercises_schema import (
     WorkoutExercisePublic,
     WorkoutExerciseUpdate,
 )
-from utils.errors import WorkoutExerciseRepositoryError, WorkoutExerciseRowError
+from core.errors.repository import WorkoutExerciseRepositoryError, WorkoutExerciseRowError
 
 
 class WorkoutExerciseRow(TypedDict):

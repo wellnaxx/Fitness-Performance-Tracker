@@ -1,13 +1,13 @@
-from repositories.exercise_repository import ExerciseRepository
-from schemas.exercise_schema import ExerciseCreate, ExercisePublic, ExerciseUpdate
-from utils.errors import (
+from core.errors.exercise import (
     ExerciseCreationError,
     ExerciseDeleteError,
     ExerciseNameAlreadyExistsError,
     ExerciseNotFoundError,
-    ExerciseRepositoryError,
     ExerciseUpdateError,
 )
+from core.errors.repository import ExerciseRepositoryError
+from repositories.exercise_repository import ExerciseRepository
+from schemas.exercise_schema import ExerciseCreate, ExercisePublic, ExerciseUpdate
 
 
 class ExerciseService:

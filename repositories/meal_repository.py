@@ -12,7 +12,7 @@ from typing import Final, TypedDict
 
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.meal_schema import MealCreate, MealPublic, MealUpdate
-from utils.errors import MealRepositoryError, MealRowError
+from core.errors.repository import MealRepositoryError, MealRowError
 
 
 class MealRow(TypedDict):

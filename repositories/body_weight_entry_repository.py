@@ -17,7 +17,7 @@ from schemas.body_weight_entry_schema import (
     BodyWeightEntryPublic,
     BodyWeightEntryUpdate,
 )
-from utils.errors import BodyWeightEntryRepositoryError, BodyWeightEntryRowError
+from core.errors.repository import BodyWeightEntryRepositoryError, BodyWeightEntryRowError
 
 
 class BodyWeightEntryRow(TypedDict):

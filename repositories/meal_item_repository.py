@@ -13,7 +13,7 @@ from typing import Final, TypedDict
 
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from schemas.meal_item_schema import MealItemCreate, MealItemPublic, MealItemUpdate
-from utils.errors import MealItemRepositoryError, MealItemRowError
+from core.errors.repository import MealItemRepositoryError, MealItemRowError
 
 
 class MealItemRow(TypedDict):
