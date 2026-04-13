@@ -84,10 +84,10 @@ class UserService:
             UserNotFoundError: Database operation failed
         """
         if self.user_repo.username_exists(user_data.username):
-            raise UsernameAlreadyExistsError.already_taken()
+            raise UsernameAlreadyExistsError.already_taken(username=user_data.username)
 
         if self.user_repo.email_exists(user_data.email):
-            raise EmailAlreadyExistsError.already_registered()
+            raise EmailAlreadyExistsError.already_registered(email=user_data.email)
 
         password_hash = hash_password(user_data.password)
 
@@ -176,14 +176,14 @@ class UserService:
         """
 
         if updates.email and updates.email != current_user.email and self.user_repo.email_exists(updates.email):
-            raise EmailAlreadyExistsError.already_in_use()
+            raise EmailAlreadyExistsError.already_in_use(email=updates.email)
 
         update_dict = updates.model_dump(exclude_none=True)
 
         updated_user = self.user_repo.update(current_user.id, **update_dict)
 
         if not updated_user:
-            raise UserNotFoundError.not_found()
+            raise UserNotFoundError.not_found(user_id=current_user.id)
 
         return UserProfile(**updated_user.model_dump())
 
@@ -224,7 +224,7 @@ class UserService:
         updated = self.user_repo.update_password(current_user.id, new_password_hash)
 
         if not updated:
-            raise UserNotFoundError.not_found()
+            raise UserNotFoundError.not_found(user_id=current_user.id)
 
         return
 
@@ -246,7 +246,7 @@ class UserService:
             UserNotFoundError: User not found (shouldn't happen)
         """
         if not self.user_repo.get_by_id(current_user.id):
-            raise UserNotFoundError.not_found()
+            raise UserNotFoundError.not_found(user_id=current_user.id)
 
         deleted = self.user_repo.delete(current_user.id)
         if not deleted:
@@ -262,7 +262,7 @@ class UserService:
         url_value = str(profile_picture_url) if profile_picture_url is not None else None
         updated_user = self.user_repo.set_profile_picture_url(current_user.id, url_value)
         if not updated_user:
-            raise UserNotFoundError.not_found()
+            raise UserNotFoundError.not_found(user_id=current_user.id)
 
         return UserProfile(**updated_user.model_dump())
 
@@ -300,7 +300,7 @@ class UserService:
 
         user = self.user_repo.get_by_id(user_id)
         if not user:
-            raise UserNotFoundError.not_found()
+            raise UserNotFoundError.not_found(user_id=user_id)
 
         if user.token_version != token_version:
             raise InvalidRefreshTokenError.revoked()
