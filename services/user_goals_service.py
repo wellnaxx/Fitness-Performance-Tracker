@@ -78,7 +78,7 @@ class UserGoalsService:
         """
         goal = self.goals_repo.get_by_user_and_id(current_user.id, goal_id)
         if goal is None:
-            raise UserGoalNotFoundError.not_found()
+            raise UserGoalNotFoundError.not_found(goal_id=goal_id)
         return goal
 
     def update_goal(
@@ -97,7 +97,7 @@ class UserGoalsService:
 
         existing_goal = self.goals_repo.get_by_user_and_id(current_user.id, goal_id)
         if existing_goal is None:
-            raise UserGoalNotFoundError.not_found()
+            raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
         next_start_date = (
             update_data.start_date if update_data.start_date is not None else existing_goal.start_date
@@ -113,7 +113,7 @@ class UserGoalsService:
 
         updated_goal = self.goals_repo.update(goal_id, update_data)
         if updated_goal is None:
-            raise UserGoalNotFoundError.not_found()
+            raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
         return updated_goal
 
@@ -131,11 +131,11 @@ class UserGoalsService:
         """
         goal = self.goals_repo.get_by_user_and_id(current_user.id, goal_id)
         if goal is None:
-            raise UserGoalNotFoundError.not_found()
+            raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
         activated_goal = self.goals_repo.activate_goal(current_user.id, goal_id)
         if activated_goal is None:
-            raise UserGoalNotFoundError.not_found()
+            raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
         return activated_goal
 
@@ -149,10 +149,10 @@ class UserGoalsService:
         """
         goal = self.goals_repo.get_by_user_and_id(current_user.id, goal_id)
         if goal is None:
-            raise UserGoalNotFoundError.not_found()
+            raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
         updated_goal = self.goals_repo.deactivate_goal(goal_id)
         if updated_goal is None:
-            raise UserGoalNotFoundError.not_found()
+            raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
         return updated_goal
