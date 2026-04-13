@@ -268,7 +268,8 @@ class WorkoutRepository:
 
         if search is not None:
             sql += " AND (name ILIKE %s OR description ILIKE %s)"
-            pattern = f"%{search}%"
+            escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            pattern = f"%{escaped}%"
             params.extend([pattern, pattern])
 
         if date_from is not None:
@@ -284,19 +285,6 @@ class WorkoutRepository:
 
         rows = fetch_all(sql, tuple(params))
         return [self._row_to_workout(row) for row in rows]
-
-    def update(
-        self,
-        workout_id: int,
-        user_id: int,
-        update_data: WorkoutUpdate,
-    ) -> WorkoutPublic | None:
-        """Compatibility wrapper for `update_owned`."""
-        return self.update_owned(user_id, workout_id, update_data)
-
-    def delete(self, workout_id: int, user_id: int) -> bool:
-        """Compatibility wrapper for `delete_owned`."""
-        return self.delete_owned(user_id, workout_id)
 
     @staticmethod
     def _parse_workout_row(row: dict[str, object]) -> WorkoutRow:
