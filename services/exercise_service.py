@@ -34,7 +34,7 @@ class ExerciseService:
         - Exercise names must be unique for the user.
         """
         if self.exercise_repo.name_exists_visible(exercise_data.name, user_id):
-            raise ExerciseNameAlreadyExistsError.already_exists()
+            raise ExerciseNameAlreadyExistsError.already_exists(exercise_name=exercise_data.name)
 
         try:
             return self.exercise_repo.create(exercise_data, user_id)
@@ -47,7 +47,7 @@ class ExerciseService:
         """
         exercise = self.exercise_repo.get_visible_by_id(exercise_id, user_id)
         if exercise is None:
-            raise ExerciseNotFoundError.not_found()
+            raise ExerciseNotFoundError.not_found(exercise_id=exercise_id)
         return exercise
 
     def list_visible_by_user(
@@ -90,13 +90,13 @@ class ExerciseService:
         if update_data.name and self.exercise_repo.name_exists_visible(
             update_data.name, user_id, exclude_exercise_id=exercise_id
         ):
-            raise ExerciseUpdateError.duplicate_name()
+            raise ExerciseUpdateError.duplicate_name(exercise_name=update_data.name)
         try:
             updated = self.exercise_repo.update_owned(user_id, exercise_id, update_data)
         except ExerciseRepositoryError as exc:
             raise ExerciseUpdateError.update_failed() from exc
         if updated is None:
-            raise ExerciseNotFoundError.not_accessible()
+            raise ExerciseNotFoundError.not_accessible(exercise_id=exercise_id)
         return updated
 
     def delete_exercise(self, user_id: int, exercise_id: int) -> None:
@@ -108,10 +108,10 @@ class ExerciseService:
         """
         exercise = self.exercise_repo.get_visible_by_id(exercise_id, user_id)
         if exercise is None:
-            raise ExerciseNotFoundError.not_accessible()
+            raise ExerciseNotFoundError.not_accessible(exercise_id=exercise_id)
         if exercise.is_custom is False:
             raise ExerciseDeleteError.custom_only()
 
         deleted = self.exercise_repo.delete_owned(user_id, exercise_id)
         if not deleted:
-            raise ExerciseDeleteError.not_accessible()
+            raise ExerciseDeleteError.not_accessible(exercise_id=exercise_id)
