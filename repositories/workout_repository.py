@@ -88,7 +88,7 @@ class WorkoutRepository:
 
         workout = self.get_by_id(workout_id)
         if workout is None:
-            raise WorkoutRepositoryError.inserted_workout_missing(workout_id)
+            raise WorkoutRepositoryError.inserted_missing(workout_id)
         return workout
 
     def get_by_id(self, workout_id: int) -> WorkoutPublic | None:
