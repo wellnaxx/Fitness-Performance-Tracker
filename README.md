@@ -3,49 +3,50 @@
 ![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-API-009688?logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?logo=postgresql&logoColor=white)
-![Status](https://img.shields.io/badge/Status-Backend%20In%20Progress-orange)
+![Status](https://img.shields.io/badge/Status-Backend%20MVP-orange)
 
-A backend-first fitness tracking platform for managing users, goals, and custom exercise libraries, with the database groundwork already in place for workouts, nutrition, body measurements, and progress photos.
+A FastAPI and PostgreSQL backend for tracking fitness progress across users, goals, exercises, and workouts.
 
 ## Overview
 
-This project is built with FastAPI and PostgreSQL and follows a layered architecture:
+The project follows a layered architecture:
 
 - `routers/` exposes HTTP endpoints
-- `services/` contains business rules
+- `services/` applies business rules and ownership checks
 - `repositories/` handles SQL and persistence
-- `schemas/` defines request and response models
+- `schemas/` defines request and response contracts
 
-At the moment, the live API focuses on three slices:
+The live API currently covers:
 
-- user registration, login, token refresh, profile management, avatar updates, and password changes
-- user goal creation and lifecycle management
-- custom exercise creation, browsing, updating, and deletion with visibility rules
+- authentication and user profile management
+- goal creation and lifecycle updates
+- exercise library management with visibility rules
+- workout logging, listing, updating, and deletion
 
-The schema already includes upcoming domains such as workouts, workout templates, meals, body-weight entries, body measurements, and progress photos.
+The database schema is already prepared for future nutrition and body-tracking slices such as meals, body-weight entries, measurements, and progress photos.
 
 ## Current Status
 
-This repository is currently in an API-first phase.
+This repository is in an API-first backend phase.
 
-- live and routed today: users, goals, exercises
-- implemented in the schema and repository layer, but not yet exposed end-to-end: workouts, meals, body tracking, progress photos
-- frontend and docs folders are present as placeholders for later slices
+- live and routed today: users, goals, exercises, workouts
+- implemented in the schema and repository layer, but not yet exposed end-to-end: meals, meal items, body-weight entries, body measurements, progress photos, workout exercises, set entries, workout templates
+- `frontend/` is still a placeholder for later work
 
 ## Current Features
 
 - JWT-based authentication with access and refresh tokens
-- OAuth2-compatible `/users/token` endpoint for Swagger UI and password-flow clients
-- Profile endpoints for reading and updating the authenticated user
-- Password change flow with token revocation support
-- Avatar set and clear support
-- Goal tracking with activation and deactivation flows
-- Exercise visibility rules for built-in and user-created exercises
-- Postman collection for happy-path and negative API smoke tests
+- OAuth2-compatible `POST /users/token` endpoint for Swagger UI and password-flow clients
+- authenticated profile read, update, avatar, password-change, and account-deletion flows
+- goal creation, history lookup, activation, and deactivation
+- exercise CRUD with filtering and built-in vs custom visibility handling
+- workout CRUD with pagination, free-text search, and date-range filters
+- database bootstrap script in `data/init_db.py`
+- rerunnable Postman collection for users, goals, and exercises
 
 ## Tech Stack
 
-- Python 3.13
+- Python 3.13+
 - FastAPI
 - Pydantic v2
 - PostgreSQL
@@ -53,27 +54,28 @@ This repository is currently in an API-first phase.
 - `python-jose`
 - `passlib[bcrypt]`
 - `python-dotenv`
+- Ruff
 
 ## Project Structure
 
 ```text
 Fitness-Performance-Tracker/
-|-- auth/               # hashing + JWT helpers
-|-- core/               # configuration loading
-|-- data/               # SQL schema and DB executor helpers
+|-- auth/               # password hashing and JWT helpers
+|-- core/               # configuration and app-level errors
+|-- data/               # DB connection helpers, schema, init script, seed hook
 |-- dependencies/       # FastAPI dependency providers and auth deps
-|-- postman/            # API collection for manual testing
+|-- docs/               # docs assets such as the ERD image
+|-- postman/            # manual API testing collection
 |-- repositories/       # SQL repositories per domain
-|-- routers/            # FastAPI route modules
-|-- schemas/            # Pydantic request/response models
+|-- routers/            # API route modules
+|-- schemas/            # Pydantic request and response models
 |-- services/           # business logic layer
-|-- utils/              # validators and app errors
+|-- tests/              # test placeholder
+|-- utils/              # environment and validation helpers
 `-- main.py             # FastAPI application entrypoint
 ```
 
 ## Architecture
-
-The API follows a layered flow:
 
 ```text
 HTTP Request
@@ -85,14 +87,14 @@ HTTP Request
 
 Each layer has a focused responsibility:
 
-- routers translate HTTP into application calls
-- services enforce business rules and ownership checks
-- repositories execute SQL and map database rows into schemas
+- routers translate HTTP requests into application calls
+- services enforce rules such as ownership, visibility, and validation
+- repositories execute SQL and return mapped domain data
 - schemas validate request and response payloads
 
 ## Database Model
 
-The database schema in `data/schema.sql` currently defines tables for:
+The schema in `data/schema.sql` defines tables for:
 
 - users
 - user goals
@@ -108,7 +110,7 @@ The database schema in `data/schema.sql` currently defines tables for:
 - body measurements
 - progress photos
 
-The application routes currently expose only the `users`, `goals`, and `exercises` slices, but the rest of the schema is already prepared for future API layers.
+The current API exposes only the users, goals, exercises, and workouts slices, but the rest of the schema is already in place for future routes and services.
 
 ## Getting Started
 
@@ -157,15 +159,9 @@ Example:
 CREATE DATABASE fitness_performance_tracker;
 ```
 
-### 5. Apply the schema
+### 5. Configure environment variables
 
-```bash
-psql -U postgres -d fitness_performance_tracker -f data/schema.sql
-```
-
-### 6. Configure environment variables
-
-Create a `.env` file in the project root and set the values below:
+Use `.env.example` as a starting point and create a `.env` file in the project root:
 
 ```env
 DB_HOST=localhost
@@ -174,11 +170,27 @@ DB_NAME=fitness_performance_tracker
 DB_USER=postgres
 DB_PASSWORD=your_password_here
 
+LOG_LEVEL=DEBUG
 JWT_SECRET_KEY=replace_with_a_long_random_secret
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
 ```
+
+### 6. Initialize the database schema
+
+Run the bootstrap script:
+
+```bash
+python -m data.init_db
+```
+
+Useful options:
+
+- `python -m data.init_db --no-reset` keeps the existing `public` schema and reapplies `schema.sql`
+- `python -m data.init_db --no-seed` skips `seed.sql`
+
+If you prefer, you can still apply the schema manually with `psql`.
 
 ### 7. Run the API
 
@@ -190,23 +202,27 @@ Open:
 
 - Swagger UI: `http://127.0.0.1:8000/docs`
 - ReDoc: `http://127.0.0.1:8000/redoc`
-- Health/root endpoint: `http://127.0.0.1:8000/`
+- Root endpoint: `http://127.0.0.1:8000/`
 
 ## API Surface
 
-### Users
+### Public Endpoints
 
+- `GET /`
 - `POST /users/register`
 - `POST /users/login`
 - `POST /users/token`
 - `POST /users/refresh`
+
+### Authenticated User Endpoints
+
 - `GET /users/me`
 - `PATCH /users/me`
 - `PATCH /users/me/avatar`
 - `POST /users/me/change-password`
 - `DELETE /users/me`
 
-### Goals
+### Goal Endpoints
 
 - `POST /goals/`
 - `GET /goals/current`
@@ -216,7 +232,7 @@ Open:
 - `POST /goals/{goal_id}/activate`
 - `POST /goals/{goal_id}/deactivate`
 
-### Exercises
+### Exercise Endpoints
 
 - `POST /exercises/`
 - `GET /exercises/`
@@ -224,15 +240,42 @@ Open:
 - `PATCH /exercises/{exercise_id}`
 - `DELETE /exercises/{exercise_id}`
 
+`GET /exercises/` supports:
+
+- `limit`
+- `offset`
+- `search`
+- `muscle_group`
+- `equipment`
+- `is_compound`
+- `is_custom`
+
+### Workout Endpoints
+
+- `POST /workouts/`
+- `GET /workouts/`
+- `GET /workouts/{workout_id}`
+- `PATCH /workouts/{workout_id}`
+- `DELETE /workouts/{workout_id}`
+
+`GET /workouts/` supports:
+
+- `search`
+- `limit`
+- `offset`
+- `date_from`
+- `date_to`
+
 ## Manual Testing
 
 A Postman collection is included at `postman/Fitness-Performance-Tracker.postman_collection.json`.
 
-It is organized by slice and split into:
+It currently covers:
 
-- happy path requests
-- negative cases
-- cleanup where needed
+- health check
+- users
+- goals
+- exercises
 
 The collection is designed to be rerunnable:
 
@@ -240,40 +283,28 @@ The collection is designed to be rerunnable:
 - exercises are created with randomized names
 - password changes are reverted at the end of the user flow
 
+Workout endpoints are available in Swagger UI, but they are not yet represented in the Postman collection.
+
 ## Database Diagram
 
 The schema is defined in `data/schema.sql`, and the current ERD is included below.
-
-Suggested diagram scope:
-
-- users
-- user goals
-- exercises
-- workouts
-- workout exercises
-- set entries
-- meals
-- meal items
-- body weight entries
-- body measurements
-- progress photos
 
 ![Database Diagram](docs/images/database-diagram.png)
 
 ## Development Notes
 
-- The app currently exposes API routes only. `frontend/` and `docs/` are present but not yet populated.
-- Automated tests are not implemented yet; current verification is mainly through manual API testing and the Postman collection.
+- The app currently exposes API routes only.
+- Automated tests are not implemented yet; current verification is mainly through Swagger UI and the Postman collection.
 - Ruff configuration is defined in `pyproject.toml`.
-- The current README is intentionally scoped to the backend that is available now, rather than promising unfinished slices as if they were already live.
+- `data/init_db.py` is the quickest way to reset and rebuild the database during local development.
 
 ## Roadmap
 
-- add service and router layers for workouts
+- add workout exercises and set-entry API layers
 - add nutrition endpoints for meals and meal items
 - expose body-weight, measurement, and progress-photo tracking
 - add automated tests
-- add seeding/dev fixtures for built-in exercises
+- expand the Postman collection to cover workouts
 - expand documentation and diagrams
 
 ## Inspiration
