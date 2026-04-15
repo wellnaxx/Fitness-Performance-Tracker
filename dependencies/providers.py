@@ -10,10 +10,12 @@ from fastapi import Depends
 from repositories.exercise_repository import ExerciseRepository
 from repositories.user_goals_repository import UserGoalsRepository
 from repositories.user_repository import UserRepository
+from repositories.workout_exercise_repository import WorkoutExerciseRepository
 from repositories.workout_repository import WorkoutRepository
 from services.exercise_service import ExerciseService
 from services.user_goals_service import UserGoalsService
 from services.user_service import UserService
+from services.workout_exercise_service import WorkoutExerciseService
 from services.workout_service import WorkoutService
 
 
@@ -55,3 +57,13 @@ def get_workout_service(
     repo: WorkoutRepository = Depends(get_workout_repository),
 ) -> WorkoutService:
     return WorkoutService(repo)
+
+def get_workout_exercise_repository() -> WorkoutExerciseRepository:
+    return WorkoutExerciseRepository()
+
+def get_workout_exercise_service(
+    workout_exercise_repo: WorkoutExerciseRepository = Depends(get_workout_exercise_repository),
+    workout_repo: WorkoutRepository = Depends(get_workout_repository),
+    exercise_repo: ExerciseRepository = Depends(get_exercise_repository),
+) -> WorkoutExerciseService:
+    return WorkoutExerciseService(workout_exercise_repo, workout_repo, exercise_repo)
