@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 class WorkoutExerciseBase(BaseModel):
     """Base workout exercise model with common fields."""
 
-    workout_id: int = Field(..., description="ID of the associated workout")
     exercise_id: int = Field(..., description="ID of the associated exercise")
     order_index: int = Field(
         ge=0,
@@ -62,3 +61,4 @@ class WorkoutExercisePublic(WorkoutExerciseBase):
     """Schema for returning workout exercise data to clients."""
 
     id: int
+    workout_id: int = Field(..., description="ID of the associated workout")
