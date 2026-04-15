@@ -59,14 +59,14 @@ def get_workout_by_id(
 def list_workouts(
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[WorkoutService, Depends(get_workout_service)],
-    search: Annotated[str | None, Query(None, min_length=1)] = None,
-    limit: Annotated[int, Query(100, ge=1, le=1000)] = 100,
-    offset: Annotated[int, Query(0, ge=0)] = 0,
+    search: Annotated[str | None, Query(min_length=1)] = None,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
     date_from: Annotated[
-        date | None, Query(None, description="Filter workouts from this date (inclusive).")
+        date | None, Query(description="Filter workouts from this date (inclusive).")
     ] = None,
     date_to: Annotated[
-        date | None, Query(None, description="Filter workouts up to this date (inclusive).")
+        date | None, Query(description="Filter workouts up to this date (inclusive).")
     ] = None,
 ) -> list[WorkoutPublic]:
     """
