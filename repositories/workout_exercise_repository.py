@@ -10,7 +10,14 @@ from __future__ import annotations
 from typing import Final, TypedDict
 
 from core.errors.repository import WorkoutExerciseRepositoryError, WorkoutExerciseRowError
-from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data.executor import (
+    execute_insert_tx,
+    execute_write_tx,
+    fetch_all,
+    fetch_one,
+    fetch_one_tx,
+    transaction_cursor,
+)
 from schemas.workout_exercises_schema import (
     WorkoutExerciseCreate,
     WorkoutExercisePublic,
@@ -51,41 +58,69 @@ class WorkoutExerciseRepository:
 
     def create(
         self,
+        workout_id: int,
         workout_exercise_data: WorkoutExerciseCreate,
     ) -> WorkoutExercisePublic:
         """
-        Create a new workout exercise row.
+        Create a workout exercise and shift later order indexes in one transaction.
 
         Args:
+            workout_id: Parent workout ID.
             workout_exercise_data: Workout exercise creation payload.
 
         Returns:
             The newly created workout exercise.
 
         Raises:
-            WorkoutExerciseRepositoryError: If the inserted row cannot be retrieved afterwards.
+            WorkoutExerciseRepositoryError: If the inserted row cannot be retrieved afterwards
+            or if the transactional write fails.
         """
-        sql = """
-            INSERT INTO workout_exercises
-            (workout_id, exercise_id, order_index, rest_seconds, notes)
-            VALUES (%s, %s, %s, %s, %s)
-            RETURNING id
-        """
-        workout_exercise_id = execute_insert(
-            sql,
-            (
-                workout_exercise_data.workout_id,
-                workout_exercise_data.exercise_id,
-                workout_exercise_data.order_index,
-                workout_exercise_data.rest_seconds,
-                workout_exercise_data.notes,
-            ),
-        )
+        try:
+            with transaction_cursor() as cursor:
+                execute_write_tx(
+                    cursor,
+                    """
+                    UPDATE workout_exercises
+                    SET order_index = order_index + 1
+                    WHERE workout_id = %s AND order_index >= %s
+                    """,
+                    (
+                        workout_id,
+                        workout_exercise_data.order_index,
+                    ),
+                )
 
-        workout_exercise = self.get_by_id(workout_exercise_id)
-        if workout_exercise is None:
+                workout_exercise_id = execute_insert_tx(
+                    cursor,
+                    """
+                    INSERT INTO workout_exercises
+                    (workout_id, exercise_id, order_index, rest_seconds, notes)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (
+                        workout_id,
+                        workout_exercise_data.exercise_id,
+                        workout_exercise_data.order_index,
+                        workout_exercise_data.rest_seconds,
+                        workout_exercise_data.notes,
+                    ),
+                )
+
+                row = fetch_one_tx(
+                    cursor,
+                    f"{self._BASE_SELECT} WHERE id = %s",
+                    (workout_exercise_id,),
+                )
+        except WorkoutExerciseRepositoryError:
+            raise
+        except Exception as exc:
+            raise WorkoutExerciseRepositoryError.transaction_failed(exc) from exc
+
+        if row is None:
             raise WorkoutExerciseRepositoryError.inserted_missing(workout_exercise_id)
-        return workout_exercise
+
+        return self._row_to_workout_exercise(row)
 
     def get_by_id(self, workout_exercise_id: int) -> WorkoutExercisePublic | None:
         """
@@ -141,42 +176,87 @@ class WorkoutExerciseRepository:
         )
         return [self._row_to_workout_exercise(row) for row in rows]
 
-    def update_in_workout(
+    def update(
         self,
         workout_id: int,
         workout_exercise_id: int,
         update_data: WorkoutExerciseUpdate,
     ) -> WorkoutExercisePublic | None:
+        try:
+            with transaction_cursor() as cursor:
+                existing = fetch_one_tx(
+                    cursor,
+                    f"{self._BASE_SELECT} WHERE workout_id = %s AND id = %s",
+                    (workout_id, workout_exercise_id),
+                )
+                if existing is None:
+                    return None
+
+                existing_exercise = self._row_to_workout_exercise(existing)
+
+                fields = update_data.model_dump(exclude_none=True)
+                if not fields:
+                    return existing_exercise
+
+                self._validate_update_fields(fields)
+
+                new_order_index = fields.get("order_index")
+                if isinstance(new_order_index, int) and new_order_index != existing_exercise.order_index:
+                    if new_order_index < existing_exercise.order_index:
+                        execute_write_tx(
+                            cursor,
+                            """
+                            UPDATE workout_exercises
+                            SET order_index = order_index + 1
+                            WHERE workout_id = %s
+                            AND order_index >= %s
+                            AND order_index < %s
+                            """,
+                            (
+                                workout_id,
+                                new_order_index,
+                                existing_exercise.order_index,
+                            ),
+                        )
+                    else:
+                        execute_write_tx(
+                            cursor,
+                            """
+                            UPDATE workout_exercises
+                            SET order_index = order_index - 1
+                            WHERE workout_id = %s
+                            AND order_index > %s
+                            AND order_index <= %s
+                            """,
+                            (
+                                workout_id,
+                                existing_exercise.order_index,
+                                new_order_index,
+                            ),
+                        )
+
+                set_clause = ", ".join(f"{field} = %s" for field in fields)
+                sql = f"UPDATE workout_exercises SET {set_clause} WHERE workout_id = %s AND id = %s"
+                execute_write_tx(cursor, sql, (*fields.values(), workout_id, workout_exercise_id))
+
+                updated_row = fetch_one_tx(
+                    cursor,
+                    f"{self._BASE_SELECT} WHERE workout_id = %s AND id = %s",
+                    (workout_id, workout_exercise_id),
+                )
+        except WorkoutExerciseRepositoryError:
+            raise
+        except Exception as exc:
+            raise WorkoutExerciseRepositoryError.transaction_failed(exc) from exc
+
+        if updated_row is None:
+            raise WorkoutExerciseRepositoryError.updated_missing(workout_exercise_id)
+
+        return self._row_to_workout_exercise(updated_row)
+
+    def delete(self, workout_id: int, workout_exercise_id: int) -> bool:
         """
-        Partially update a workout exercise within a workout.
-
-        Args:
-            workout_id: Parent workout ID.
-            workout_exercise_id: Workout exercise ID.
-            update_data: Partial update payload.
-
-        Returns:
-            The updated workout exercise if found, otherwise None.
-
-        Raises:
-            WorkoutExerciseRepositoryError: If any provided fields are not allowed to be updated.
-        """
-        fields = update_data.model_dump(exclude_none=True)
-        if not fields:
-            return self.get_by_workout_and_id(workout_id, workout_exercise_id)
-
-        unknown = set(fields) - self._WORKOUT_EXERCISE_UPDATE_WHITELIST
-        if unknown:
-            raise WorkoutExerciseRepositoryError.invalid_update_fields(unknown)
-
-        set_clause = ", ".join(f"{field} = %s" for field in fields)
-        sql = f"UPDATE workout_exercises SET {set_clause} WHERE workout_id = %s AND id = %s"
-        execute_write(sql, (*fields.values(), workout_id, workout_exercise_id))
-        return self.get_by_workout_and_id(workout_id, workout_exercise_id)
-
-    def delete_in_workout(self, workout_id: int, workout_exercise_id: int) -> bool:
-        """
-        Delete a workout exercise from a workout.
+        Delete a workout exercise and normalize order indexes in one transaction.
 
         Args:
             workout_id: Parent workout ID.
@@ -184,90 +264,42 @@ class WorkoutExerciseRepository:
 
         Returns:
             True if a row was deleted, otherwise False.
+
+        Raises:
+            WorkoutExerciseRepositoryError: If the transactional write fails.
         """
-        return (
-            execute_write(
-                "DELETE FROM workout_exercises WHERE workout_id = %s AND id = %s",
-                (workout_id, workout_exercise_id),
-            )
-            > 0
-        )
+        try:
+            with transaction_cursor() as cursor:
+                deleted = execute_write_tx(
+                    cursor,
+                    "DELETE FROM workout_exercises WHERE workout_id = %s AND id = %s",
+                    (workout_id, workout_exercise_id),
+                )
 
-    def shift_order_indexes(
-        self,
-        workout_id: int,
-        from_index: int,
-        delta: int,
-    ) -> None:
-        """
-        Shift order indexes at or after a given position for one workout.
+                if deleted > 0:
+                    execute_write_tx(
+                        cursor,
+                        """
+                        WITH ordered_exercises AS (
+                            SELECT id, ROW_NUMBER() OVER (ORDER BY order_index ASC, id ASC) - 1 AS new_index
+                            FROM workout_exercises
+                            WHERE workout_id = %s
+                        )
+                        UPDATE workout_exercises AS we
+                        SET order_index = ordered_exercises.new_index
+                        FROM ordered_exercises
+                        WHERE we.id = ordered_exercises.id
+                        """,
+                        (workout_id,),
+                    )
 
-        Args:
-            workout_id: Parent workout ID.
-            from_index: Inclusive order index to start shifting from.
-            delta: Signed amount to add to each matching order index.
-        """
-        execute_write(
-            """
-            UPDATE workout_exercises
-            SET order_index = order_index + %s
-            WHERE workout_id = %s AND order_index >= %s
-            """,
-            (delta, workout_id, from_index),
-        )
+                return deleted > 0
+        except WorkoutExerciseRepositoryError:
+            raise
+        except Exception as exc:
+            raise WorkoutExerciseRepositoryError.transaction_failed(exc) from exc
 
-    def normalize_order_indexes(self, workout_id: int) -> None:
-        """
-        Renumber workout exercises sequentially starting at 0 for a workout.
-
-        Args:
-            workout_id: Parent workout ID.
-        """
-        execute_write(
-            """
-            WITH ordered_exercises AS (
-                SELECT id, ROW_NUMBER() OVER (ORDER BY order_index ASC, id ASC) - 1 AS new_index
-                FROM workout_exercises
-                WHERE workout_id = %s
-            )
-            UPDATE workout_exercises AS we
-            SET order_index = ordered_exercises.new_index
-            FROM ordered_exercises
-            WHERE we.id = ordered_exercises.id
-            """,
-            (workout_id,),
-        )
-
-    def list_by_workout_id(self, workout_id: int) -> list[WorkoutExercisePublic]:
-        """Compatibility wrapper for `list_by_workout`."""
-        return self.list_by_workout(workout_id)
-
-    def update(
-        self,
-        workout_exercise_id: int,
-        workout_id: int,
-        update_data: WorkoutExerciseUpdate,
-    ) -> WorkoutExercisePublic | None:
-        """Compatibility wrapper for `update_in_workout`."""
-        return self.update_in_workout(workout_id, workout_exercise_id, update_data)
-
-    def delete(self, workout_exercise_id: int, workout_id: int) -> bool:
-        """Compatibility wrapper for `delete_in_workout`."""
-        return self.delete_in_workout(workout_id, workout_exercise_id)
-
-    def shift_order_indices(
-        self,
-        workout_id: int,
-        start_index: int,
-        shift_amount: int,
-    ) -> None:
-        """Compatibility wrapper for `shift_order_indexes`."""
-        self.shift_order_indexes(workout_id, start_index, shift_amount)
-
-    def normalize_order_indices(self, workout_id: int) -> None:
-        """Compatibility wrapper for `normalize_order_indexes`."""
-        self.normalize_order_indexes(workout_id)
-
+    
     @staticmethod
     def _parse_workout_exercise_row(row: dict[str, object]) -> WorkoutExerciseRow:
         """Validate and normalize a raw database row into a typed WorkoutExerciseRow."""
@@ -308,3 +340,9 @@ class WorkoutExerciseRepository:
         """Convert a raw database row into a validated WorkoutExercisePublic model."""
         workout_exercise_row = cls._parse_workout_exercise_row(row)
         return WorkoutExercisePublic.model_validate(workout_exercise_row)
+
+    def _validate_update_fields(self, fields: dict[str, object]) -> None:
+        """Ensure that only allowed fields are being updated."""
+        unknown = set(fields) - self._WORKOUT_EXERCISE_UPDATE_WHITELIST
+        if unknown:
+            raise WorkoutExerciseRepositoryError.invalid_update_fields(unknown)
