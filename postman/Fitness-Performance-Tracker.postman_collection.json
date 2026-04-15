@@ -1,1 +1,1638 @@
-{"info":{"_postman_id":"183821a2-71e5-448f-9f17-b03af7021607","name":"Fitness Performance Tracker","description":"Rerunnable Postman collection grouped by slice with Happy Path and Negative Cases.","schema":"https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},"auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"variable":[{"key":"baseUrl","value":"http://127.0.0.1:8000"},{"key":"username","value":""},{"key":"email","value":""},{"key":"originalPassword","value":"SecurePass123!"},{"key":"password","value":"SecurePass123!"},{"key":"newPassword","value":"SecurePass456!"},{"key":"accessToken","value":""},{"key":"refreshToken","value":""},{"key":"goalId","value":""},{"key":"exerciseId","value":""},{"key":"exerciseName","value":""},{"key":"missingGoalId","value":"99999999"},{"key":"missingExerciseId","value":"99999999"}],"item":[{"name":"Health","item":[{"name":"Root","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200',()=>pm.response.to.have.status(200));","pm.expect(pm.response.json().message).to.eql('API running');"]}}],"request":{"method":"GET","auth":{"type":"noauth"},"url":"{{baseUrl}}/"}}]},{"name":"Users","item":[{"name":"Happy Path","item":[{"name":"Register","event":[{"listen":"prerequest","script":{"type":"text/javascript","exec":["const a='abcdefghijklmnopqrstuvwxyz0123456789';let s='';for(let i=0;i<9;i++)s+=a[Math.floor(Math.random()*a.length)];const u=`u${s}`;pm.collectionVariables.set('username',u);pm.collectionVariables.set('email',`${u}@example.com`);pm.collectionVariables.set('password',pm.collectionVariables.get('originalPassword'));pm.collectionVariables.set('newPassword','SecurePass456!');"]}},{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('201',()=>pm.response.to.have.status(201));","pm.expect(pm.response.json().email).to.eql(pm.collectionVariables.get('email'));"]}}],"request":{"method":"POST","auth":{"type":"noauth"},"header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"username\": \"{{username}}\",\n  \"email\": \"{{email}}\",\n  \"first_name\": \"Postman\",\n  \"last_name\": \"Tester\",\n  \"date_of_birth\": \"2000-01-01\",\n  \"password\": \"{{password}}\"\n}"},"url":"{{baseUrl}}/users/register"}},{"name":"Login","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200',()=>pm.response.to.have.status(200));","const b=pm.response.json();pm.collectionVariables.set('accessToken',b.access_token);pm.collectionVariables.set('refreshToken',b.refresh_token);"]}}],"request":{"method":"POST","auth":{"type":"noauth"},"header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"},"url":"{{baseUrl}}/users/login"}},{"name":"Refresh Tokens","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200',()=>pm.response.to.have.status(200));","const b=pm.response.json();pm.collectionVariables.set('accessToken',b.access_token);pm.collectionVariables.set('refreshToken',b.refresh_token);"]}}],"request":{"method":"POST","auth":{"type":"noauth"},"header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"refresh_token\": \"{{refreshToken}}\"\n}"},"url":"{{baseUrl}}/users/refresh"}},{"name":"Get My Profile","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200',()=>pm.response.to.have.status(200));","pm.expect(pm.response.json().email).to.eql(pm.collectionVariables.get('email'));"]}}],"request":{"method":"GET","url":"{{baseUrl}}/users/me"}},{"name":"Change Password","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('204',()=>pm.response.to.have.status(204));","pm.collectionVariables.set('password',pm.collectionVariables.get('newPassword'));"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"old_password\": \"{{password}}\",\n  \"new_password\": \"{{newPassword}}\"\n}"},"url":"{{baseUrl}}/users/me/change-password"}},{"name":"Revert Password","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('204',()=>pm.response.to.have.status(204));","pm.collectionVariables.set('password',pm.collectionVariables.get('originalPassword'));"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"old_password\": \"{{password}}\",\n  \"new_password\": \"{{originalPassword}}\"\n}"},"url":"{{baseUrl}}/users/me/change-password"}}]},{"name":"Negative Cases","item":[{"name":"Register Duplicate Email","event":[{"listen":"prerequest","script":{"type":"text/javascript","exec":["pm.variables.set('dupUsername',`x${Date.now().toString().slice(-9)}`);"]}},{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('409',()=>pm.response.to.have.status(409));"]}}],"request":{"method":"POST","auth":{"type":"noauth"},"header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"username\": \"{{dupUsername}}\",\n  \"email\": \"{{email}}\",\n  \"first_name\": \"Dup\",\n  \"last_name\": \"Email\",\n  \"date_of_birth\": \"2000-01-01\",\n  \"password\": \"{{password}}\"\n}"},"url":"{{baseUrl}}/users/register"}},{"name":"Login Wrong Password","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('401',()=>pm.response.to.have.status(401));"]}}],"request":{"method":"POST","auth":{"type":"noauth"},"header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"email\": \"{{email}}\",\n  \"password\": \"DefinitelyWrong123!\"\n}"},"url":"{{baseUrl}}/users/login"}},{"name":"Get My Profile Without Token","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('401',()=>pm.response.to.have.status(401));"]}}],"request":{"method":"GET","auth":{"type":"noauth"},"url":"{{baseUrl}}/users/me"}}]}]},{"name":"Goals","item":[{"name":"Happy Path","item":[{"name":"Create Goal","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('201',()=>pm.response.to.have.status(201));","pm.collectionVariables.set('goalId',String(pm.response.json().id));"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"daily_calorie_target\": 2200,\n  \"protein_target\": 180,\n  \"carbs_target\": 220,\n  \"fat_target\": 70,\n  \"weekly_workout_target\": 4,\n  \"target_body_weight\": 78.5,\n  \"start_date\": \"2026-04-01\",\n  \"end_date\": \"2026-06-30\",\n  \"is_active\": true\n}"},"url":"{{baseUrl}}/goals/"}},{"name":"Get Current Goal","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200',()=>pm.response.to.have.status(200));"]}}],"request":{"method":"GET","url":"{{baseUrl}}/goals/current"}},{"name":"Update Goal","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200',()=>pm.response.to.have.status(200));","pm.expect(pm.response.json().weekly_workout_target).to.eql(5);"]}}],"request":{"method":"PATCH","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"weekly_workout_target\": 5,\n  \"target_body_weight\": 77.0\n}"},"url":"{{baseUrl}}/goals/{{goalId}}"}}]},{"name":"Negative Cases","item":[{"name":"Create Goal Invalid Date Range","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('422',()=>pm.response.to.have.status(422));"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"daily_calorie_target\": 2200,\n  \"protein_target\": 180,\n  \"carbs_target\": 220,\n  \"fat_target\": 70,\n  \"weekly_workout_target\": 4,\n  \"target_body_weight\": 78.5,\n  \"start_date\": \"2026-06-30\",\n  \"end_date\": \"2026-04-01\",\n  \"is_active\": true\n}"},"url":"{{baseUrl}}/goals/"}},{"name":"Get Goal History Invalid Limit","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('422',()=>pm.response.to.have.status(422));"]}}],"request":{"method":"GET","url":"{{baseUrl}}/goals/history?limit=0&offset=0"}},{"name":"Get Missing Goal","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('404',()=>pm.response.to.have.status(404));"]}}],"request":{"method":"GET","url":"{{baseUrl}}/goals/{{missingGoalId}}"}}]}]},{"name":"Exercises","item":[{"name":"Happy Path","item":[{"name":"Create Exercise","event":[{"listen":"prerequest","script":{"type":"text/javascript","exec":["const a='abcdefghijklmnopqrstuvwxyz0123456789';let s='';for(let i=0;i<8;i++)s+=a[Math.floor(Math.random()*a.length)];pm.collectionVariables.set('exerciseName',`Postman Press ${s}`);"]}},{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('201',()=>pm.response.to.have.status(201));","const b=pm.response.json();pm.collectionVariables.set('exerciseId',String(b.id));pm.expect(b.name).to.eql(pm.collectionVariables.get('exerciseName'));"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"name\": \"{{exerciseName}}\",\n  \"description\": \"Created by Postman.\",\n  \"muscle_group\": \"Chest\",\n  \"equipment\": \"Dumbbell\",\n  \"is_compound\": true\n}"},"url":"{{baseUrl}}/exercises/"}},{"name":"Get Exercise By Id","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200',()=>pm.response.to.have.status(200));"]}}],"request":{"method":"GET","url":"{{baseUrl}}/exercises/{{exerciseId}}"}},{"name":"Update Exercise","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200',()=>pm.response.to.have.status(200));","pm.expect(pm.response.json().equipment).to.eql('Barbell');"]}}],"request":{"method":"PATCH","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"equipment\": \"Barbell\"\n}"},"url":"{{baseUrl}}/exercises/{{exerciseId}}"}}]},{"name":"Negative Cases","item":[{"name":"List Exercises Invalid Limit","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('422',()=>pm.response.to.have.status(422));"]}}],"request":{"method":"GET","url":"{{baseUrl}}/exercises/?limit=0&offset=0"}},{"name":"Create Duplicate Exercise Name","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('409',()=>pm.response.to.have.status(409));"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"name\": \"{{exerciseName}}\",\n  \"description\": \"Duplicate attempt.\",\n  \"muscle_group\": \"Chest\",\n  \"equipment\": \"Dumbbell\",\n  \"is_compound\": true\n}"},"url":"{{baseUrl}}/exercises/"}},{"name":"Delete Missing Exercise","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('404',()=>pm.response.to.have.status(404));"]}}],"request":{"method":"DELETE","url":"{{baseUrl}}/exercises/{{missingExerciseId}}"}}]},{"name":"Cleanup","item":[{"name":"Delete Exercise","event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('204',()=>pm.response.to.have.status(204));","pm.collectionVariables.unset('exerciseId');pm.collectionVariables.unset('exerciseName');"]}}],"request":{"method":"DELETE","url":"{{baseUrl}}/exercises/{{exerciseId}}"}}]}]}]}
+{
+  "info": {
+    "_postman_id": "183821a2-71e5-448f-9f17-b03af7021607",
+    "name": "Fitness Performance Tracker",
+    "description": "Rerunnable Postman collection grouped by slice with Happy Path and Negative Cases.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "username",
+      "value": ""
+    },
+    {
+      "key": "email",
+      "value": ""
+    },
+    {
+      "key": "originalPassword",
+      "value": "SecurePass123!"
+    },
+    {
+      "key": "password",
+      "value": "SecurePass123!"
+    },
+    {
+      "key": "newPassword",
+      "value": "SecurePass456!"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "goalId",
+      "value": ""
+    },
+    {
+      "key": "exerciseId",
+      "value": ""
+    },
+    {
+      "key": "exerciseName",
+      "value": ""
+    },
+    {
+      "key": "missingGoalId",
+      "value": "99999999"
+    },
+    {
+      "key": "missingExerciseId",
+      "value": "99999999"
+    },
+    {
+      "key": "workoutId",
+      "value": ""
+    },
+    {
+      "key": "workoutExerciseId",
+      "value": ""
+    },
+    {
+      "key": "missingWorkoutId",
+      "value": "99999999"
+    },
+    {
+      "key": "missingWorkoutExerciseId",
+      "value": "99999999"
+    },
+    {
+      "key": "displayName",
+      "value": "Postman Updated"
+    },
+    {
+      "key": "avatarUrl",
+      "value": "https://example.com/avatar.png"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Root",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200',()=>pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().message).to.eql('API running');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{baseUrl}}/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Happy Path",
+          "item": [
+            {
+              "name": "Register",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const a='abcdefghijklmnopqrstuvwxyz0123456789';let s='';for(let i=0;i<9;i++)s+=a[Math.floor(Math.random()*a.length)];const u=`u${s}`;pm.collectionVariables.set('username',u);pm.collectionVariables.set('email',`${u}@example.com`);pm.collectionVariables.set('password',pm.collectionVariables.get('originalPassword'));pm.collectionVariables.set('newPassword','SecurePass456!');"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201',()=>pm.response.to.have.status(201));",
+                      "pm.expect(pm.response.json().email).to.eql(pm.collectionVariables.get('email'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"{{username}}\",\n  \"email\": \"{{email}}\",\n  \"first_name\": \"Postman\",\n  \"last_name\": \"Tester\",\n  \"date_of_birth\": \"2000-01-01\",\n  \"password\": \"{{password}}\"\n}"
+                },
+                "url": "{{baseUrl}}/users/register"
+              }
+            },
+            {
+              "name": "Login",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "const b=pm.response.json();pm.collectionVariables.set('accessToken',b.access_token);pm.collectionVariables.set('refreshToken',b.refresh_token);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+                },
+                "url": "{{baseUrl}}/users/login"
+              }
+            },
+            {
+              "name": "Refresh Tokens",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "const b=pm.response.json();pm.collectionVariables.set('accessToken',b.access_token);pm.collectionVariables.set('refreshToken',b.refresh_token);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}"
+                },
+                "url": "{{baseUrl}}/users/refresh"
+              }
+            },
+            {
+              "name": "Get My Profile",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(pm.response.json().email).to.eql(pm.collectionVariables.get('email'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/users/me"
+              }
+            },
+            {
+              "name": "Change Password",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('204',()=>pm.response.to.have.status(204));",
+                      "pm.collectionVariables.set('password',pm.collectionVariables.get('newPassword'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"old_password\": \"{{password}}\",\n  \"new_password\": \"{{newPassword}}\"\n}"
+                },
+                "url": "{{baseUrl}}/users/me/change-password"
+              }
+            },
+            {
+              "name": "Login After Password Change",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "const b=pm.response.json();pm.collectionVariables.set('accessToken',b.access_token);pm.collectionVariables.set('refreshToken',b.refresh_token);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+                },
+                "url": "{{baseUrl}}/users/login"
+              }
+            },
+            {
+              "name": "OAuth2 Token Login",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "const b=pm.response.json();pm.expect(b.access_token).to.be.a('string');pm.expect(b.refresh_token).to.be.a('string');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded"
+                  }
+                ],
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "username",
+                      "value": "{{email}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "password",
+                      "value": "{{password}}",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": "{{baseUrl}}/users/token"
+              }
+            },
+            {
+              "name": "Update My Profile",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(pm.response.json().first_name).to.eql('Updated');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/users/me",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"first_name\": \"Updated\"\n}"
+                }
+              }
+            },
+            {
+              "name": "Update Avatar",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(pm.response.json().profile_picture_url).to.eql(pm.collectionVariables.get('avatarUrl'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/users/me/avatar",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"profile_picture_url\": \"{{avatarUrl}}\"\n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative Cases",
+          "item": [
+            {
+              "name": "Register Duplicate Email",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.variables.set('dupUsername',`x${Date.now().toString().slice(-9)}`);"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('409',()=>pm.response.to.have.status(409));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"{{dupUsername}}\",\n  \"email\": \"{{email}}\",\n  \"first_name\": \"Dup\",\n  \"last_name\": \"Email\",\n  \"date_of_birth\": \"2000-01-01\",\n  \"password\": \"{{password}}\"\n}"
+                },
+                "url": "{{baseUrl}}/users/register"
+              }
+            },
+            {
+              "name": "Login Wrong Password",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('401',()=>pm.response.to.have.status(401));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"DefinitelyWrong123!\"\n}"
+                },
+                "url": "{{baseUrl}}/users/login"
+              }
+            },
+            {
+              "name": "Get My Profile Without Token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('401',()=>pm.response.to.have.status(401));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "noauth"
+                },
+                "url": "{{baseUrl}}/users/me"
+              }
+            },
+            {
+              "name": "Refresh Invalid Token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('401',()=>pm.response.to.have.status(401));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/users/refresh",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh_token\": \"definitely.invalid.token\"\n}"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Goals",
+      "item": [
+        {
+          "name": "Happy Path",
+          "item": [
+            {
+              "name": "Create Goal",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201',()=>pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('goalId',String(pm.response.json().id));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"daily_calorie_target\": 2200,\n  \"protein_target\": 180,\n  \"carbs_target\": 220,\n  \"fat_target\": 70,\n  \"weekly_workout_target\": 4,\n  \"target_body_weight\": 78.5,\n  \"start_date\": \"2026-04-01\",\n  \"end_date\": \"2026-06-30\",\n  \"is_active\": true\n}"
+                },
+                "url": "{{baseUrl}}/goals/"
+              }
+            },
+            {
+              "name": "Get Current Goal",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/goals/current"
+              }
+            },
+            {
+              "name": "Get Goal By Id",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(String(pm.response.json().id)).to.eql(pm.collectionVariables.get('goalId'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/goals/{{goalId}}"
+              }
+            },
+            {
+              "name": "Update Goal",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(pm.response.json().weekly_workout_target).to.eql(5);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"weekly_workout_target\": 5,\n  \"target_body_weight\": 77.0\n}"
+                },
+                "url": "{{baseUrl}}/goals/{{goalId}}"
+              }
+            },
+            {
+              "name": "Get Goal History",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(pm.response.json()).to.be.an('array');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/goals/history?limit=10&offset=0"
+              }
+            },
+            {
+              "name": "Deactivate Goal",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(pm.response.json().is_active).to.eql(false);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/goals/{{goalId}}/deactivate"
+              }
+            },
+            {
+              "name": "Activate Goal",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(pm.response.json().is_active).to.eql(true);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/goals/{{goalId}}/activate"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative Cases",
+          "item": [
+            {
+              "name": "Create Goal Invalid Date Range",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('422',()=>pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"daily_calorie_target\": 2200,\n  \"protein_target\": 180,\n  \"carbs_target\": 220,\n  \"fat_target\": 70,\n  \"weekly_workout_target\": 4,\n  \"target_body_weight\": 78.5,\n  \"start_date\": \"2026-06-30\",\n  \"end_date\": \"2026-04-01\",\n  \"is_active\": true\n}"
+                },
+                "url": "{{baseUrl}}/goals/"
+              }
+            },
+            {
+              "name": "Get Goal History Invalid Limit",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('422',()=>pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/goals/history?limit=0&offset=0"
+              }
+            },
+            {
+              "name": "Get Missing Goal",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404',()=>pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/goals/{{missingGoalId}}"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Exercises",
+      "item": [
+        {
+          "name": "Happy Path",
+          "item": [
+            {
+              "name": "Create Exercise",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const a='abcdefghijklmnopqrstuvwxyz0123456789';let s='';for(let i=0;i<8;i++)s+=a[Math.floor(Math.random()*a.length)];pm.collectionVariables.set('exerciseName',`Postman Press ${s}`);"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201',()=>pm.response.to.have.status(201));",
+                      "const b=pm.response.json();pm.collectionVariables.set('exerciseId',String(b.id));pm.expect(b.name).to.eql(pm.collectionVariables.get('exerciseName'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"{{exerciseName}}\",\n  \"description\": \"Created by Postman.\",\n  \"muscle_group\": \"Chest\",\n  \"equipment\": \"Dumbbell\",\n  \"is_compound\": true\n}"
+                },
+                "url": "{{baseUrl}}/exercises/"
+              }
+            },
+            {
+              "name": "Get Exercise By Id",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/exercises/{{exerciseId}}"
+              }
+            },
+            {
+              "name": "List Exercises",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(pm.response.json()).to.be.an('array');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/exercises/?limit=10&offset=0&search={{exerciseName}}"
+              }
+            },
+            {
+              "name": "Update Exercise",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(pm.response.json().equipment).to.eql('Barbell');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"equipment\": \"Barbell\"\n}"
+                },
+                "url": "{{baseUrl}}/exercises/{{exerciseId}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative Cases",
+          "item": [
+            {
+              "name": "Get Missing Exercise",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404',()=>pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/exercises/{{missingExerciseId}}"
+              }
+            },
+            {
+              "name": "List Exercises Invalid Limit",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('422',()=>pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/exercises/?limit=0&offset=0"
+              }
+            },
+            {
+              "name": "Create Duplicate Exercise Name",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('409',()=>pm.response.to.have.status(409));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"{{exerciseName}}\",\n  \"description\": \"Duplicate attempt.\",\n  \"muscle_group\": \"Chest\",\n  \"equipment\": \"Dumbbell\",\n  \"is_compound\": true\n}"
+                },
+                "url": "{{baseUrl}}/exercises/"
+              }
+            },
+            {
+              "name": "Delete Missing Exercise",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404',()=>pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/exercises/{{missingExerciseId}}"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Workouts",
+      "item": [
+        {
+          "name": "Happy Path",
+          "item": [
+            {
+              "name": "Create Workout",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.unset(\"workoutId\");",
+                      "pm.collectionVariables.unset(\"workoutExerciseId\");"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"201\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "const b = pm.response.json();",
+                      "pm.collectionVariables.set(\"workoutId\", String(b.id));",
+                      "pm.expect(b.name).to.eql(\"Postman Push Day\");"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/workouts/",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Postman Push Day\",\n  \"description\": \"Push workout created by Postman\",\n  \"workout_date\": \"2026-04-15\",\n  \"started_at\": \"2026-04-15T10:00:00Z\",\n  \"completed_at\": \"2026-04-15T11:00:00Z\",\n  \"notes\": \"Smoke test workout\"\n}"
+                }
+              }
+            },
+            {
+              "name": "List Workouts",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(pm.response.json()).to.be.an('array');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/workouts/?limit=10&offset=0&search=Postman"
+              }
+            },
+            {
+              "name": "Get Workout By Id",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const workoutId = pm.collectionVariables.get(\"workoutId\");",
+                      "if (!workoutId) {",
+                      "    throw new Error(\"workoutId is not set. Create Workout must run successfully first.\");",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(String(pm.response.json().id)).to.eql(pm.collectionVariables.get('workoutId'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/workouts/{{workoutId}}"
+              }
+            },
+            {
+              "name": "Update Workout",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const workoutId = pm.collectionVariables.get(\"workoutId\");",
+                      "if (!workoutId) {",
+                      "    throw new Error(\"workoutId is not set. Create Workout must run successfully first.\");",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(pm.response.json().notes).to.eql('Updated by Postman');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/workouts/{{workoutId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"notes\": \"Updated by Postman\"\n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative Cases",
+          "item": [
+            {
+              "name": "List Workouts Invalid Limit",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('422',()=>pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/workouts/?limit=0&offset=0"
+              }
+            },
+            {
+              "name": "Get Missing Workout",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404',()=>pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/workouts/{{missingWorkoutId}}"
+              }
+            },
+            {
+              "name": "Create Workout Invalid Time Order",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('422',()=>pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/workouts/",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Invalid Workout\",\n  \"description\": \"Should fail\",\n  \"workout_date\": \"2026-04-15\",\n  \"started_at\": \"2026-04-15T11:00:00Z\",\n  \"completed_at\": \"2026-04-15T10:00:00Z\",\n  \"notes\": \"Bad times\"\n}"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Workout Exercises",
+      "item": [
+        {
+          "name": "Happy Path",
+          "item": [
+            {
+              "name": "Create Workout Exercise",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const workoutId = pm.collectionVariables.get(\"workoutId\");",
+                      "const exerciseId = pm.collectionVariables.get(\"exerciseId\");",
+                      "if (!workoutId) {",
+                      "    throw new Error(\"workoutId is not set. Create Workout must run successfully first.\");",
+                      "}",
+                      "if (!exerciseId) {",
+                      "    throw new Error(\"exerciseId is not set. Create Exercise must run successfully first.\");",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201',()=>pm.response.to.have.status(201));",
+                      "const b=pm.response.json();pm.collectionVariables.set('workoutExerciseId',String(b.id));pm.expect(String(b.workout_id)).to.eql(pm.collectionVariables.get('workoutId'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/workouts/{{workoutId}}/exercises/",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"exercise_id\": {{exerciseId}},\n  \"order_index\": 0,\n  \"rest_seconds\": 90,\n  \"notes\": \"Main lift\"\n}"
+                }
+              }
+            },
+            {
+              "name": "List Workout Exercises",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const workoutId = pm.collectionVariables.get(\"workoutId\");",
+                      "if (!workoutId) {",
+                      "    throw new Error(\"workoutId is not set. Create Workout must run successfully first.\");",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(pm.response.json()).to.be.an('array');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/workouts/{{workoutId}}/exercises/"
+              }
+            },
+            {
+              "name": "Get Workout Exercise By Id",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const workoutId = pm.collectionVariables.get(\"workoutId\");",
+                      "const workoutExerciseId = pm.collectionVariables.get(\"workoutExerciseId\");",
+                      "if (!workoutId) {",
+                      "    throw new Error(\"workoutId is not set. Create Workout must run successfully first.\");",
+                      "}",
+                      "if (!workoutExerciseId) {",
+                      "    throw new Error(\"workoutExerciseId is not set. Create Workout Exercise must run successfully first.\");",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(String(pm.response.json().id)).to.eql(pm.collectionVariables.get('workoutExerciseId'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/workouts/{{workoutId}}/exercises/{{workoutExerciseId}}"
+              }
+            },
+            {
+              "name": "Update Workout Exercise",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const workoutId = pm.collectionVariables.get(\"workoutId\");",
+                      "const workoutExerciseId = pm.collectionVariables.get(\"workoutExerciseId\");",
+                      "if (!workoutId) {",
+                      "    throw new Error(\"workoutId is not set. Create Workout must run successfully first.\");",
+                      "}",
+                      "if (!workoutExerciseId) {",
+                      "    throw new Error(\"workoutExerciseId is not set. Create Workout Exercise must run successfully first.\");",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(pm.response.json().rest_seconds).to.eql(120);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/workouts/{{workoutId}}/exercises/{{workoutExerciseId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"rest_seconds\": 120,\n  \"notes\": \"Updated main lift\"\n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative Cases",
+          "item": [
+            {
+              "name": "Create Workout Exercise Missing Exercise",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const workoutId = pm.collectionVariables.get(\"workoutId\");",
+                      "if (!workoutId) {",
+                      "    throw new Error(\"workoutId is not set. Create Workout must run successfully first.\");",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404',()=>pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/workouts/{{workoutId}}/exercises/",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"exercise_id\": {{missingExerciseId}},\n  \"order_index\": 1,\n  \"rest_seconds\": 60,\n  \"notes\": \"Should fail\"\n}"
+                }
+              }
+            },
+            {
+              "name": "Get Missing Workout Exercise",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const workoutId = pm.collectionVariables.get(\"workoutId\");",
+                      "if (!workoutId) {",
+                      "    throw new Error(\"workoutId is not set. Create Workout must run successfully first.\");",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404',()=>pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/workouts/{{workoutId}}/exercises/{{missingWorkoutExerciseId}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup",
+          "item": []
+        }
+      ]
+    },
+    {
+      "name": "Final Cleanup",
+      "item": [
+        {
+          "name": "Delete Workout Exercise",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const workoutId = pm.collectionVariables.get(\"workoutId\");",
+                  "const workoutExerciseId = pm.collectionVariables.get(\"workoutExerciseId\");",
+                  "if (!workoutId) {",
+                  "    throw new Error(\"workoutId is not set. Create Workout must run successfully first.\");",
+                  "}",
+                  "if (!workoutExerciseId) {",
+                  "    throw new Error(\"workoutExerciseId is not set. Create Workout Exercise must run successfully first.\");",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.unset(\"workoutExerciseId\");",
+                  "pm.test(\"204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/workouts/{{workoutId}}/exercises/{{workoutExerciseId}}"
+          }
+        },
+        {
+          "name": "Delete Workout",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const workoutId = pm.collectionVariables.get(\"workoutId\");",
+                  "if (!workoutId) {",
+                  "    throw new Error(\"workoutId is not set. Create Workout must run successfully first.\");",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.unset(\"workoutId\");",
+                  "pm.test(\"204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/workouts/{{workoutId}}"
+          }
+        },
+        {
+          "name": "Delete Exercise",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const exerciseId = pm.collectionVariables.get(\"exerciseId\");",
+                  "if (!exerciseId) {",
+                  "    throw new Error(\"exerciseId is not set. Create Exercise must run successfully first.\");",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.unset(\"exerciseId\");",
+                  "pm.collectionVariables.unset(\"exerciseName\");",
+                  "pm.test(\"204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/exercises/{{exerciseId}}"
+          }
+        },
+        {
+          "name": "Revert Password",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const email = pm.collectionVariables.get(\"email\");",
+                  "const password = pm.collectionVariables.get(\"password\");",
+                  "const originalPassword = pm.collectionVariables.get(\"originalPassword\");",
+                  "if (!email) {",
+                  "    throw new Error(\"email is not set. Register must run successfully first.\");",
+                  "}",
+                  "if (!password) {",
+                  "    throw new Error(\"password is not set. Login/change-password flow must run successfully first.\");",
+                  "}",
+                  "if (!originalPassword) {",
+                  "    throw new Error(\"originalPassword is not set.\");",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "pm.collectionVariables.set(\"password\", pm.collectionVariables.get(\"originalPassword\"));",
+                  "pm.collectionVariables.unset(\"accessToken\");",
+                  "pm.collectionVariables.unset(\"refreshToken\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"old_password\": \"{{password}}\",\n  \"new_password\": \"{{originalPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/users/me/change-password"
+          }
+        },
+        {
+          "name": "Login After Password Revert",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const b = pm.response.json();",
+                  "pm.collectionVariables.set(\"accessToken\", b.access_token);",
+                  "pm.collectionVariables.set(\"refreshToken\", b.refresh_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{baseUrl}}/users/login"
+          }
+        }
+      ],
+      "description": "Collection-end cleanup requests to restore rerunnable state."
+    }
+  ]
+}
