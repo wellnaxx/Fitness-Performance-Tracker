@@ -131,7 +131,7 @@ class WorkoutService:
             WorkoutUpdateError: If the update operation fails
         """
 
-        existing_workout = self.workout_repository.get_by_user_and_id(workout_id, user_id)
+        existing_workout = self.workout_repository.get_by_user_and_id(user_id, workout_id)
         if existing_workout is None:
             self.logger.warning(
                 f"Workout with ID {workout_id} not found or not visible to user {user_id} for update."
@@ -166,7 +166,7 @@ class WorkoutService:
             WorkoutNotFoundError: If the workout is not found or not visible to the user
             WorkoutDeleteError: If the delete operation fails
         """
-        existing_workout = self.workout_repository.get_by_user_and_id(workout_id, user_id)
+        existing_workout = self.workout_repository.get_by_user_and_id(user_id, workout_id)
         if existing_workout is None:
             self.logger.warning(
                 f"Workout with ID {workout_id} not found or not visible to user {user_id} for deletion."
