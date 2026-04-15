@@ -5,7 +5,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?logo=postgresql&logoColor=white)
 ![Status](https://img.shields.io/badge/Status-Backend%20MVP-orange)
 
-A FastAPI and PostgreSQL backend for tracking fitness progress across users, goals, exercises, and workouts.
+A FastAPI and PostgreSQL backend for tracking fitness progress across users, goals, exercises, workouts, and workout exercises.
 
 ## Overview
 
@@ -22,6 +22,7 @@ The live API currently covers:
 - goal creation and lifecycle updates
 - exercise library management with visibility rules
 - workout logging, listing, updating, and deletion
+- workout exercise management inside user-owned workouts
 
 The database schema is already prepared for future nutrition and body-tracking slices such as meals, body-weight entries, measurements, and progress photos.
 
@@ -29,8 +30,8 @@ The database schema is already prepared for future nutrition and body-tracking s
 
 This repository is in an API-first backend phase.
 
-- live and routed today: users, goals, exercises, workouts
-- implemented in the schema and repository layer, but not yet exposed end-to-end: meals, meal items, body-weight entries, body measurements, progress photos, workout exercises, set entries, workout templates
+- live and routed today: users, goals, exercises, workouts, workout exercises
+- implemented in the schema and repository layer, but not yet exposed end-to-end: meals, meal items, body-weight entries, body measurements, progress photos, set entries, workout templates
 - `frontend/` is still a placeholder for later work
 
 ## Current Features
@@ -41,8 +42,9 @@ This repository is in an API-first backend phase.
 - goal creation, history lookup, activation, and deactivation
 - exercise CRUD with filtering and built-in vs custom visibility handling
 - workout CRUD with pagination, free-text search, and date-range filters
+- nested workout exercise CRUD inside workouts with transactional order-index reordering
 - database bootstrap script in `data/init_db.py`
-- rerunnable Postman collection for users, goals, and exercises
+- rerunnable Postman collection for users, goals, exercises, workouts, and workout exercises
 
 ## Tech Stack
 
@@ -110,7 +112,7 @@ The schema in `data/schema.sql` defines tables for:
 - body measurements
 - progress photos
 
-The current API exposes only the users, goals, exercises, and workouts slices, but the rest of the schema is already in place for future routes and services.
+The current API exposes the users, goals, exercises, workouts, and workout exercises slices, but the rest of the schema is already in place for future routes and services.
 
 ## Getting Started
 
@@ -266,6 +268,14 @@ Open:
 - `date_from`
 - `date_to`
 
+### Workout Exercise Endpoints
+
+- `POST /workouts/{workout_id}/exercises/`
+- `GET /workouts/{workout_id}/exercises/`
+- `GET /workouts/{workout_id}/exercises/{workout_exercise_id}`
+- `PATCH /workouts/{workout_id}/exercises/{workout_exercise_id}`
+- `DELETE /workouts/{workout_id}/exercises/{workout_exercise_id}`
+
 ## Manual Testing
 
 A Postman collection is included at `postman/Fitness-Performance-Tracker.postman_collection.json`.
@@ -276,14 +286,15 @@ It currently covers:
 - users
 - goals
 - exercises
+- workouts
+- workout exercises
 
 The collection is designed to be rerunnable:
 
 - users are registered with randomized usernames and emails
 - exercises are created with randomized names
 - password changes are reverted at the end of the user flow
-
-Workout endpoints are available in Swagger UI, but they are not yet represented in the Postman collection.
+- workout exercise flows reuse the created workout and exercise IDs within the same run
 
 ## Database Diagram
 
@@ -300,11 +311,11 @@ The schema is defined in `data/schema.sql`, and the current ERD is included belo
 
 ## Roadmap
 
-- add workout exercises and set-entry API layers
+- add set-entry API layers
 - add nutrition endpoints for meals and meal items
 - expose body-weight, measurement, and progress-photo tracking
 - add automated tests
-- expand the Postman collection to cover workouts
+- expand the Postman collection to cover the remaining slices
 - expand documentation and diagrams
 
 ## Inspiration
