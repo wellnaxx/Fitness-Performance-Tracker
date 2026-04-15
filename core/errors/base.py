@@ -26,6 +26,10 @@ class RepositoryError(Exception):
     def invalid_update_fields(cls, fields: set[str]) -> RepositoryError:
         joined = ", ".join(sorted(fields))
         return cls(f"Invalid fields for update: {joined}")
+    
+    @classmethod
+    def transaction_failed(cls, exc: Exception) -> RepositoryError:
+        return cls(f"{cls.entity_name} transaction failed: {exc}")
 
 
 class RowValidationError(TypeError):
