@@ -3,7 +3,6 @@ uvicorn
 psycopg
 python-dotenv
 python-jose
-passlib[bcrypt]
 bcrypt
 email-validator
 python-multipart
