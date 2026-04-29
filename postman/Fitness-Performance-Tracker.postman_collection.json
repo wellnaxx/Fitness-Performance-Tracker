@@ -91,6 +91,14 @@
     {
       "key": "avatarUrl",
       "value": "https://example.com/avatar.png"
+    },
+    {
+      "key": "mealId",
+      "value": ""
+    },
+    {
+      "key": "missingMealId",
+      "value": "99999999"
     }
   ],
   "item": [
@@ -1191,6 +1199,255 @@
       ]
     },
     {
+      "name": "Meals",
+      "item": [
+        {
+          "name": "Happy Path",
+          "item": [
+            {
+              "name": "Create Meal",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201',()=>pm.response.to.have.status(201));",
+                      "const b=pm.response.json();pm.collectionVariables.set('mealId',String(b.id));pm.expect(b.meal_type).to.eql('breakfast');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/meals/",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Postman Breakfast\",\n  \"description\": \"Created from Postman collection\",\n  \"eaten_at\": \"2026-04-15T08:30:00Z\",\n  \"meal_type\": \"breakfast\",\n  \"notes\": \"Initial meal note\"\n}"
+                }
+              }
+            },
+            {
+              "name": "List Meals",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(pm.response.json()).to.be.an('array');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/meals/?limit=10&offset=0&meal_type=breakfast&date_from=2026-04-01&date_to=2026-04-30"
+              }
+            },
+            {
+              "name": "Get Meal By Id",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const mealId = pm.collectionVariables.get(\"mealId\");",
+                      "if (!mealId) {",
+                      "    throw new Error(\"mealId is not set. Create Meal must run successfully first.\");",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(String(pm.response.json().id)).to.eql(pm.collectionVariables.get('mealId'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/meals/{{mealId}}"
+              }
+            },
+            {
+              "name": "Update Meal",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const mealId = pm.collectionVariables.get(\"mealId\");",
+                      "if (!mealId) {",
+                      "    throw new Error(\"mealId is not set. Create Meal must run successfully first.\");",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('200',()=>pm.response.to.have.status(200));",
+                      "pm.expect(pm.response.json().notes).to.eql('Updated by Postman');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/meals/{{mealId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"notes\": \"Updated by Postman\",\n  \"meal_type\": \"breakfast\"\n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative Cases",
+          "item": [
+            {
+              "name": "List Meals Invalid Limit",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('422',()=>pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/meals/?limit=0&offset=0"
+              }
+            },
+            {
+              "name": "List Meals Invalid Meal Type",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('422',()=>pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/meals/?meal_type=brunch"
+              }
+            },
+            {
+              "name": "Get Missing Meal",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404',()=>pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/meals/{{missingMealId}}"
+              }
+            },
+            {
+              "name": "Create Meal Invalid Meal Type",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('422',()=>pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/meals/",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Invalid Meal\",\n  \"description\": \"Should fail\",\n  \"eaten_at\": \"2026-04-15T08:30:00Z\",\n  \"meal_type\": \"brunch\",\n  \"notes\": \"Bad meal type\"\n}"
+                }
+              }
+            },
+            {
+              "name": "Update Missing Meal",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404',()=>pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/meals/{{missingMealId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"notes\": \"Should fail\"\n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup",
+          "item": []
+        }
+      ]
+    },
+    {
       "name": "Workout Exercises",
       "item": [
         {
@@ -1438,6 +1695,39 @@
     {
       "name": "Final Cleanup",
       "item": [
+        {
+          "name": "Delete Meal",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const mealId = pm.collectionVariables.get(\"mealId\");",
+                  "if (!mealId) {",
+                  "    throw new Error(\"mealId is not set. Create Meal must run successfully first.\");",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.unset(\"mealId\");",
+                  "pm.test(\"204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/meals/{{mealId}}"
+          }
+        },
         {
           "name": "Delete Workout Exercise",
           "event": [
