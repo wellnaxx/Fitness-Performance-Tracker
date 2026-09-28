@@ -13,6 +13,7 @@ from typing import Final, TypedDict
 
 from core.errors.repository import UserGoalRowError, UserGoalsRepositoryError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data.queries import QUERIES
 from schemas.user_goals_schema import UserGoalCreate, UserGoalPublic, UserGoalUpdate
 
 
@@ -44,15 +45,6 @@ class UserGoalsRepository:
       in the service layer, not in this repository.
     """
 
-    _BASE_SELECT: Final[str] = """
-    SELECT
-    id, user_id, daily_calorie_target,
-    protein_target, carbs_target, fat_target,
-    weekly_workout_target, target_body_weight,
-    start_date, end_date, is_active
-    FROM user_goals    
-"""
-
     _GOAL_UPDATE_WHITELIST: Final[set[str]] = {
         "daily_calorie_target",
         "protein_target",
@@ -80,13 +72,7 @@ class UserGoalsRepository:
             UserGoalsRepositoryError: If the goal is inserted but cannot be retrieved afterwards.
         """
 
-        sql = """
-        INSERT INTO user_goals
-        (user_id, daily_calorie_target, protein_target, carbs_target, fat_target,
-         weekly_workout_target, target_body_weight, start_date, end_date, is_active)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        RETURNING id
-        """
+        sql = QUERIES.user_goals.create
         goal_id = execute_insert(
             sql,
             (
@@ -118,7 +104,7 @@ class UserGoalsRepository:
             UserGoalPublic if found, otherwise None.
         """
 
-        sql = self._BASE_SELECT + " WHERE id = %s"
+        sql = QUERIES.user_goals.get_by_id
         row = fetch_one(sql, (goal_id,))
         if row is None:
             return None
@@ -136,7 +122,7 @@ class UserGoalsRepository:
             UserGoalPublic if found and belongs to user, otherwise None.
         """
 
-        sql = self._BASE_SELECT + " WHERE id = %s AND user_id = %s"
+        sql = QUERIES.user_goals.get_by_user_and_id
         row = fetch_one(sql, (goal_id, user_id))
         if row is None:
             return None
@@ -156,7 +142,7 @@ class UserGoalsRepository:
             UserGoalPublic if an active goal exists, otherwise None.
         """
 
-        sql = self._BASE_SELECT + " WHERE user_id = %s AND is_active = TRUE ORDER BY start_date DESC LIMIT 1"
+        sql = QUERIES.user_goals.get_active_goal
         row = fetch_one(sql, (user_id,))
         if row is None:
             return None
@@ -177,7 +163,7 @@ class UserGoalsRepository:
 
         safe_limit = max(1, min(limit, 1000))  # Enforce reasonable limits
         safe_offset = max(0, offset)
-        sql = self._BASE_SELECT + " WHERE user_id = %s ORDER BY start_date DESC, id DESC LIMIT %s OFFSET %s"
+        sql = QUERIES.user_goals.get_all
         rows = fetch_all(sql, (user_id, safe_limit, safe_offset))
         return [self._row_to_goal(row) for row in rows]
 
@@ -207,7 +193,7 @@ class UserGoalsRepository:
         if unknown:
             raise UserGoalsRepositoryError.invalid_update_fields(unknown)
         set_clause = ", ".join(f"{k} = %s" for k in fields)
-        sql = f"UPDATE user_goals SET {set_clause} WHERE id = %s"
+        sql = QUERIES.user_goals.update.format(set_clause=set_clause)
         execute_write(sql, (*fields.values(), goal_id))
         return self.get_by_id(goal_id)
 
@@ -222,7 +208,7 @@ class UserGoalsRepository:
             The updated goal if it exists, otherwise None.
         """
 
-        sql = "UPDATE user_goals SET is_active = FALSE WHERE id = %s"
+        sql = QUERIES.user_goals.deactivate_goal
         execute_write(sql, (goal_id,))
         return self.get_by_id(goal_id)
 
@@ -242,7 +228,7 @@ class UserGoalsRepository:
             Ensures that at most one goal is active per user.
         """
 
-        sql = "UPDATE user_goals SET is_active = (id = %s) WHERE user_id = %s"
+        sql = QUERIES.user_goals.activate_goal
         execute_write(sql, (goal_id, user_id))
         return self.get_by_id(goal_id)
 
