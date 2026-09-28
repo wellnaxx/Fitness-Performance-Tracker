@@ -12,6 +12,7 @@ from typing import Final, TypedDict
 
 from core.errors.repository import ProgressPhotoRepositoryError, ProgressPhotoRowError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data.queries import QUERIES
 from schemas.progress_photo_schema import (
     ProgressPhotoCreate,
     ProgressPhotoPublic,
@@ -36,11 +37,6 @@ class ProgressPhotoRepository:
     - Execute SQL queries related to progress photos
     - Convert database row dicts to ProgressPhotoPublic models
     - Handle all progress-photo-related database logic
-    """
-
-    _BASE_SELECT: Final[str] = """
-        SELECT id, user_id, photo_url, entry_date, notes, created_at
-        FROM progress_photos
     """
 
     _PROGRESS_PHOTO_UPDATE_WHITELIST: Final[set[str]] = {
@@ -68,11 +64,7 @@ class ProgressPhotoRepository:
             ProgressPhotoRepositoryError: If the inserted row cannot be retrieved afterwards.
         """
         photo_id = execute_insert(
-            """
-            INSERT INTO progress_photos (user_id, photo_url, entry_date, notes)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id
-            """,
+            QUERIES.progress_photos.create,
             (user_id, str(photo_data.photo_url), photo_data.entry_date, photo_data.notes),
         )
 
@@ -91,7 +83,7 @@ class ProgressPhotoRepository:
         Returns:
             The progress photo if found, otherwise None.
         """
-        row = fetch_one(f"{self._BASE_SELECT} WHERE id = %s", (photo_id,))
+        row = fetch_one(QUERIES.progress_photos.get_by_id, (photo_id,))
         if row is None:
             return None
         return self._row_to_progress_photo(row)
@@ -112,7 +104,7 @@ class ProgressPhotoRepository:
             The photo if found and owned by the user, otherwise None.
         """
         row = fetch_one(
-            f"{self._BASE_SELECT} WHERE user_id = %s AND id = %s",
+            QUERIES.progress_photos.get_by_user_and_id,
             (user_id, photo_id),
         )
         if row is None:
@@ -143,18 +135,18 @@ class ProgressPhotoRepository:
         safe_limit = max(1, min(limit, 1000))
         safe_offset = max(0, offset)
 
-        sql = f"{self._BASE_SELECT} WHERE user_id = %s"
+        filters: list[str] = []
         params: list[object] = [user_id]
 
         if date_from is not None:
-            sql += " AND entry_date >= %s"
+            filters.append(QUERIES.progress_photos.filter_date_from)
             params.append(date_from)
 
         if date_to is not None:
-            sql += " AND entry_date <= %s"
+            filters.append(QUERIES.progress_photos.filter_date_to)
             params.append(date_to)
 
-        sql += " ORDER BY entry_date DESC, id DESC LIMIT %s OFFSET %s"
+        sql = QUERIES.progress_photos.list_by_user.format(filters=" ".join(filters))
         params.extend([safe_limit, safe_offset])
 
         rows = fetch_all(sql, tuple(params))
@@ -192,7 +184,7 @@ class ProgressPhotoRepository:
             raise ProgressPhotoRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
-        sql = f"UPDATE progress_photos SET {set_clause} WHERE user_id = %s AND id = %s"
+        sql = QUERIES.progress_photos.update_owned.format(set_clause=set_clause)
         execute_write(sql, (*fields.values(), user_id, photo_id))
         return self.get_by_user_and_id(user_id, photo_id)
 
@@ -209,7 +201,7 @@ class ProgressPhotoRepository:
         """
         return (
             execute_write(
-                "DELETE FROM progress_photos WHERE user_id = %s AND id = %s",
+                QUERIES.progress_photos.delete_owned,
                 (user_id, photo_id),
             )
             > 0
