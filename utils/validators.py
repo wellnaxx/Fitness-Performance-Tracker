@@ -1,5 +1,7 @@
 import re
 
+from core.errors.validation import InputValidationError
+
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_]{2,16}$")
 
 
@@ -16,9 +18,7 @@ def validate_username(username: str) -> str:
     username = username.strip()
 
     if not USERNAME_PATTERN.fullmatch(username):
-        raise ValueError(
-            "Username must be 2-16 characters long and contain only letters, digits, or underscores."
-        )
+        raise InputValidationError.invalid_username()
 
     return username
 
@@ -37,7 +37,7 @@ def validate_password_strength(password: str) -> str:
         errors.append("at least one special character")
 
     if errors:
-        raise ValueError(f"Password must contain {', '.join(errors)}")
+        raise InputValidationError.weak_password(errors)
 
     return password
 
@@ -48,6 +48,6 @@ def validate_meal_type(meal_type: str) -> str:
     normalized = meal_type.lower().strip()
 
     if normalized not in valid_types:
-        raise ValueError(f"meal_type must be one of {valid_types}")
+        raise InputValidationError.invalid_meal_type(valid_types)
 
     return normalized
