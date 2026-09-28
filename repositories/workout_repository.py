@@ -12,6 +12,7 @@ from typing import Final, TypedDict
 
 from core.errors.repository import WorkoutRepositoryError, WorkoutRowError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data.queries import QUERIES
 from schemas.workout_schema import WorkoutCreate, WorkoutPublic, WorkoutUpdate
 
 
@@ -38,12 +39,6 @@ class WorkoutRepository:
     - Handle all workout-related database logic
     """
 
-    _BASE_SELECT: Final[str] = """
-        SELECT id, user_id, name, description, workout_date,
-               started_at, completed_at, notes, created_at, updated_at
-        FROM workouts
-    """
-
     _WORKOUT_UPDATE_WHITELIST: Final[set[str]] = {
         "name",
         "description",
@@ -67,12 +62,7 @@ class WorkoutRepository:
         Raises:
             WorkoutRepositoryError: If the inserted row cannot be retrieved afterwards.
         """
-        sql = """
-            INSERT INTO workouts
-            (user_id, name, description, workout_date, started_at, completed_at, notes)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """
+        sql = QUERIES.workouts.create
         workout_id = execute_insert(
             sql,
             (
@@ -101,7 +91,7 @@ class WorkoutRepository:
         Returns:
             The workout if found, otherwise None.
         """
-        row = fetch_one(f"{self._BASE_SELECT} WHERE id = %s", (workout_id,))
+        row = fetch_one(QUERIES.workouts.get_by_id, (workout_id,))
         if row is None:
             return None
         return self._row_to_workout(row)
@@ -118,7 +108,7 @@ class WorkoutRepository:
             The workout if found and owned by the user, otherwise None.
         """
         row = fetch_one(
-            f"{self._BASE_SELECT} WHERE user_id = %s AND id = %s",
+            QUERIES.workouts.get_by_user_and_id,
             (user_id, workout_id),
         )
         if row is None:
@@ -149,18 +139,18 @@ class WorkoutRepository:
         safe_limit = max(1, min(limit, 1000))
         safe_offset = max(0, offset)
 
-        sql = f"{self._BASE_SELECT} WHERE user_id = %s"
+        filters: list[str] = []
         params: list[object] = [user_id]
 
         if date_from is not None:
-            sql += " AND workout_date >= %s"
+            filters.append(QUERIES.workouts.filter_date_from)
             params.append(date_from)
 
         if date_to is not None:
-            sql += " AND workout_date <= %s"
+            filters.append(QUERIES.workouts.filter_date_to)
             params.append(date_to)
 
-        sql += " ORDER BY workout_date DESC, id DESC LIMIT %s OFFSET %s"
+        sql = QUERIES.workouts.list_by_user.format(filters=" ".join(filters))
         params.extend([safe_limit, safe_offset])
 
         rows = fetch_all(sql, tuple(params))
@@ -195,7 +185,7 @@ class WorkoutRepository:
             raise WorkoutRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
-        sql = f"UPDATE workouts SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE id = %s AND user_id = %s"
+        sql = QUERIES.workouts.update_owned.format(set_clause=set_clause)
         execute_write(sql, (*fields.values(), workout_id, user_id))
         return self.get_by_user_and_id(user_id, workout_id)
 
@@ -212,7 +202,7 @@ class WorkoutRepository:
         """
         return (
             execute_write(
-                "DELETE FROM workouts WHERE id = %s AND user_id = %s",
+                QUERIES.workouts.delete_owned,
                 (workout_id, user_id),
             )
             > 0
@@ -230,7 +220,7 @@ class WorkoutRepository:
             The workout if visible to the user, otherwise None.
         """
         row = fetch_one(
-            f"{self._BASE_SELECT} WHERE id = %s AND (user_id IS NULL OR user_id = %s)",
+            QUERIES.workouts.get_visible_by_id,
             (workout_id, user_id),
         )
         if row is None:
@@ -263,24 +253,24 @@ class WorkoutRepository:
         safe_limit = max(1, min(limit, 1000))
         safe_offset = max(0, offset)
 
-        sql = f"{self._BASE_SELECT} WHERE (user_id IS NULL OR user_id = %s)"
+        filters: list[str] = []
         params: list[object] = [user_id]
 
         if search is not None:
-            sql += " AND (name ILIKE %s OR description ILIKE %s)"
+            filters.append(QUERIES.workouts.filter_search)
             escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             pattern = f"%{escaped}%"
             params.extend([pattern, pattern])
 
         if date_from is not None:
-            sql += " AND workout_date >= %s"
+            filters.append(QUERIES.workouts.filter_date_from)
             params.append(date_from)
 
         if date_to is not None:
-            sql += " AND workout_date <= %s"
+            filters.append(QUERIES.workouts.filter_date_to)
             params.append(date_to)
 
-        sql += " ORDER BY workout_date DESC, id DESC LIMIT %s OFFSET %s"
+        sql = QUERIES.workouts.get_all_visible_for_user.format(filters=" ".join(filters))
         params.extend([safe_limit, safe_offset])
 
         rows = fetch_all(sql, tuple(params))
