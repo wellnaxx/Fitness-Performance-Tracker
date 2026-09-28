@@ -12,6 +12,7 @@ from typing import Final, TypedDict
 
 from core.errors.repository import UserRepositoryError, UserRowError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data.queries import QUERIES
 from schemas.user_schema import UserCreate, UserInternal
 
 
@@ -41,13 +42,6 @@ class UserRepository:
     - Handle all user-related database logic
     """
 
-    _BASE_SELECT: Final[str] = """
-        SELECT id, username, first_name, last_name, date_of_birth, email, password_hash,
-               profile_picture_url, token_version, weight_unit_preference, measurement_unit_preference,
-               created_at, updated_at
-        FROM users
-    """
-
     _PROFILE_UPDATE_WHITELIST: Final[set[str]] = {
         "first_name",
         "last_name",
@@ -72,12 +66,7 @@ class UserRepository:
         Raises:
             UserRepositoryError: If the inserted user cannot be retrieved afterwards.
         """
-        sql = """
-            INSERT INTO users
-            (first_name, last_name, date_of_birth, email, username, password_hash)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """
+        sql = QUERIES.users.create
         user_id = execute_insert(
             sql,
             (
@@ -107,7 +96,7 @@ class UserRepository:
         """
         return (
             fetch_one(
-                "SELECT 1 FROM users WHERE username = %s LIMIT 1",
+                QUERIES.users.username_exists,
                 (username,),
             )
             is not None
@@ -125,7 +114,7 @@ class UserRepository:
         """
         return (
             fetch_one(
-                "SELECT 1 FROM users WHERE email = %s LIMIT 1",
+                QUERIES.users.email_exists,
                 (email,),
             )
             is not None
@@ -141,7 +130,7 @@ class UserRepository:
         Returns:
             The user if found, otherwise None.
         """
-        row = fetch_one(f"{self._BASE_SELECT} WHERE id = %s", (user_id,))
+        row = fetch_one(QUERIES.users.get_by_id, (user_id,))
         if row is None:
             return None
         return self._row_to_user(row)
@@ -156,7 +145,7 @@ class UserRepository:
         Returns:
             The user if found, otherwise None.
         """
-        row = fetch_one(f"{self._BASE_SELECT} WHERE username = %s", (username,))
+        row = fetch_one(QUERIES.users.get_by_username, (username,))
         if row is None:
             return None
         return self._row_to_user(row)
@@ -171,7 +160,7 @@ class UserRepository:
         Returns:
             The user if found, otherwise None.
         """
-        row = fetch_one(f"{self._BASE_SELECT} WHERE email = %s", (email,))
+        row = fetch_one(QUERIES.users.get_by_email, (email,))
         if row is None:
             return None
         return self._row_to_user(row)
@@ -191,7 +180,7 @@ class UserRepository:
         safe_offset = max(0, offset)
 
         rows = fetch_all(
-            f"{self._BASE_SELECT} ORDER BY created_at DESC LIMIT %s OFFSET %s",
+            QUERIES.users.get_all,
             (safe_limit, safe_offset),
         )
         return [self._row_to_user(row) for row in rows]
@@ -214,7 +203,7 @@ class UserRepository:
             return self.get_by_id(user_id)
 
         set_clause = ", ".join(f"{field} = %s" for field in filtered)
-        sql = f"UPDATE users SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE id = %s"
+        sql = QUERIES.users.update.format(set_clause=set_clause)
         execute_write(sql, (*filtered.values(), user_id))
 
         user = self.get_by_id(user_id)
@@ -238,7 +227,7 @@ class UserRepository:
             The updated user if found, otherwise None.
         """
         execute_write(
-            "UPDATE users SET profile_picture_url = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+            QUERIES.users.set_profile_picture_url,
             (profile_picture_url, user_id),
         )
         return self.get_by_id(user_id)
@@ -259,7 +248,7 @@ class UserRepository:
             The updated user if found, otherwise None.
         """
         execute_write(
-            "UPDATE users SET weight_unit_preference = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+            QUERIES.users.set_weight_unit_preference,
             (weight_unit_preference, user_id),
         )
         return self.get_by_id(user_id)
@@ -280,7 +269,7 @@ class UserRepository:
             The updated user if found, otherwise None.
         """
         execute_write(
-            "UPDATE users SET measurement_unit_preference = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+            QUERIES.users.set_measurement_unit_preference,
             (measurement_unit_preference, user_id),
         )
         return self.get_by_id(user_id)
@@ -298,9 +287,7 @@ class UserRepository:
         """
         return (
             execute_write(
-                "UPDATE users SET password_hash = %s, "
-                "token_version = token_version + 1, "
-                "updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                QUERIES.users.update_password,
                 (new_password_hash, user_id),
             )
             > 0
@@ -318,8 +305,7 @@ class UserRepository:
         """
         return (
             execute_write(
-                "UPDATE users SET token_version = token_version + 1, "
-                "updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                QUERIES.users.bump_token_version,
                 (user_id,),
             )
             > 0
@@ -335,7 +321,7 @@ class UserRepository:
         Returns:
             True if a row was deleted, otherwise False.
         """
-        return execute_write("DELETE FROM users WHERE id = %s", (user_id,)) > 0
+        return execute_write(QUERIES.users.delete, (user_id,)) > 0
 
     @staticmethod
     def _parse_user_row(row: dict[str, object]) -> UserRow:
