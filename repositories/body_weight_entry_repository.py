@@ -13,6 +13,7 @@ from typing import Final, TypedDict
 
 from core.errors.repository import BodyWeightEntryRepositoryError, BodyWeightEntryRowError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data.queries import QUERIES
 from schemas.body_weight_entry_schema import (
     BodyWeightEntryCreate,
     BodyWeightEntryPublic,
@@ -36,11 +37,6 @@ class BodyWeightEntryRepository:
     - Execute SQL queries related to body weight entries
     - Convert database row dicts to BodyWeightEntryPublic models
     - Handle all body-weight-related database logic
-    """
-
-    _BASE_SELECT: Final[str] = """
-        SELECT id, user_id, weight, entry_date, created_at
-        FROM body_weight_entries
     """
 
     _BODY_WEIGHT_ENTRY_UPDATE_WHITELIST: Final[set[str]] = {
@@ -67,11 +63,7 @@ class BodyWeightEntryRepository:
             BodyWeightEntryRepositoryError: If the inserted row cannot be retrieved afterwards.
         """
         entry_id = execute_insert(
-            """
-            INSERT INTO body_weight_entries (user_id, weight, entry_date)
-            VALUES (%s, %s, %s)
-            RETURNING id
-            """,
+            QUERIES.body_weight_entries.create,
             (user_id, entry_data.weight, entry_data.entry_date),
         )
 
@@ -90,7 +82,7 @@ class BodyWeightEntryRepository:
         Returns:
             The entry if found, otherwise None.
         """
-        row = fetch_one(f"{self._BASE_SELECT} WHERE id = %s", (entry_id,))
+        row = fetch_one(QUERIES.body_weight_entries.get_by_id, (entry_id,))
         if row is None:
             return None
         return self._row_to_body_weight_entry(row)
@@ -111,7 +103,7 @@ class BodyWeightEntryRepository:
             The entry if found and owned by the user, otherwise None.
         """
         row = fetch_one(
-            f"{self._BASE_SELECT} WHERE user_id = %s AND id = %s",
+            QUERIES.body_weight_entries.get_by_user_and_id,
             (user_id, entry_id),
         )
         if row is None:
@@ -134,7 +126,7 @@ class BodyWeightEntryRepository:
             The entry if found, otherwise None.
         """
         row = fetch_one(
-            f"{self._BASE_SELECT} WHERE user_id = %s AND entry_date = %s",
+            QUERIES.body_weight_entries.get_by_user_and_date,
             (user_id, entry_date),
         )
         if row is None:
@@ -152,7 +144,7 @@ class BodyWeightEntryRepository:
             The latest entry if one exists, otherwise None.
         """
         row = fetch_one(
-            f"{self._BASE_SELECT} WHERE user_id = %s ORDER BY entry_date DESC, id DESC LIMIT 1",
+            QUERIES.body_weight_entries.get_latest_for_user,
             (user_id,),
         )
         if row is None:
@@ -183,18 +175,18 @@ class BodyWeightEntryRepository:
         safe_limit = max(1, min(limit, 1000))
         safe_offset = max(0, offset)
 
-        sql = f"{self._BASE_SELECT} WHERE user_id = %s"
+        filters: list[str] = []
         params: list[object] = [user_id]
 
         if date_from is not None:
-            sql += " AND entry_date >= %s"
+            filters.append(QUERIES.body_weight_entries.filter_date_from)
             params.append(date_from)
 
         if date_to is not None:
-            sql += " AND entry_date <= %s"
+            filters.append(QUERIES.body_weight_entries.filter_date_to)
             params.append(date_to)
 
-        sql += " ORDER BY entry_date DESC, id DESC LIMIT %s OFFSET %s"
+        sql = QUERIES.body_weight_entries.list_by_user.format(filters=" ".join(filters))
         params.extend([safe_limit, safe_offset])
 
         rows = fetch_all(sql, tuple(params))
@@ -229,7 +221,7 @@ class BodyWeightEntryRepository:
             raise BodyWeightEntryRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
-        sql = f"UPDATE body_weight_entries SET {set_clause} WHERE user_id = %s AND id = %s"
+        sql = QUERIES.body_weight_entries.update_owned.format(set_clause=set_clause)
         execute_write(sql, (*fields.values(), user_id, entry_id))
         return self.get_by_user_and_id(user_id, entry_id)
 
@@ -246,7 +238,7 @@ class BodyWeightEntryRepository:
         """
         return (
             execute_write(
-                "DELETE FROM body_weight_entries WHERE user_id = %s AND id = %s",
+                QUERIES.body_weight_entries.delete_owned,
                 (user_id, entry_id),
             )
             > 0
