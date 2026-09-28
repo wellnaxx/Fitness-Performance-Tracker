@@ -13,6 +13,7 @@ from typing import Final, TypedDict
 
 from core.errors.repository import SetEntryRepositoryError, SetEntryRowError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data.queries import QUERIES
 from schemas.set_entry_schema import SetEntryCreate, SetEntryPublic, SetEntryUpdate
 
 
@@ -38,12 +39,6 @@ class SetEntryRepository:
     - Handle all set-entry-related database logic
     """
 
-    _BASE_SELECT: Final[str] = """
-        SELECT id, workout_exercise_id, set_number, reps, weight, rpe,
-               is_warmup, completed, created_at
-        FROM set_entries
-    """
-
     _SET_ENTRY_UPDATE_WHITELIST: Final[set[str]] = {
         "set_number",
         "reps",
@@ -66,12 +61,7 @@ class SetEntryRepository:
         Raises:
             SetEntryRepositoryError: If the inserted row cannot be retrieved afterwards.
         """
-        sql = """
-            INSERT INTO set_entries
-            (workout_exercise_id, set_number, reps, weight, rpe, is_warmup, completed)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """
+        sql = QUERIES.set_entries.create
         set_entry_id = execute_insert(
             sql,
             (
@@ -100,7 +90,7 @@ class SetEntryRepository:
         Returns:
             The set entry if found, otherwise None.
         """
-        row = fetch_one(f"{self._BASE_SELECT} WHERE id = %s", (set_entry_id,))
+        row = fetch_one(QUERIES.set_entries.get_by_id, (set_entry_id,))
         if row is None:
             return None
         return self._row_to_set_entry(row)
@@ -121,7 +111,7 @@ class SetEntryRepository:
             The set entry if found, otherwise None.
         """
         row = fetch_one(
-            f"{self._BASE_SELECT} WHERE workout_exercise_id = %s AND id = %s",
+            QUERIES.set_entries.get_by_workout_exercise_and_id,
             (workout_exercise_id, set_entry_id),
         )
         if row is None:
@@ -142,7 +132,7 @@ class SetEntryRepository:
             Set entries ordered by set number.
         """
         rows = fetch_all(
-            f"{self._BASE_SELECT} WHERE workout_exercise_id = %s ORDER BY set_number ASC, id ASC",
+            QUERIES.set_entries.list_by_workout_exercise,
             (workout_exercise_id,),
         )
         return [self._row_to_set_entry(row) for row in rows]
@@ -176,7 +166,7 @@ class SetEntryRepository:
             raise SetEntryRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
-        sql = f"UPDATE set_entries SET {set_clause} WHERE workout_exercise_id = %s AND id = %s"
+        sql = QUERIES.set_entries.update_in_workout_exercise.format(set_clause=set_clause)
         execute_write(sql, (*fields.values(), workout_exercise_id, set_entry_id))
         return self.get_by_workout_exercise_and_id(workout_exercise_id, set_entry_id)
 
@@ -197,7 +187,7 @@ class SetEntryRepository:
         """
         return (
             execute_write(
-                "DELETE FROM set_entries WHERE workout_exercise_id = %s AND id = %s",
+                QUERIES.set_entries.delete_in_workout_exercise,
                 (workout_exercise_id, set_entry_id),
             )
             > 0
@@ -218,11 +208,7 @@ class SetEntryRepository:
             delta: Signed amount to add to each matching set number.
         """
         execute_write(
-            """
-            UPDATE set_entries
-            SET set_number = set_number + %s
-            WHERE workout_exercise_id = %s AND set_number >= %s
-            """,
+            QUERIES.set_entries.shift_set_numbers,
             (delta, workout_exercise_id, from_set_number),
         )
 
@@ -234,17 +220,7 @@ class SetEntryRepository:
             workout_exercise_id: Parent workout exercise ID.
         """
         execute_write(
-            """
-            WITH ordered_entries AS (
-                SELECT id, ROW_NUMBER() OVER (ORDER BY set_number ASC, id ASC) AS new_set_number
-                FROM set_entries
-                WHERE workout_exercise_id = %s
-            )
-            UPDATE set_entries AS se
-            SET set_number = ordered_entries.new_set_number
-            FROM ordered_entries
-            WHERE se.id = ordered_entries.id
-            """,
+            QUERIES.set_entries.normalize_set_numbers,
             (workout_exercise_id,),
         )
 
