@@ -12,6 +12,7 @@ from typing import Final, TypedDict
 
 from core.errors.repository import MealRepositoryError, MealRowError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data.queries import QUERIES
 from schemas.meal_schema import MealCreate, MealPublic, MealUpdate
 
 
@@ -37,12 +38,6 @@ class MealRepository:
     - Handle all meal-related database logic
     """
 
-    _BASE_SELECT: Final[str] = """
-        SELECT id, user_id, name, description, eaten_at, meal_type,
-               notes, created_at, updated_at
-        FROM meals
-    """
-
     _MEAL_UPDATE_WHITELIST: Final[set[str]] = {
         "name",
         "description",
@@ -65,12 +60,7 @@ class MealRepository:
         Raises:
             MealRepositoryError: If the inserted meal cannot be retrieved afterwards.
         """
-        sql = """
-            INSERT INTO meals
-            (user_id, name, description, eaten_at, meal_type, notes)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """
+        sql = QUERIES.meals.create
         meal_id = execute_insert(
             sql,
             (
@@ -98,7 +88,7 @@ class MealRepository:
         Returns:
             The meal if found, otherwise None.
         """
-        row = fetch_one(f"{self._BASE_SELECT} WHERE id = %s", (meal_id,))
+        row = fetch_one(QUERIES.meals.get_by_id, (meal_id,))
         if row is None:
             return None
         return self._row_to_meal(row)
@@ -115,7 +105,7 @@ class MealRepository:
             The meal if found and owned by the user, otherwise None.
         """
         row = fetch_one(
-            f"{self._BASE_SELECT} WHERE user_id = %s AND id = %s",
+            QUERIES.meals.get_by_user_and_id,
             (user_id, meal_id),
         )
         if row is None:
@@ -148,22 +138,22 @@ class MealRepository:
         safe_limit = max(1, min(limit, 1000))
         safe_offset = max(0, offset)
 
-        sql = f"{self._BASE_SELECT} WHERE user_id = %s"
+        filters: list[str] = []
         params: list[object] = [user_id]
 
         if date_from is not None:
-            sql += " AND eaten_at::date >= %s"
+            filters.append(QUERIES.meals.filter_date_from)
             params.append(date_from)
 
         if date_to is not None:
-            sql += " AND eaten_at::date <= %s"
+            filters.append(QUERIES.meals.filter_date_to)
             params.append(date_to)
 
         if meal_type is not None:
-            sql += " AND meal_type = %s"
+            filters.append(QUERIES.meals.filter_meal_type)
             params.append(meal_type)
 
-        sql += " ORDER BY eaten_at DESC, id DESC LIMIT %s OFFSET %s"
+        sql = QUERIES.meals.list_by_user.format(filters=" ".join(filters))
         params.extend([safe_limit, safe_offset])
 
         rows = fetch_all(sql, tuple(params))
@@ -198,7 +188,7 @@ class MealRepository:
             raise MealRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
-        sql = f"UPDATE meals SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE user_id = %s AND id = %s"
+        sql = QUERIES.meals.update_owned.format(set_clause=set_clause)
         execute_write(sql, (*fields.values(), user_id, meal_id))
         return self.get_by_user_and_id(user_id, meal_id)
 
@@ -215,7 +205,7 @@ class MealRepository:
         """
         return (
             execute_write(
-                "DELETE FROM meals WHERE user_id = %s AND id = %s",
+                QUERIES.meals.delete_owned,
                 (user_id, meal_id),
             )
             > 0
