@@ -18,6 +18,7 @@ from data.executor import (
     fetch_one_tx,
     transaction_cursor,
 )
+from data.queries import QUERIES
 from schemas.workout_exercises_schema import (
     WorkoutExerciseCreate,
     WorkoutExercisePublic,
@@ -42,11 +43,6 @@ class WorkoutExerciseRepository:
     - Execute SQL queries related to workout exercises
     - Convert database row dicts to WorkoutExercisePublic models
     - Handle all workout-exercise-related database logic
-    """
-
-    _BASE_SELECT: Final[str] = """
-        SELECT id, workout_id, exercise_id, order_index, rest_seconds, notes
-        FROM workout_exercises
     """
 
     _WORKOUT_EXERCISE_UPDATE_WHITELIST: Final[set[str]] = {
@@ -79,11 +75,7 @@ class WorkoutExerciseRepository:
             with transaction_cursor() as cursor:
                 execute_write_tx(
                     cursor,
-                    """
-                    UPDATE workout_exercises
-                    SET order_index = order_index + 1
-                    WHERE workout_id = %s AND order_index >= %s
-                    """,
+                    QUERIES.workout_exercises.shift_for_insert,
                     (
                         workout_id,
                         workout_exercise_data.order_index,
@@ -92,12 +84,7 @@ class WorkoutExerciseRepository:
 
                 workout_exercise_id = execute_insert_tx(
                     cursor,
-                    """
-                    INSERT INTO workout_exercises
-                    (workout_id, exercise_id, order_index, rest_seconds, notes)
-                    VALUES (%s, %s, %s, %s, %s)
-                    RETURNING id
-                    """,
+                    QUERIES.workout_exercises.create,
                     (
                         workout_id,
                         workout_exercise_data.exercise_id,
@@ -109,7 +96,7 @@ class WorkoutExerciseRepository:
 
                 row = fetch_one_tx(
                     cursor,
-                    f"{self._BASE_SELECT} WHERE id = %s",
+                    QUERIES.workout_exercises.get_by_id,
                     (workout_exercise_id,),
                 )
         except WorkoutExerciseRepositoryError:
@@ -132,7 +119,7 @@ class WorkoutExerciseRepository:
         Returns:
             The workout exercise if found, otherwise None.
         """
-        row = fetch_one(f"{self._BASE_SELECT} WHERE id = %s", (workout_exercise_id,))
+        row = fetch_one(QUERIES.workout_exercises.get_by_id, (workout_exercise_id,))
         if row is None:
             return None
         return self._row_to_workout_exercise(row)
@@ -153,7 +140,7 @@ class WorkoutExerciseRepository:
             The workout exercise if found, otherwise None.
         """
         row = fetch_one(
-            f"{self._BASE_SELECT} WHERE workout_id = %s AND id = %s",
+            QUERIES.workout_exercises.get_by_workout_and_id,
             (workout_id, workout_exercise_id),
         )
         if row is None:
@@ -171,7 +158,7 @@ class WorkoutExerciseRepository:
             Workout exercises ordered by `order_index`.
         """
         rows = fetch_all(
-            f"{self._BASE_SELECT} WHERE workout_id = %s ORDER BY order_index ASC, id ASC",
+            QUERIES.workout_exercises.list_by_workout,
             (workout_id,),
         )
         return [self._row_to_workout_exercise(row) for row in rows]
@@ -186,7 +173,7 @@ class WorkoutExerciseRepository:
             with transaction_cursor() as cursor:
                 existing = fetch_one_tx(
                     cursor,
-                    f"{self._BASE_SELECT} WHERE workout_id = %s AND id = %s",
+                    QUERIES.workout_exercises.get_by_workout_and_id,
                     (workout_id, workout_exercise_id),
                 )
                 if existing is None:
@@ -205,13 +192,7 @@ class WorkoutExerciseRepository:
                     if new_order_index < existing_exercise.order_index:
                         execute_write_tx(
                             cursor,
-                            """
-                            UPDATE workout_exercises
-                            SET order_index = order_index + 1
-                            WHERE workout_id = %s
-                            AND order_index >= %s
-                            AND order_index < %s
-                            """,
+                            QUERIES.workout_exercises.shift_toward_end,
                             (
                                 workout_id,
                                 new_order_index,
@@ -221,13 +202,7 @@ class WorkoutExerciseRepository:
                     else:
                         execute_write_tx(
                             cursor,
-                            """
-                            UPDATE workout_exercises
-                            SET order_index = order_index - 1
-                            WHERE workout_id = %s
-                            AND order_index > %s
-                            AND order_index <= %s
-                            """,
+                            QUERIES.workout_exercises.shift_toward_start,
                             (
                                 workout_id,
                                 existing_exercise.order_index,
@@ -236,12 +211,12 @@ class WorkoutExerciseRepository:
                         )
 
                 set_clause = ", ".join(f"{field} = %s" for field in fields)
-                sql = f"UPDATE workout_exercises SET {set_clause} WHERE workout_id = %s AND id = %s"
+                sql = QUERIES.workout_exercises.update.format(set_clause=set_clause)
                 execute_write_tx(cursor, sql, (*fields.values(), workout_id, workout_exercise_id))
 
                 updated_row = fetch_one_tx(
                     cursor,
-                    f"{self._BASE_SELECT} WHERE workout_id = %s AND id = %s",
+                    QUERIES.workout_exercises.get_by_workout_and_id,
                     (workout_id, workout_exercise_id),
                 )
         except WorkoutExerciseRepositoryError:
@@ -272,24 +247,14 @@ class WorkoutExerciseRepository:
             with transaction_cursor() as cursor:
                 deleted = execute_write_tx(
                     cursor,
-                    "DELETE FROM workout_exercises WHERE workout_id = %s AND id = %s",
+                    QUERIES.workout_exercises.delete,
                     (workout_id, workout_exercise_id),
                 )
 
                 if deleted > 0:
                     execute_write_tx(
                         cursor,
-                        """
-                        WITH ordered_exercises AS (
-                            SELECT id, ROW_NUMBER() OVER (ORDER BY order_index ASC, id ASC) - 1 AS new_index
-                            FROM workout_exercises
-                            WHERE workout_id = %s
-                        )
-                        UPDATE workout_exercises AS we
-                        SET order_index = ordered_exercises.new_index
-                        FROM ordered_exercises
-                        WHERE we.id = ordered_exercises.id
-                        """,
+                        QUERIES.workout_exercises.normalize_order_indexes,
                         (workout_id,),
                     )
 
