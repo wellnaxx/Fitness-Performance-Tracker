@@ -12,6 +12,7 @@ from typing import Final, TypedDict
 
 from core.errors.repository import ExerciseRepositoryError, ExerciseRowError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data.queries import QUERIES
 from schemas.exercise_schema import ExerciseCreate, ExercisePublic, ExerciseUpdate
 
 
@@ -38,12 +39,6 @@ class ExerciseRepository:
     - Handle all exercise-related database logic
     """
 
-    _BASE_SELECT: Final[str] = """
-        SELECT id, name, description, muscle_group, equipment, is_compound,
-               created_by, is_custom, created_at, updated_at
-        FROM exercises
-    """
-
     _EXERCISE_UPDATE_WHITELIST: Final[set[str]] = {
         "name",
         "description",
@@ -66,12 +61,7 @@ class ExerciseRepository:
         Raises:
             ExerciseRepositoryError: If the exercise could not be retrieved after creation.
         """
-        sql = """
-            INSERT INTO exercises
-            (name, description, muscle_group, equipment, is_compound, created_by, is_custom)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """
+        sql = QUERIES.exercises.create
         exercise_id = execute_insert(
             sql,
             (
@@ -100,7 +90,7 @@ class ExerciseRepository:
         Returns:
             ExercisePublic: The exercise data if found, otherwise None.
         """
-        sql = self._BASE_SELECT + " WHERE id = %s"
+        sql = QUERIES.exercises.get_by_id
         row = fetch_one(sql, (exercise_id,))
         if row is None:
             return None
@@ -159,33 +149,28 @@ class ExerciseRepository:
         """
         safe_limit = max(1, min(limit, 1000))  # Enforce reasonable limits to prevent abuse
         safe_offset = max(0, offset)
-        sql = (
-            self._BASE_SELECT
-            + """
-            WHERE (created_by IS NULL OR created_by = %s)
-        """
-        )
+        filters: list[str] = []
         params: list[object] = [user_id]
 
         if search is not None:
-            sql += " AND (name ILIKE %s OR description ILIKE %s)"
+            filters.append(QUERIES.exercises.filter_search)
             escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             search_pattern = f"%{escaped}%"
             params.extend([search_pattern, search_pattern])
         if muscle_group is not None:
-            sql += " AND muscle_group = %s"
+            filters.append(QUERIES.exercises.filter_muscle_group)
             params.append(muscle_group)
         if equipment is not None:
-            sql += " AND equipment = %s"
+            filters.append(QUERIES.exercises.filter_equipment)
             params.append(equipment)
         if is_compound is not None:
-            sql += " AND is_compound = %s"
+            filters.append(QUERIES.exercises.filter_is_compound)
             params.append(is_compound)
         if is_custom is not None:
-            sql += " AND is_custom = %s"
+            filters.append(QUERIES.exercises.filter_is_custom)
             params.append(is_custom)
 
-        sql += " ORDER BY is_custom ASC, name ASC LIMIT %s OFFSET %s"
+        sql = QUERIES.exercises.list_visible.format(filters=" ".join(filters))
         params.extend([safe_limit, safe_offset])
 
         rows = fetch_all(sql, tuple(params))
@@ -215,11 +200,7 @@ class ExerciseRepository:
             raise ExerciseRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
-        sql = f"""
-            UPDATE exercises
-            SET {set_clause}, updated_at = NOW()
-            WHERE id = %s AND created_by = %s
-        """
+        sql = QUERIES.exercises.update_owned.format(set_clause=set_clause)
         params: list[object] = [*fields.values(), exercise_id, user_id]
 
         rows_affected = execute_write(sql, tuple(params))
@@ -239,7 +220,7 @@ class ExerciseRepository:
         Returns:
             bool: True if the exercise was deleted, False if it was not found or not owned by the user.
         """
-        sql = "DELETE FROM exercises WHERE id = %s AND created_by = %s"
+        sql = QUERIES.exercises.delete_owned
         rows_affected = execute_write(sql, (exercise_id, user_id))
         return rows_affected > 0
 
@@ -260,17 +241,14 @@ class ExerciseRepository:
         Returns:
             bool: True if an exercise with the given name exists and is visible, otherwise False.
         """
-        sql = """
-            SELECT 1 FROM exercises
-            WHERE name = %s AND (created_by IS NULL OR created_by = %s)
-        """
+        filters: list[str] = []
         params: list[object] = [name, user_id]
 
         if exclude_exercise_id is not None:
-            sql += " AND id <> %s"
+            filters.append(QUERIES.exercises.filter_exclude_exercise_id)
             params.append(exclude_exercise_id)
 
-        sql += " LIMIT 1"
+        sql = QUERIES.exercises.name_exists_visible.format(filters=" ".join(filters))
         return fetch_one(sql, tuple(params)) is not None
 
     @staticmethod
