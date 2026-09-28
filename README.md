@@ -64,7 +64,8 @@ This repository is in an API-first backend phase.
 Fitness-Performance-Tracker/
 |-- auth/               # password hashing and JWT helpers
 |-- core/               # configuration and app-level errors
-|-- data/               # DB connection helpers, schema, init script, seed hook
+|-- data/               # DB helpers, SQL query registry, schema and seed scripts
+|   `-- sql/            # SQL files grouped by entity and operation
 |-- dependencies/       # FastAPI dependency providers and auth deps
 |-- docs/               # docs assets such as the ERD image
 |-- postman/            # manual API testing collection
@@ -72,7 +73,7 @@ Fitness-Performance-Tracker/
 |-- routers/            # API route modules
 |-- schemas/            # Pydantic request and response models
 |-- services/           # business logic layer
-|-- tests/              # test placeholder
+|-- tests/              # SQL loading and repository regression tests
 |-- utils/              # environment and validation helpers
 `-- main.py             # FastAPI application entrypoint
 ```
@@ -93,6 +94,25 @@ Each layer has a focused responsibility:
 - services enforce rules such as ownership, visibility, and validation
 - repositories execute SQL and return mapped domain data
 - schemas validate request and response payloads
+
+Repository queries live in `data/sql/<entity>/<operation>.sql`, following the
+FleetFlow layout. `data/loader.py` reads files relative to its own location and
+caches their contents. `data/queries.py` exposes typed, lazily loaded groups;
+repositories use references such as `QUERIES.users.get_by_id`.
+
+To add a query, create its SQL file and register it in the corresponding query
+dataclass and `QueryRegistry` property. Optional predicates live in `filter_*.sql`
+files and fill a statement's `{filters}` slot. Partial updates fill `{set_clause}`
+using the repository's existing column whitelist. Both slots are for SQL structure
+only: pass all runtime values separately through the executor's `%s` parameters.
+SQL files must be included when copying or deploying the backend. Queries are
+cached for the life of the process, so restart the backend after editing them.
+
+Run the database-independent regression tests with:
+
+```bash
+python -m unittest discover -s tests -v
+```
 
 ## Database Model
 
