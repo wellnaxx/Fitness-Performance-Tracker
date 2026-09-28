@@ -13,6 +13,7 @@ from typing import Final, TypedDict
 
 from core.errors.repository import BodyMeasurementRepositoryError, BodyMeasurementRowError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data.queries import QUERIES
 from schemas.body_measurement_schema import (
     BodyMeasurementCreate,
     BodyMeasurementPublic,
@@ -52,14 +53,6 @@ class BodyMeasurementRepository:
     - Handle all body-measurement-related database logic
     """
 
-    _BASE_SELECT: Final[str] = """
-        SELECT id, user_id, entry_date, neck, shoulders, waist, chest, hips,
-               left_bicep, right_bicep, left_forearm, right_forearm,
-               left_thigh, right_thigh, left_calf, right_calf,
-               notes, created_at, updated_at
-        FROM body_measurements
-    """
-
     _BODY_MEASUREMENT_UPDATE_WHITELIST: Final[set[str]] = {
         "entry_date",
         "neck",
@@ -97,14 +90,7 @@ class BodyMeasurementRepository:
             BodyMeasurementRepositoryError: If the inserted row cannot be retrieved afterwards.
         """
         entry_id = execute_insert(
-            """
-            INSERT INTO body_measurements
-            (user_id, entry_date, neck, shoulders, waist, chest, hips,
-             left_bicep, right_bicep, left_forearm, right_forearm,
-             left_thigh, right_thigh, left_calf, right_calf, notes)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-            """,
+            QUERIES.body_measurements.create,
             (
                 user_id,
                 entry_data.entry_date,
@@ -140,7 +126,7 @@ class BodyMeasurementRepository:
         Returns:
             The entry if found, otherwise None.
         """
-        row = fetch_one(f"{self._BASE_SELECT} WHERE id = %s", (entry_id,))
+        row = fetch_one(QUERIES.body_measurements.get_by_id, (entry_id,))
         if row is None:
             return None
         return self._row_to_body_measurement(row)
@@ -161,7 +147,7 @@ class BodyMeasurementRepository:
             The entry if found and owned by the user, otherwise None.
         """
         row = fetch_one(
-            f"{self._BASE_SELECT} WHERE user_id = %s AND id = %s",
+            QUERIES.body_measurements.get_by_user_and_id,
             (user_id, entry_id),
         )
         if row is None:
@@ -184,7 +170,7 @@ class BodyMeasurementRepository:
             The entry if found, otherwise None.
         """
         row = fetch_one(
-            f"{self._BASE_SELECT} WHERE user_id = %s AND entry_date = %s",
+            QUERIES.body_measurements.get_by_user_and_date,
             (user_id, entry_date),
         )
         if row is None:
@@ -202,7 +188,7 @@ class BodyMeasurementRepository:
             The latest entry if one exists, otherwise None.
         """
         row = fetch_one(
-            f"{self._BASE_SELECT} WHERE user_id = %s ORDER BY entry_date DESC, id DESC LIMIT 1",
+            QUERIES.body_measurements.get_latest_for_user,
             (user_id,),
         )
         if row is None:
@@ -233,18 +219,18 @@ class BodyMeasurementRepository:
         safe_limit = max(1, min(limit, 1000))
         safe_offset = max(0, offset)
 
-        sql = f"{self._BASE_SELECT} WHERE user_id = %s"
+        filters: list[str] = []
         params: list[object] = [user_id]
 
         if date_from is not None:
-            sql += " AND entry_date >= %s"
+            filters.append(QUERIES.body_measurements.filter_date_from)
             params.append(date_from)
 
         if date_to is not None:
-            sql += " AND entry_date <= %s"
+            filters.append(QUERIES.body_measurements.filter_date_to)
             params.append(date_to)
 
-        sql += " ORDER BY entry_date DESC, id DESC LIMIT %s OFFSET %s"
+        sql = QUERIES.body_measurements.list_by_user.format(filters=" ".join(filters))
         params.extend([safe_limit, safe_offset])
 
         rows = fetch_all(sql, tuple(params))
@@ -280,8 +266,7 @@ class BodyMeasurementRepository:
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
         sql = (
-            f"UPDATE body_measurements SET {set_clause}, updated_at = CURRENT_TIMESTAMP "
-            "WHERE user_id = %s AND id = %s"
+            QUERIES.body_measurements.update_owned.format(set_clause=set_clause)
         )
         execute_write(sql, (*fields.values(), user_id, entry_id))
         return self.get_by_user_and_id(user_id, entry_id)
@@ -299,7 +284,7 @@ class BodyMeasurementRepository:
         """
         return (
             execute_write(
-                "DELETE FROM body_measurements WHERE user_id = %s AND id = %s",
+                QUERIES.body_measurements.delete_owned,
                 (user_id, entry_id),
             )
             > 0
