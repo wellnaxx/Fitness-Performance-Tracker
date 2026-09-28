@@ -13,6 +13,7 @@ from typing import Final, TypedDict
 
 from core.errors.repository import MealItemRepositoryError, MealItemRowError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data.queries import QUERIES
 from schemas.meal_item_schema import MealItemCreate, MealItemPublic, MealItemUpdate
 
 
@@ -38,11 +39,6 @@ class MealItemRepository:
     - Handle all meal-related database logic
     """
 
-    _BASE_SELECT: Final[str] = """
-        SELECT id, meal_id, name, serving_size, calories, protein, carbs, fats, created_at
-        FROM meal_items
-    """
-
     _MEAL_ITEM_UPDATE_WHITELIST: Final[set[str]] = {
         "name",
         "serving_size",
@@ -65,12 +61,7 @@ class MealItemRepository:
         Raises:
             MealItemRepositoryError: If the inserted item cannot be retrieved afterwards.
         """
-        sql = """
-            INSERT INTO meal_items
-            (meal_id, name, serving_size, calories, protein, carbs, fats)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """
+        sql = QUERIES.meal_items.create
         meal_item_id = execute_insert(
             sql,
             (
@@ -99,7 +90,7 @@ class MealItemRepository:
         Returns:
             The meal item if found, otherwise None.
         """
-        row = fetch_one(f"{self._BASE_SELECT} WHERE id = %s", (meal_item_id,))
+        row = fetch_one(QUERIES.meal_items.get_by_id, (meal_item_id,))
         if row is None:
             return None
         return self._row_to_meal_item(row)
@@ -116,7 +107,7 @@ class MealItemRepository:
             The meal item if found in the meal, otherwise None.
         """
         row = fetch_one(
-            f"{self._BASE_SELECT} WHERE meal_id = %s AND id = %s",
+            QUERIES.meal_items.get_by_meal_and_id,
             (meal_id, meal_item_id),
         )
         if row is None:
@@ -134,7 +125,7 @@ class MealItemRepository:
             Meal items ordered by insertion ID.
         """
         rows = fetch_all(
-            f"{self._BASE_SELECT} WHERE meal_id = %s ORDER BY id ASC",
+            QUERIES.meal_items.list_by_meal,
             (meal_id,),
         )
         return [self._row_to_meal_item(row) for row in rows]
@@ -168,7 +159,7 @@ class MealItemRepository:
             raise MealItemRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
-        sql = f"UPDATE meal_items SET {set_clause} WHERE meal_id = %s AND id = %s"
+        sql = QUERIES.meal_items.update_in_meal.format(set_clause=set_clause)
         execute_write(sql, (*fields.values(), meal_id, meal_item_id))
         return self.get_by_meal_and_id(meal_id, meal_item_id)
 
@@ -185,7 +176,7 @@ class MealItemRepository:
         """
         return (
             execute_write(
-                "DELETE FROM meal_items WHERE meal_id = %s AND id = %s",
+                QUERIES.meal_items.delete_in_meal,
                 (meal_id, meal_item_id),
             )
             > 0
