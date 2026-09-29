@@ -2,31 +2,26 @@
 Progress Photo Repository
 
 This module handles all database interactions for the ProgressPhoto entity.
-It translates between database rows (now dicts) and Pydantic models.
+It delegates database row validation and conversion to the dedicated mapper.
 """
 
 from __future__ import annotations
 
-from datetime import date, datetime
-from typing import Final, TypedDict
+from typing import TYPE_CHECKING, Final
 
-from core.errors.repository import ProgressPhotoRepositoryError, ProgressPhotoRowError
+from core.errors.repository import ProgressPhotoRepositoryError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data.mappers.progress_photo import map_progress_photo
 from data.queries import QUERIES
-from schemas.progress_photo_schema import (
-    ProgressPhotoCreate,
-    ProgressPhotoPublic,
-    ProgressPhotoUpdate,
-)
 
+if TYPE_CHECKING:
+    from datetime import date
 
-class ProgressPhotoRow(TypedDict):
-    id: int
-    user_id: int
-    photo_url: str
-    entry_date: date
-    notes: str | None
-    created_at: datetime
+    from schemas.progress_photo_schema import (
+        ProgressPhotoCreate,
+        ProgressPhotoPublic,
+        ProgressPhotoUpdate,
+    )
 
 
 class ProgressPhotoRepository:
@@ -86,7 +81,7 @@ class ProgressPhotoRepository:
         row = fetch_one(QUERIES.progress_photos.get_by_id, (photo_id,))
         if row is None:
             return None
-        return self._row_to_progress_photo(row)
+        return map_progress_photo(row)
 
     def get_by_user_and_id(
         self,
@@ -109,7 +104,7 @@ class ProgressPhotoRepository:
         )
         if row is None:
             return None
-        return self._row_to_progress_photo(row)
+        return map_progress_photo(row)
 
     def list_by_user(
         self,
@@ -150,7 +145,7 @@ class ProgressPhotoRepository:
         params.extend([safe_limit, safe_offset])
 
         rows = fetch_all(sql, tuple(params))
-        return [self._row_to_progress_photo(row) for row in rows]
+        return [map_progress_photo(row) for row in rows]
 
     def update_owned(
         self,
@@ -206,41 +201,3 @@ class ProgressPhotoRepository:
             )
             > 0
         )
-
-    @staticmethod
-    def _parse_progress_photo_row(row: dict[str, object]) -> ProgressPhotoRow:
-        """Validate and normalize a raw database row into a typed ProgressPhotoRow."""
-        id_value = row.get("id")
-        user_id = row.get("user_id")
-        photo_url = row.get("photo_url")
-        entry_date = row.get("entry_date")
-        notes = row.get("notes")
-        created_at = row.get("created_at")
-
-        if not isinstance(id_value, int):
-            raise ProgressPhotoRowError.invalid_type("id", "int")
-        if not isinstance(user_id, int):
-            raise ProgressPhotoRowError.invalid_type("user_id", "int")
-        if not isinstance(photo_url, str):
-            raise ProgressPhotoRowError.invalid_type("photo_url", "str")
-        if not isinstance(entry_date, date):
-            raise ProgressPhotoRowError.invalid_type("entry_date", "date")
-        if notes is not None and not isinstance(notes, str):
-            raise ProgressPhotoRowError.invalid_type("notes", "str | None")
-        if not isinstance(created_at, datetime):
-            raise ProgressPhotoRowError.invalid_type("created_at", "datetime")
-
-        return ProgressPhotoRow(
-            id=id_value,
-            user_id=user_id,
-            photo_url=photo_url,
-            entry_date=entry_date,
-            notes=notes,
-            created_at=created_at,
-        )
-
-    @classmethod
-    def _row_to_progress_photo(cls, row: dict[str, object]) -> ProgressPhotoPublic:
-        """Convert a raw database row into a validated ProgressPhotoPublic model."""
-        progress_photo_row = cls._parse_progress_photo_row(row)
-        return ProgressPhotoPublic.model_validate(progress_photo_row)
