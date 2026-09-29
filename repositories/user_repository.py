@@ -2,34 +2,20 @@
 User Repository - Data Access Layer for User operations.
 
 This module handles all database interactions for the User entity.
-It translates between database rows (now dicts) and Pydantic models.
+It delegates database row validation and conversion to the dedicated mapper.
 """
 
 from __future__ import annotations
 
-from datetime import date, datetime
-from typing import Final, TypedDict
+from typing import TYPE_CHECKING, Final
 
-from core.errors.repository import UserRepositoryError, UserRowError
+from core.errors.repository import UserRepositoryError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data.mappers.user import map_user
 from data.queries import QUERIES
-from schemas.user_schema import UserCreate, UserInternal
 
-
-class UserRow(TypedDict):
-    id: int
-    username: str
-    first_name: str
-    last_name: str
-    date_of_birth: date
-    email: str
-    password_hash: str
-    profile_picture_url: str | None
-    token_version: int
-    weight_unit_preference: str
-    measurement_unit_preference: str
-    created_at: datetime
-    updated_at: datetime
+if TYPE_CHECKING:
+    from schemas.user_schema import UserCreate, UserInternal
 
 
 class UserRepository:
@@ -133,7 +119,7 @@ class UserRepository:
         row = fetch_one(QUERIES.users.get_by_id, (user_id,))
         if row is None:
             return None
-        return self._row_to_user(row)
+        return map_user(row)
 
     def get_by_username(self, username: str) -> UserInternal | None:
         """
@@ -148,7 +134,7 @@ class UserRepository:
         row = fetch_one(QUERIES.users.get_by_username, (username,))
         if row is None:
             return None
-        return self._row_to_user(row)
+        return map_user(row)
 
     def get_by_email(self, email: str) -> UserInternal | None:
         """
@@ -163,7 +149,7 @@ class UserRepository:
         row = fetch_one(QUERIES.users.get_by_email, (email,))
         if row is None:
             return None
-        return self._row_to_user(row)
+        return map_user(row)
 
     def get_all(self, limit: int = 100, offset: int = 0) -> list[UserInternal]:
         """
@@ -183,7 +169,7 @@ class UserRepository:
             QUERIES.users.get_all,
             (safe_limit, safe_offset),
         )
-        return [self._row_to_user(row) for row in rows]
+        return [map_user(row) for row in rows]
 
     def update(self, user_id: int, **updates: object) -> UserInternal | None:
         """
@@ -322,69 +308,3 @@ class UserRepository:
             True if a row was deleted, otherwise False.
         """
         return execute_write(QUERIES.users.delete, (user_id,)) > 0
-
-    @staticmethod
-    def _parse_user_row(row: dict[str, object]) -> UserRow:
-        """Validate and normalize a raw database row into a typed UserRow."""
-        id_value = row.get("id")
-        username = row.get("username")
-        first_name = row.get("first_name")
-        last_name = row.get("last_name")
-        date_of_birth = row.get("date_of_birth")
-        email = row.get("email")
-        password_hash = row.get("password_hash")
-        profile_picture_url = row.get("profile_picture_url")
-        token_version = row.get("token_version")
-        weight_unit_preference = row.get("weight_unit_preference")
-        measurement_unit_preference = row.get("measurement_unit_preference")
-        created_at = row.get("created_at")
-        updated_at = row.get("updated_at")
-
-        if not isinstance(id_value, int):
-            raise UserRowError.invalid_type("id", "int")
-        if not isinstance(username, str):
-            raise UserRowError.invalid_type("username", "str")
-        if not isinstance(first_name, str):
-            raise UserRowError.invalid_type("first_name", "str")
-        if not isinstance(last_name, str):
-            raise UserRowError.invalid_type("last_name", "str")
-        if not isinstance(date_of_birth, date):
-            raise UserRowError.invalid_type("date_of_birth", "date")
-        if not isinstance(email, str):
-            raise UserRowError.invalid_type("email", "str")
-        if not isinstance(password_hash, str):
-            raise UserRowError.invalid_type("password_hash", "str")
-        if profile_picture_url is not None and not isinstance(profile_picture_url, str):
-            raise UserRowError.invalid_type("profile_picture_url", "str | None")
-        if not isinstance(token_version, int):
-            raise UserRowError.invalid_type("token_version", "int")
-        if not isinstance(weight_unit_preference, str):
-            raise UserRowError.invalid_type("weight_unit_preference", "str")
-        if not isinstance(measurement_unit_preference, str):
-            raise UserRowError.invalid_type("measurement_unit_preference", "str")
-        if not isinstance(created_at, datetime):
-            raise UserRowError.invalid_type("created_at", "datetime")
-        if not isinstance(updated_at, datetime):
-            raise UserRowError.invalid_type("updated_at", "datetime")
-
-        return UserRow(
-            id=id_value,
-            username=username,
-            first_name=first_name,
-            last_name=last_name,
-            date_of_birth=date_of_birth,
-            email=email,
-            password_hash=password_hash,
-            profile_picture_url=profile_picture_url,
-            token_version=token_version,
-            weight_unit_preference=weight_unit_preference,
-            measurement_unit_preference=measurement_unit_preference,
-            created_at=created_at,
-            updated_at=updated_at,
-        )
-
-    @classmethod
-    def _row_to_user(cls, row: dict[str, object]) -> UserInternal:
-        """Convert a raw database row into a validated UserInternal model."""
-        user_row = cls._parse_user_row(row)
-        return UserInternal.model_validate(user_row)
