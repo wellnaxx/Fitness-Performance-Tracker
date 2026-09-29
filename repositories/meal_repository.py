@@ -2,30 +2,22 @@
 Meal Repository
 
 This module handles all database interactions for the Meal entity.
-It translates between database rows (now dicts) and Pydantic models.
+It delegates database row validation and conversion to the dedicated mapper.
 """
 
 from __future__ import annotations
 
-from datetime import date, datetime
-from typing import Final, TypedDict
+from typing import TYPE_CHECKING, Final
 
-from core.errors.repository import MealRepositoryError, MealRowError
+from core.errors.repository import MealRepositoryError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data.mappers.meal import map_meal
 from data.queries import QUERIES
-from schemas.meal_schema import MealCreate, MealPublic, MealUpdate
 
+if TYPE_CHECKING:
+    from datetime import date
 
-class MealRow(TypedDict):
-    id: int
-    user_id: int
-    name: str
-    description: str | None
-    eaten_at: datetime
-    meal_type: str
-    notes: str | None
-    created_at: datetime
-    updated_at: datetime
+    from schemas.meal_schema import MealCreate, MealPublic, MealUpdate
 
 
 class MealRepository:
@@ -91,7 +83,7 @@ class MealRepository:
         row = fetch_one(QUERIES.meals.get_by_id, (meal_id,))
         if row is None:
             return None
-        return self._row_to_meal(row)
+        return map_meal(row)
 
     def get_by_user_and_id(self, user_id: int, meal_id: int) -> MealPublic | None:
         """
@@ -110,7 +102,7 @@ class MealRepository:
         )
         if row is None:
             return None
-        return self._row_to_meal(row)
+        return map_meal(row)
 
     def list_by_user(
         self,
@@ -157,7 +149,7 @@ class MealRepository:
         params.extend([safe_limit, safe_offset])
 
         rows = fetch_all(sql, tuple(params))
-        return [self._row_to_meal(row) for row in rows]
+        return [map_meal(row) for row in rows]
 
     def update_owned(
         self,
@@ -210,53 +202,3 @@ class MealRepository:
             )
             > 0
         )
-
-    @staticmethod
-    def _parse_meal_row(row: dict[str, object]) -> MealRow:
-        """Validate and normalize a raw database row into a typed MealRow."""
-        id_value = row.get("id")
-        user_id = row.get("user_id")
-        name = row.get("name")
-        description = row.get("description")
-        eaten_at = row.get("eaten_at")
-        meal_type = row.get("meal_type")
-        notes = row.get("notes")
-        created_at = row.get("created_at")
-        updated_at = row.get("updated_at")
-
-        if not isinstance(id_value, int):
-            raise MealRowError.invalid_type("id", "int")
-        if not isinstance(user_id, int):
-            raise MealRowError.invalid_type("user_id", "int")
-        if not isinstance(name, str):
-            raise MealRowError.invalid_type("name", "str")
-        if description is not None and not isinstance(description, str):
-            raise MealRowError.invalid_type("description", "str | None")
-        if not isinstance(eaten_at, datetime):
-            raise MealRowError.invalid_type("eaten_at", "datetime")
-        if not isinstance(meal_type, str):
-            raise MealRowError.invalid_type("meal_type", "str")
-        if notes is not None and not isinstance(notes, str):
-            raise MealRowError.invalid_type("notes", "str | None")
-        if not isinstance(created_at, datetime):
-            raise MealRowError.invalid_type("created_at", "datetime")
-        if not isinstance(updated_at, datetime):
-            raise MealRowError.invalid_type("updated_at", "datetime")
-
-        return MealRow(
-            id=id_value,
-            user_id=user_id,
-            name=name,
-            description=description,
-            eaten_at=eaten_at,
-            meal_type=meal_type,
-            notes=notes,
-            created_at=created_at,
-            updated_at=updated_at,
-        )
-
-    @classmethod
-    def _row_to_meal(cls, row: dict[str, object]) -> MealPublic:
-        """Convert a raw database row into a validated MealPublic model."""
-        meal_row = cls._parse_meal_row(row)
-        return MealPublic.model_validate(meal_row)
