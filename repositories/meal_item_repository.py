@@ -2,31 +2,20 @@
 Meal Item Repository
 
 This module handles all database interactions for the MealItem entity.
-It translates between database rows (now dicts) and Pydantic models.
+It delegates database row validation and conversion to the dedicated mapper.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
-from decimal import Decimal
-from typing import Final, TypedDict
+from typing import TYPE_CHECKING, Final
 
-from core.errors.repository import MealItemRepositoryError, MealItemRowError
+from core.errors.repository import MealItemRepositoryError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data.mappers.meal_item import map_meal_item
 from data.queries import QUERIES
-from schemas.meal_item_schema import MealItemCreate, MealItemPublic, MealItemUpdate
 
-
-class MealItemRow(TypedDict):
-    id: int
-    meal_id: int
-    name: str
-    serving_size: Decimal | None
-    calories: Decimal
-    protein: Decimal
-    carbs: Decimal
-    fats: Decimal
-    created_at: datetime
+if TYPE_CHECKING:
+    from schemas.meal_item_schema import MealItemCreate, MealItemPublic, MealItemUpdate
 
 
 class MealItemRepository:
@@ -93,7 +82,7 @@ class MealItemRepository:
         row = fetch_one(QUERIES.meal_items.get_by_id, (meal_item_id,))
         if row is None:
             return None
-        return self._row_to_meal_item(row)
+        return map_meal_item(row)
 
     def get_by_meal_and_id(self, meal_id: int, meal_item_id: int) -> MealItemPublic | None:
         """
@@ -112,7 +101,7 @@ class MealItemRepository:
         )
         if row is None:
             return None
-        return self._row_to_meal_item(row)
+        return map_meal_item(row)
 
     def list_by_meal(self, meal_id: int) -> list[MealItemPublic]:
         """
@@ -128,7 +117,7 @@ class MealItemRepository:
             QUERIES.meal_items.list_by_meal,
             (meal_id,),
         )
-        return [self._row_to_meal_item(row) for row in rows]
+        return [map_meal_item(row) for row in rows]
 
     def update_in_meal(
         self,
@@ -181,53 +170,3 @@ class MealItemRepository:
             )
             > 0
         )
-
-    @staticmethod
-    def _parse_meal_item_row(row: dict[str, object]) -> MealItemRow:
-        """Validate and normalize a raw database row into a typed MealItemRow."""
-        id_value = row.get("id")
-        meal_id = row.get("meal_id")
-        name = row.get("name")
-        serving_size = row.get("serving_size")
-        calories = row.get("calories")
-        protein = row.get("protein")
-        carbs = row.get("carbs")
-        fats = row.get("fats")
-        created_at = row.get("created_at")
-
-        if not isinstance(id_value, int):
-            raise MealItemRowError.invalid_type("id", "int")
-        if not isinstance(meal_id, int):
-            raise MealItemRowError.invalid_type("meal_id", "int")
-        if not isinstance(name, str):
-            raise MealItemRowError.invalid_type("name", "str")
-        if serving_size is not None and not isinstance(serving_size, (Decimal, int, float)):
-            raise MealItemRowError.invalid_type("serving_size", "numeric | None")
-        if not isinstance(calories, (Decimal, int, float)):
-            raise MealItemRowError.invalid_type("calories", "numeric")
-        if not isinstance(protein, (Decimal, int, float)):
-            raise MealItemRowError.invalid_type("protein", "numeric")
-        if not isinstance(carbs, (Decimal, int, float)):
-            raise MealItemRowError.invalid_type("carbs", "numeric")
-        if not isinstance(fats, (Decimal, int, float)):
-            raise MealItemRowError.invalid_type("fats", "numeric")
-        if not isinstance(created_at, datetime):
-            raise MealItemRowError.invalid_type("created_at", "datetime")
-
-        return MealItemRow(
-            id=id_value,
-            meal_id=meal_id,
-            name=name,
-            serving_size=None if serving_size is None else Decimal(str(serving_size)),
-            calories=Decimal(str(calories)),
-            protein=Decimal(str(protein)),
-            carbs=Decimal(str(carbs)),
-            fats=Decimal(str(fats)),
-            created_at=created_at,
-        )
-
-    @classmethod
-    def _row_to_meal_item(cls, row: dict[str, object]) -> MealItemPublic:
-        """Convert a raw database row into a validated MealItemPublic model."""
-        meal_item_row = cls._parse_meal_item_row(row)
-        return MealItemPublic.model_validate(meal_item_row)
