@@ -2,14 +2,14 @@
 Workout Exercise Repository
 
 This module handles all database interactions for the WorkoutExercise entity.
-It translates between database rows (now dicts) and Pydantic models.
+It delegates database row validation and conversion to the dedicated mapper.
 """
 
 from __future__ import annotations
 
-from typing import Final, TypedDict
+from typing import TYPE_CHECKING, Final
 
-from core.errors.repository import WorkoutExerciseRepositoryError, WorkoutExerciseRowError
+from core.errors.repository import WorkoutExerciseRepositoryError
 from data.executor import (
     execute_insert_tx,
     execute_write_tx,
@@ -18,21 +18,15 @@ from data.executor import (
     fetch_one_tx,
     transaction_cursor,
 )
+from data.mappers.workout_exercise import map_workout_exercise
 from data.queries import QUERIES
-from schemas.workout_exercises_schema import (
-    WorkoutExerciseCreate,
-    WorkoutExercisePublic,
-    WorkoutExerciseUpdate,
-)
 
-
-class WorkoutExerciseRow(TypedDict):
-    id: int
-    workout_id: int
-    exercise_id: int
-    order_index: int
-    rest_seconds: int | None
-    notes: str | None
+if TYPE_CHECKING:
+    from schemas.workout_exercises_schema import (
+        WorkoutExerciseCreate,
+        WorkoutExercisePublic,
+        WorkoutExerciseUpdate,
+    )
 
 
 class WorkoutExerciseRepository:
@@ -107,7 +101,7 @@ class WorkoutExerciseRepository:
         if row is None:
             raise WorkoutExerciseRepositoryError.inserted_missing(workout_exercise_id)
 
-        return self._row_to_workout_exercise(row)
+        return map_workout_exercise(row)
 
     def get_by_id(self, workout_exercise_id: int) -> WorkoutExercisePublic | None:
         """
@@ -122,7 +116,7 @@ class WorkoutExerciseRepository:
         row = fetch_one(QUERIES.workout_exercises.get_by_id, (workout_exercise_id,))
         if row is None:
             return None
-        return self._row_to_workout_exercise(row)
+        return map_workout_exercise(row)
 
     def get_by_workout_and_id(
         self,
@@ -145,7 +139,7 @@ class WorkoutExerciseRepository:
         )
         if row is None:
             return None
-        return self._row_to_workout_exercise(row)
+        return map_workout_exercise(row)
 
     def list_by_workout(self, workout_id: int) -> list[WorkoutExercisePublic]:
         """
@@ -161,7 +155,7 @@ class WorkoutExerciseRepository:
             QUERIES.workout_exercises.list_by_workout,
             (workout_id,),
         )
-        return [self._row_to_workout_exercise(row) for row in rows]
+        return [map_workout_exercise(row) for row in rows]
 
     def update(
         self,
@@ -179,7 +173,7 @@ class WorkoutExerciseRepository:
                 if existing is None:
                     return None
 
-                existing_exercise = self._row_to_workout_exercise(existing)
+                existing_exercise = map_workout_exercise(existing)
 
                 fields = update_data.model_dump(exclude_none=True)
                 if not fields:
@@ -227,7 +221,7 @@ class WorkoutExerciseRepository:
         if updated_row is None:
             raise WorkoutExerciseRepositoryError.updated_missing(workout_exercise_id)
 
-        return self._row_to_workout_exercise(updated_row)
+        return map_workout_exercise(updated_row)
 
     def delete(self, workout_id: int, workout_exercise_id: int) -> bool:
         """
@@ -263,48 +257,6 @@ class WorkoutExerciseRepository:
             raise
         except Exception as exc:
             raise WorkoutExerciseRepositoryError.transaction_failed(exc) from exc
-
-    
-    @staticmethod
-    def _parse_workout_exercise_row(row: dict[str, object]) -> WorkoutExerciseRow:
-        """Validate and normalize a raw database row into a typed WorkoutExerciseRow."""
-        id_value = row.get("id")
-        workout_id = row.get("workout_id")
-        exercise_id = row.get("exercise_id")
-        order_index = row.get("order_index")
-        rest_seconds = row.get("rest_seconds")
-        notes = row.get("notes")
-
-        if not isinstance(id_value, int):
-            raise WorkoutExerciseRowError.invalid_type("id", "int")
-        if not isinstance(workout_id, int):
-            raise WorkoutExerciseRowError.invalid_type("workout_id", "int")
-        if not isinstance(exercise_id, int):
-            raise WorkoutExerciseRowError.invalid_type("exercise_id", "int")
-        if not isinstance(order_index, int):
-            raise WorkoutExerciseRowError.invalid_type("order_index", "int")
-        if rest_seconds is not None and not isinstance(rest_seconds, int):
-            raise WorkoutExerciseRowError.invalid_type("rest_seconds", "int | None")
-        if notes is not None and not isinstance(notes, str):
-            raise WorkoutExerciseRowError.invalid_type("notes", "str | None")
-
-        return WorkoutExerciseRow(
-            id=id_value,
-            workout_id=workout_id,
-            exercise_id=exercise_id,
-            order_index=order_index,
-            rest_seconds=rest_seconds,
-            notes=notes,
-        )
-
-    @classmethod
-    def _row_to_workout_exercise(
-        cls,
-        row: dict[str, object],
-    ) -> WorkoutExercisePublic:
-        """Convert a raw database row into a validated WorkoutExercisePublic model."""
-        workout_exercise_row = cls._parse_workout_exercise_row(row)
-        return WorkoutExercisePublic.model_validate(workout_exercise_row)
 
     def _validate_update_fields(self, fields: dict[str, object]) -> None:
         """Ensure that only allowed fields are being updated."""
