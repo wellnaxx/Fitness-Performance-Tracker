@@ -65,6 +65,7 @@ Fitness-Performance-Tracker/
 |-- auth/               # password hashing and JWT helpers
 |-- core/               # configuration and app-level errors
 |-- data/               # DB helpers, SQL query registry, schema and seed scripts
+|   |-- mappers/        # Database row types, validation and model conversion
 |   `-- sql/            # SQL files grouped by entity and operation
 |-- dependencies/       # FastAPI dependency providers and auth deps
 |-- docs/               # docs assets such as the ERD image
@@ -73,7 +74,7 @@ Fitness-Performance-Tracker/
 |-- routers/            # API route modules
 |-- schemas/            # Pydantic request and response models
 |-- services/           # business logic layer
-|-- tests/              # SQL loading and repository regression tests
+|-- tests/              # SQL loading, row mapper and repository regression tests
 |-- utils/              # environment and validation helpers
 `-- main.py             # FastAPI application entrypoint
 ```
@@ -99,6 +100,12 @@ Repository queries live in `data/sql/<entity>/<operation>.sql`, following the
 FleetFlow layout. `data/loader.py` reads files relative to its own location and
 caches their contents. `data/queries.py` exposes typed, lazily loaded groups;
 repositories use references such as `QUERIES.users.get_by_id`.
+
+Database row types and conversion functions live in `data/mappers/<entity>.py`.
+Repositories pass fetched rows to functions such as `map_user(row)`; mappers
+validate column types, normalize numeric values and construct the Pydantic model.
+Keep row validation and conversion in these modules when adding fields or
+entities. Mappers can be tested directly without a database connection.
 
 To add a query, create its SQL file and register it in the corresponding query
 dataclass and `QueryRegistry` property. Optional predicates live in `filter_*.sql`
