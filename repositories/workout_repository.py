@@ -2,31 +2,22 @@
 Workout Repository
 
 This module handles all database interactions for the Workout entity.
-It translates between database rows (now dicts) and Pydantic models.
+It delegates database row validation and conversion to the dedicated mapper.
 """
 
 from __future__ import annotations
 
-from datetime import date, datetime
-from typing import Final, TypedDict
+from typing import TYPE_CHECKING, Final
 
-from core.errors.repository import WorkoutRepositoryError, WorkoutRowError
+from core.errors.repository import WorkoutRepositoryError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data.mappers.workout import map_workout
 from data.queries import QUERIES
-from schemas.workout_schema import WorkoutCreate, WorkoutPublic, WorkoutUpdate
 
+if TYPE_CHECKING:
+    from datetime import date
 
-class WorkoutRow(TypedDict):
-    id: int
-    user_id: int | None
-    name: str
-    description: str | None
-    workout_date: date
-    started_at: datetime | None
-    completed_at: datetime | None
-    notes: str | None
-    created_at: datetime
-    updated_at: datetime
+    from schemas.workout_schema import WorkoutCreate, WorkoutPublic, WorkoutUpdate
 
 
 class WorkoutRepository:
@@ -94,7 +85,7 @@ class WorkoutRepository:
         row = fetch_one(QUERIES.workouts.get_by_id, (workout_id,))
         if row is None:
             return None
-        return self._row_to_workout(row)
+        return map_workout(row)
 
     def get_by_user_and_id(self, user_id: int, workout_id: int) -> WorkoutPublic | None:
         """
@@ -113,7 +104,7 @@ class WorkoutRepository:
         )
         if row is None:
             return None
-        return self._row_to_workout(row)
+        return map_workout(row)
 
     def list_by_user(
         self,
@@ -154,7 +145,7 @@ class WorkoutRepository:
         params.extend([safe_limit, safe_offset])
 
         rows = fetch_all(sql, tuple(params))
-        return [self._row_to_workout(row) for row in rows]
+        return [map_workout(row) for row in rows]
 
     def update_owned(
         self,
@@ -225,7 +216,7 @@ class WorkoutRepository:
         )
         if row is None:
             return None
-        return self._row_to_workout(row)
+        return map_workout(row)
 
     def get_all_visible_for_user(
         self,
@@ -274,58 +265,4 @@ class WorkoutRepository:
         params.extend([safe_limit, safe_offset])
 
         rows = fetch_all(sql, tuple(params))
-        return [self._row_to_workout(row) for row in rows]
-
-    @staticmethod
-    def _parse_workout_row(row: dict[str, object]) -> WorkoutRow:
-        """Validate and normalize a raw database row into a typed WorkoutRow."""
-        id_value = row.get("id")
-        user_id = row.get("user_id")
-        name = row.get("name")
-        description = row.get("description")
-        workout_date = row.get("workout_date")
-        started_at = row.get("started_at")
-        completed_at = row.get("completed_at")
-        notes = row.get("notes")
-        created_at = row.get("created_at")
-        updated_at = row.get("updated_at")
-
-        if not isinstance(id_value, int):
-            raise WorkoutRowError.invalid_type("id", "int")
-        if user_id is not None and not isinstance(user_id, int):
-            raise WorkoutRowError.invalid_type("user_id", "int | None")
-        if not isinstance(name, str):
-            raise WorkoutRowError.invalid_type("name", "str")
-        if description is not None and not isinstance(description, str):
-            raise WorkoutRowError.invalid_type("description", "str | None")
-        if not isinstance(workout_date, date):
-            raise WorkoutRowError.invalid_type("workout_date", "date")
-        if started_at is not None and not isinstance(started_at, datetime):
-            raise WorkoutRowError.invalid_type("started_at", "datetime | None")
-        if completed_at is not None and not isinstance(completed_at, datetime):
-            raise WorkoutRowError.invalid_type("completed_at", "datetime | None")
-        if notes is not None and not isinstance(notes, str):
-            raise WorkoutRowError.invalid_type("notes", "str | None")
-        if not isinstance(created_at, datetime):
-            raise WorkoutRowError.invalid_type("created_at", "datetime")
-        if not isinstance(updated_at, datetime):
-            raise WorkoutRowError.invalid_type("updated_at", "datetime")
-
-        return WorkoutRow(
-            id=id_value,
-            user_id=user_id,
-            name=name,
-            description=description,
-            workout_date=workout_date,
-            started_at=started_at,
-            completed_at=completed_at,
-            notes=notes,
-            created_at=created_at,
-            updated_at=updated_at,
-        )
-
-    @classmethod
-    def _row_to_workout(cls, row: dict[str, object]) -> WorkoutPublic:
-        """Convert a raw database row into a validated WorkoutPublic model."""
-        workout_row = cls._parse_workout_row(row)
-        return WorkoutPublic.model_validate(workout_row)
+        return [map_workout(row) for row in rows]
