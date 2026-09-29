@@ -2,31 +2,20 @@
 Set Entry Repository
 
 This module handles all database interactions for the SetEntry entity.
-It translates between database rows (now dicts) and Pydantic models.
+It delegates database row validation and conversion to the dedicated mapper.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
-from decimal import Decimal
-from typing import Final, TypedDict
+from typing import TYPE_CHECKING, Final
 
-from core.errors.repository import SetEntryRepositoryError, SetEntryRowError
+from core.errors.repository import SetEntryRepositoryError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data.mappers.set_entry import map_set_entry
 from data.queries import QUERIES
-from schemas.set_entry_schema import SetEntryCreate, SetEntryPublic, SetEntryUpdate
 
-
-class SetEntryRow(TypedDict):
-    id: int
-    workout_exercise_id: int
-    set_number: int
-    reps: int
-    weight: Decimal
-    rpe: int | None
-    is_warmup: bool
-    completed: bool
-    created_at: datetime
+if TYPE_CHECKING:
+    from schemas.set_entry_schema import SetEntryCreate, SetEntryPublic, SetEntryUpdate
 
 
 class SetEntryRepository:
@@ -93,7 +82,7 @@ class SetEntryRepository:
         row = fetch_one(QUERIES.set_entries.get_by_id, (set_entry_id,))
         if row is None:
             return None
-        return self._row_to_set_entry(row)
+        return map_set_entry(row)
 
     def get_by_workout_exercise_and_id(
         self,
@@ -116,7 +105,7 @@ class SetEntryRepository:
         )
         if row is None:
             return None
-        return self._row_to_set_entry(row)
+        return map_set_entry(row)
 
     def list_by_workout_exercise(
         self,
@@ -135,7 +124,7 @@ class SetEntryRepository:
             QUERIES.set_entries.list_by_workout_exercise,
             (workout_exercise_id,),
         )
-        return [self._row_to_set_entry(row) for row in rows]
+        return [map_set_entry(row) for row in rows]
 
     def update_in_workout_exercise(
         self,
@@ -251,53 +240,3 @@ class SetEntryRepository:
     def delete(self, set_entry_id: int, workout_exercise_id: int) -> bool:
         """Compatibility wrapper for `delete_in_workout_exercise`."""
         return self.delete_in_workout_exercise(workout_exercise_id, set_entry_id)
-
-    @staticmethod
-    def _parse_set_entry_row(row: dict[str, object]) -> SetEntryRow:
-        """Validate and normalize a raw database row into a typed SetEntryRow."""
-        id_value = row.get("id")
-        workout_exercise_id = row.get("workout_exercise_id")
-        set_number = row.get("set_number")
-        reps = row.get("reps")
-        weight = row.get("weight")
-        rpe = row.get("rpe")
-        is_warmup = row.get("is_warmup")
-        completed = row.get("completed")
-        created_at = row.get("created_at")
-
-        if not isinstance(id_value, int):
-            raise SetEntryRowError.invalid_type("id", "int")
-        if not isinstance(workout_exercise_id, int):
-            raise SetEntryRowError.invalid_type("workout_exercise_id", "int")
-        if not isinstance(set_number, int):
-            raise SetEntryRowError.invalid_type("set_number", "int")
-        if not isinstance(reps, int):
-            raise SetEntryRowError.invalid_type("reps", "int")
-        if not isinstance(weight, (Decimal, int, float)):
-            raise SetEntryRowError.invalid_type("weight", "numeric")
-        if rpe is not None and not isinstance(rpe, int):
-            raise SetEntryRowError.invalid_type("rpe", "int | None")
-        if not isinstance(is_warmup, bool):
-            raise SetEntryRowError.invalid_type("is_warmup", "bool")
-        if not isinstance(completed, bool):
-            raise SetEntryRowError.invalid_type("completed", "bool")
-        if not isinstance(created_at, datetime):
-            raise SetEntryRowError.invalid_type("created_at", "datetime")
-
-        return SetEntryRow(
-            id=id_value,
-            workout_exercise_id=workout_exercise_id,
-            set_number=set_number,
-            reps=reps,
-            weight=Decimal(str(weight)),
-            rpe=rpe,
-            is_warmup=is_warmup,
-            completed=completed,
-            created_at=created_at,
-        )
-
-    @classmethod
-    def _row_to_set_entry(cls, row: dict[str, object]) -> SetEntryPublic:
-        """Convert a raw database row into a validated SetEntryPublic model."""
-        set_entry_row = cls._parse_set_entry_row(row)
-        return SetEntryPublic.model_validate(set_entry_row)
