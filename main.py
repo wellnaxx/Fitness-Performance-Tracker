@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from core.exception_handlers import register_exception_handlers
 from routers.api.exercise_router import exercise_router
 from routers.api.meal_router import meal_router
 from routers.api.user_goals_router import user_goals_router
@@ -8,6 +9,7 @@ from routers.api.workout_exercise_router import workout_exercise_router
 from routers.api.workout_router import workout_router
 
 app = FastAPI()
+register_exception_handlers(app)
 
 app.include_router(users_router)
 app.include_router(user_goals_router)

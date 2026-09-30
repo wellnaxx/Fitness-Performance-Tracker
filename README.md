@@ -96,6 +96,20 @@ Each layer has a focused responsibility:
 - repositories execute SQL and return mapped domain data
 - schemas validate request and response payloads
 
+`core/exception_handlers.py` owns the exception-to-HTTP mappings, registered by
+`main.py`. Routers and authentication dependencies raise typed application errors;
+the handlers produce `{"detail": ...}` responses and add `WWW-Authenticate: Bearer`
+for authentication failures. Add new error mappings here instead of repeating
+`HTTPException` conversion blocks in routes. FastAPI continues to handle
+request validation and framework HTTP errors, including their response headers.
+
+Server failures are logged with exception information. Database, repository, and
+row-validation failures return a generic database error; unexpected failures return
+an internal-server-error message. User creation also uses a fixed public message
+so wrapped repository details are not exposed. A deleted user during token refresh
+raises `InvalidRefreshTokenError` (401); missing users in profile operations raise
+`UserNotFoundError` (404).
+
 Repository queries live in `data/sql/<entity>/<operation>.sql`, following the
 FleetFlow layout. `data/loader.py` reads files relative to its own location and
 caches their contents. `data/queries.py` exposes typed, lazily loaded groups;

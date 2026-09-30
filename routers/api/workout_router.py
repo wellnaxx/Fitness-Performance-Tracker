@@ -1,15 +1,9 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from fastapi.params import Query
 
-from core.errors.workout import (
-    WorkoutCreationError,
-    WorkoutDeleteError,
-    WorkoutNotFoundError,
-    WorkoutUpdateError,
-)
 from dependencies.auth import get_current_user
 from dependencies.providers import get_workout_service
 from schemas.user_schema import UserInternal
@@ -28,13 +22,7 @@ def create_workout(
     """
     Create a new workout for the authenticated user.
     """
-    try:
-        return service.create_workout(current_user.id, workout_data)
-    except WorkoutCreationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
+    return service.create_workout(current_user.id, workout_data)
 
 
 @workout_router.get("/{workout_id}", status_code=status.HTTP_200_OK)
@@ -46,13 +34,7 @@ def get_workout_by_id(
     """
     Retrieve a workout by ID, ensuring it's visible to the user.
     """
-    try:
-        return service.get_visible_by_user(workout_id, current_user.id)
-    except WorkoutNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
+    return service.get_visible_by_user(workout_id, current_user.id)
 
 
 @workout_router.get("/", status_code=status.HTTP_200_OK)
@@ -62,12 +44,8 @@ def list_workouts(
     search: Annotated[str | None, Query(min_length=1)] = None,
     limit: Annotated[int, Query(ge=1, le=1000)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
-    date_from: Annotated[
-        date | None, Query(description="Filter workouts from this date (inclusive).")
-    ] = None,
-    date_to: Annotated[
-        date | None, Query(description="Filter workouts up to this date (inclusive).")
-    ] = None,
+    date_from: Annotated[date | None, Query(description="Filter workouts from this date (inclusive).")] = None,
+    date_to: Annotated[date | None, Query(description="Filter workouts up to this date (inclusive).")] = None,
 ) -> list[WorkoutPublic]:
     """
     List workouts visible to the authenticated user with pagination.
@@ -87,18 +65,7 @@ def update_workout(
     """
     Update a workout by ID, ensuring it's visible to the user.
     """
-    try:
-        return service.update_workout(workout_id, current_user.id, workout_data)
-    except WorkoutNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
-    except WorkoutUpdateError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
+    return service.update_workout(workout_id, current_user.id, workout_data)
 
 
 @workout_router.delete("/{workout_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -110,15 +77,4 @@ def delete_workout(
     """
     Delete a workout by ID, ensuring it's visible to the user.
     """
-    try:
-        service.delete_workout(workout_id, current_user.id)
-    except WorkoutNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
-    except WorkoutDeleteError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
+    service.delete_workout(workout_id, current_user.id)

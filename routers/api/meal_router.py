@@ -1,9 +1,8 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 
-from core.errors.meal import MealCreationError, MealDeleteError, MealNotFoundError, MealUpdateError
 from dependencies.auth import get_current_user
 from dependencies.providers import get_meal_service
 from schemas.meal_schema import MealCreate, MealPublic, MealUpdate
@@ -23,13 +22,7 @@ def create_meal(
     """
     Create a new meal for the authenticated user.
     """
-    try:
-        return service.create_meal(current_user.id, meal_data)
-    except MealCreationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
+    return service.create_meal(current_user.id, meal_data)
 
 
 @meal_router.get("/{meal_id}", status_code=status.HTTP_200_OK)
@@ -41,13 +34,7 @@ def get_meal_by_id(
     """
     Retrieve a meal by ID, ensuring it belongs to the user.
     """
-    try:
-        return service.get_visible_by_user(meal_id, current_user.id)
-    except MealNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
+    return service.get_visible_by_user(meal_id, current_user.id)
 
 
 @meal_router.get("/", status_code=status.HTTP_200_OK)
@@ -84,18 +71,7 @@ def update_meal(
     """
     Update a meal by ID, ensuring it belongs to the user.
     """
-    try:
-        return service.update_meal(meal_id, current_user.id, meal_data)
-    except MealNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
-    except MealUpdateError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
+    return service.update_meal(meal_id, current_user.id, meal_data)
 
 
 @meal_router.delete("/{meal_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -107,28 +83,11 @@ def delete_meal(
     """
     Delete a meal by ID, ensuring it belongs to the user.
     """
-    try:
-        service.delete_meal(meal_id, current_user.id)
-    except MealNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
-    except MealDeleteError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
+    service.delete_meal(meal_id, current_user.id)
 
 
 def _normalize_meal_type(meal_type: str | None) -> str | None:
     if meal_type is None:
         return None
 
-    try:
-        return validate_meal_type(meal_type)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exc),
-        ) from exc
+    return validate_meal_type(meal_type)

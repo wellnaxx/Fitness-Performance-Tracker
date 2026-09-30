@@ -281,8 +281,8 @@ class UserService:
             TokenPairResponse: New JWT access/refresh token pair
 
         Raises:
-            InvalidRefreshTokenError: If token is invalid, expired, malformed, or revoked
-            UserNotFoundError: If the user no longer exists
+            InvalidRefreshTokenError: If token is invalid, expired, malformed, revoked,
+                or the user no longer exists
         """
         payload = decode_token(data.refresh_token, expected_type="refresh")
         if payload is None:
@@ -298,7 +298,7 @@ class UserService:
 
         user = self.user_repo.get_by_id(user_id)
         if not user:
-            raise UserNotFoundError.not_found(user_id=user_id)
+            raise InvalidRefreshTokenError.user_not_found(user_id)
 
         if user.token_version != token_version:
             raise InvalidRefreshTokenError.revoked()

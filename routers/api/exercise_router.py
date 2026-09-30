@@ -1,15 +1,8 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from fastapi.params import Query
 
-from core.errors.exercise import (
-    ExerciseCreationError,
-    ExerciseDeleteError,
-    ExerciseNameAlreadyExistsError,
-    ExerciseNotFoundError,
-    ExerciseUpdateError,
-)
 from dependencies.auth import get_current_user
 from dependencies.providers import get_exercise_service
 from schemas.exercise_schema import ExerciseCreate, ExercisePublic, ExerciseUpdate
@@ -28,18 +21,7 @@ def create_exercise(
     """
     Create a new exercise for the authenticated user.
     """
-    try:
-        return service.create_exercise(exercise_data, current_user.id)
-    except ExerciseNameAlreadyExistsError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(exc),
-        ) from exc
-    except ExerciseCreationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
+    return service.create_exercise(exercise_data, current_user.id)
 
 
 @exercise_router.get("/{exercise_id}", status_code=status.HTTP_200_OK)
@@ -51,13 +33,7 @@ def get_exercise_by_id(
     """
     Retrieve an exercise by ID, ensuring it's visible to the user.
     """
-    try:
-        return service.get_visible_by_user(exercise_id, current_user.id)
-    except ExerciseNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
+    return service.get_visible_by_user(exercise_id, current_user.id)
 
 
 @exercise_router.get("/", status_code=status.HTTP_200_OK)
@@ -97,18 +73,7 @@ def update_exercise(
     """
     Update an existing exercise if it belongs to the user.
     """
-    try:
-        return service.update_exercise(current_user.id, exercise_id, update_data)
-    except ExerciseNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
-    except ExerciseUpdateError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        ) from exc
+    return service.update_exercise(current_user.id, exercise_id, update_data)
 
 
 @exercise_router.delete("/{exercise_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -120,15 +85,4 @@ def delete_exercise(
     """
     Delete an existing exercise if it belongs to the user.
     """
-    try:
-        service.delete_exercise(current_user.id, exercise_id)
-    except ExerciseNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
-    except ExerciseDeleteError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        ) from exc
+    service.delete_exercise(current_user.id, exercise_id)

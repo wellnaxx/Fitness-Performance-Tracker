@@ -43,6 +43,30 @@ class IdenticalPasswordsError(UserServiceError):
         return cls("New password must be different from current password.")
 
 
+class InvalidAccessTokenError(UserServiceError):
+    """Raised when an access token cannot authenticate the current user."""
+
+    @classmethod
+    def invalid_or_expired(cls) -> InvalidAccessTokenError:
+        return cls("Invalid or expired token.")
+
+    @classmethod
+    def missing_subject(cls) -> InvalidAccessTokenError:
+        return cls("Invalid token payload: missing subject (sub) claim.")
+
+    @classmethod
+    def invalid_subject(cls) -> InvalidAccessTokenError:
+        return cls("Invalid token payload: subject must be a valid user ID.")
+
+    @classmethod
+    def user_not_found(cls) -> InvalidAccessTokenError:
+        return cls("User not found. Account may have been deleted.")
+
+    @classmethod
+    def revoked(cls) -> InvalidAccessTokenError:
+        return cls("Token revoked. Please log in again.")
+
+
 class InvalidRefreshTokenError(UserServiceError):
     """Raised when refresh token is invalid."""
 
@@ -57,6 +81,10 @@ class InvalidRefreshTokenError(UserServiceError):
     @classmethod
     def revoked(cls) -> InvalidRefreshTokenError:
         return cls("Refresh token has been revoked.")
+
+    @classmethod
+    def user_not_found(cls, user_id: int) -> InvalidRefreshTokenError:
+        return cls(f"User with ID {user_id} not found.")
 
 
 class UserNotFoundError(UserServiceError):

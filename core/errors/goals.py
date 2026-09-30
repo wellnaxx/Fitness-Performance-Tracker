@@ -14,6 +14,10 @@ class UserGoalNotFoundError(UserGoalsError):
     def not_found(cls, goal_id: int) -> UserGoalNotFoundError:
         return cls(f"Goal with ID {goal_id} not found.")
 
+    @classmethod
+    def no_active_goal(cls) -> UserGoalNotFoundError:
+        return cls("No active goal found for the user.")
+
 
 class UserGoalCreationError(UserGoalsError):
     """Raised when creating a user goal fails."""

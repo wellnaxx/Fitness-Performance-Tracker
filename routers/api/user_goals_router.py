@@ -1,12 +1,8 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 
-from core.errors.goals import (
-    UserGoalCreationError,
-    UserGoalNotFoundError,
-    UserGoalValidationError,
-)
+from core.errors.goals import UserGoalNotFoundError
 from dependencies.auth import get_current_user
 from dependencies.providers import get_user_goals_service
 from schemas.user_goals_schema import (
@@ -26,13 +22,7 @@ def create_goal(
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
 ) -> UserGoalPublic:
-    try:
-        return service.create_goal(current_user, goal_data)
-    except UserGoalCreationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
+    return service.create_goal(current_user, goal_data)
 
 
 @user_goals_router.get(
@@ -45,10 +35,7 @@ def get_current_goal(
 ) -> UserGoalPublic:
     goal = service.get_current_goal(current_user)
     if goal is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No active goal found for the user.",
-        )
+        raise UserGoalNotFoundError.no_active_goal()
     return goal
 
 
@@ -74,13 +61,7 @@ def get_goal_by_id(
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
 ) -> UserGoalPublic:
-    try:
-        return service.get_goal_by_id(current_user, goal_id)
-    except UserGoalNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
+    return service.get_goal_by_id(current_user, goal_id)
 
 
 @user_goals_router.patch(
@@ -93,18 +74,7 @@ def update_goal(
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
 ) -> UserGoalPublic:
-    try:
-        return service.update_goal(current_user, goal_id, update_data)
-    except UserGoalValidationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        ) from exc
-    except UserGoalNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
+    return service.update_goal(current_user, goal_id, update_data)
 
 
 @user_goals_router.post(
@@ -116,13 +86,7 @@ def deactivate_goal(
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
 ) -> UserGoalPublic:
-    try:
-        return service.deactivate_goal(current_user, goal_id)
-    except UserGoalNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
+    return service.deactivate_goal(current_user, goal_id)
 
 
 @user_goals_router.post(
@@ -134,10 +98,4 @@ def activate_goal(
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
 ) -> UserGoalPublic:
-    try:
-        return service.activate_goal(current_user, goal_id)
-    except UserGoalNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
+    return service.activate_goal(current_user, goal_id)
