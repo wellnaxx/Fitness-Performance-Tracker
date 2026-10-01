@@ -8,7 +8,7 @@ from fastapi.security import OAuth2PasswordBearer
 from auth.jwt_handler import decode_token
 from core.errors.user import InvalidAccessTokenError
 from dependencies.providers import get_user_repository
-from repositories.user_repository import UserRepository
+from ports.repositories.user_repository import UserRepositoryPort
 from schemas.user_schema import UserInternal
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/token")
@@ -16,7 +16,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/token")
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
-    user_repo: UserRepository = Depends(get_user_repository),
+    user_repo: UserRepositoryPort = Depends(get_user_repository),
 ) -> UserInternal:
     """
     Validate the JWT access token and return the authenticated user.

@@ -69,6 +69,7 @@ Fitness-Performance-Tracker/
 |   `-- sql/            # SQL files grouped by entity and operation
 |-- dependencies/       # FastAPI dependency providers and auth deps
 |-- docs/               # docs assets such as the ERD image
+|-- ports/repositories/ # Repository contracts used by services and authentication
 |-- postman/            # manual API testing collection
 |-- repositories/       # SQL repositories per domain
 |-- routers/            # API route modules
@@ -95,6 +96,19 @@ Each layer has a focused responsibility:
 - services enforce rules such as ownership, visibility, and validation
 - repositories execute SQL and return mapped domain data
 - schemas validate request and response payloads
+
+Services depend on the repository `Protocol` interfaces in `ports/repositories/`.
+These contracts cover the operations currently needed for users, goals, exercises,
+workouts, workout exercises, and meals. `dependencies/providers.py` supplies the
+concrete PostgreSQL repositories and declares their protocol return types so type
+checking verifies compatibility. The authentication dependency also uses the user
+repository protocol.
+
+Implementations satisfy protocols structurally: they need matching method names,
+parameters, and return types, without inheriting from the protocol or a concrete
+repository. This lets service tests use small typed fakes, as shown in
+`tests/test_repository_protocols.py`. Extend the relevant contract when a service
+needs a new operation; SQL and row-mapping details remain in the implementations.
 
 `core/exception_handlers.py` owns the exception-to-HTTP mappings, registered by
 `main.py`. Routers and authentication dependencies raise typed application errors;

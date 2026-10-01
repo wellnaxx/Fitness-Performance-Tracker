@@ -61,7 +61,7 @@ from dependencies.providers import (
     get_workout_service,
 )
 from main import app
-from repositories.user_repository import UserRepository
+from ports.repositories.user_repository import UserRepositoryPort
 from schemas.user_schema import UserInternal
 from services.user_service import UserService
 
@@ -264,7 +264,7 @@ class ApplicationErrorTests(IsolatedAsyncioTestCase):
         self.assertEqual(response.payload, {"detail": "User with ID 7 not found."})
 
     async def test_refresh_deleted_user_remains_401_with_bearer_header(self) -> None:
-        repo = Mock(spec=UserRepository)
+        repo = Mock(spec=UserRepositoryPort)
         repo.get_by_id.return_value = None
         service = UserService(repo)
         app.dependency_overrides[get_user_service] = lambda: service
@@ -312,7 +312,7 @@ class ApplicationErrorTests(IsolatedAsyncioTestCase):
 
     async def test_access_token_failures_are_401_with_bearer_header(self) -> None:
         del app.dependency_overrides[get_current_user]
-        repo = Mock(spec=UserRepository)
+        repo = Mock(spec=UserRepositoryPort)
         app.dependency_overrides[get_user_repository] = lambda: repo
         token = TokenPayload(
             sub="7", iat=0, exp=1, jti="test", type="access", username="tester", token_version=2

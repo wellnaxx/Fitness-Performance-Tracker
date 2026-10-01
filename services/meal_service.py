@@ -17,17 +17,17 @@ from datetime import date
 
 from core.errors.meal import MealCreationError, MealDeleteError, MealNotFoundError, MealUpdateError
 from core.errors.repository import MealRepositoryError
-from repositories.meal_repository import MealRepository
+from ports.repositories.meal_repository import MealRepositoryPort
 from schemas.meal_schema import MealCreate, MealPublic, MealUpdate
 
 
 class MealService:
-    def __init__(self, meal_repository: MealRepository) -> None:
+    def __init__(self, meal_repository: MealRepositoryPort) -> None:
         """
         Initialize MealService with repository dependency.
 
         Args:
-            meal_repository: MealRepository instance for database operations
+            meal_repository: MealRepositoryPort instance for database operations
         """
         self.meal_repository = meal_repository
         self.logger = logging.getLogger(__name__)

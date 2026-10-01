@@ -28,7 +28,7 @@ from core.errors.user import (
     UsernameAlreadyExistsError,
     UserNotFoundError,
 )
-from repositories.user_repository import UserRepository
+from ports.repositories.user_repository import UserRepositoryPort
 from schemas.token_schema import RefreshRequest, TokenPairResponse
 from schemas.user_schema import (
     ChangeUserPassword,
@@ -51,12 +51,12 @@ class UserService:
     - Transform between model types
     """
 
-    def __init__(self, user_repo: UserRepository) -> None:
+    def __init__(self, user_repo: UserRepositoryPort) -> None:
         """
         Initialize UserService with repository dependency.
 
         Args:
-            user_repo: UserRepository instance for database operations
+            user_repo: UserRepositoryPort instance for database operations
         """
         self.user_repo = user_repo
         self._log = logging.getLogger(__name__)

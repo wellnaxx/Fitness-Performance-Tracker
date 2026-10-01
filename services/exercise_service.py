@@ -6,7 +6,7 @@ from core.errors.exercise import (
     ExerciseUpdateError,
 )
 from core.errors.repository import ExerciseRepositoryError
-from repositories.exercise_repository import ExerciseRepository
+from ports.repositories.exercise_repository import ExerciseRepositoryPort
 from schemas.exercise_schema import ExerciseCreate, ExercisePublic, ExerciseUpdate
 
 
@@ -19,7 +19,7 @@ class ExerciseService:
     - Coordinate repository operations
     """
 
-    def __init__(self, exercise_repo: ExerciseRepository) -> None:
+    def __init__(self, exercise_repo: ExerciseRepositoryPort) -> None:
         self.exercise_repo = exercise_repo
 
     def create_exercise(

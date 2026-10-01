@@ -22,17 +22,17 @@ from core.errors.workout import (
     WorkoutNotFoundError,
     WorkoutUpdateError,
 )
-from repositories.workout_repository import WorkoutRepository
+from ports.repositories.workout_repository import WorkoutRepositoryPort
 from schemas.workout_schema import WorkoutCreate, WorkoutPublic, WorkoutUpdate
 
 
 class WorkoutService:
-    def __init__(self, workout_repository: WorkoutRepository) -> None:
+    def __init__(self, workout_repository: WorkoutRepositoryPort) -> None:
         """
         Initialize WorkoutService with repository dependency.
 
         Args:
-            workout_repository: WorkoutRepository instance for database operations
+            workout_repository: WorkoutRepositoryPort instance for database operations
         """
         self.workout_repository = workout_repository
         self.logger = logging.getLogger(__name__)

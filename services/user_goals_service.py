@@ -4,7 +4,7 @@ from core.errors.goals import (
     UserGoalValidationError,
 )
 from core.errors.repository import UserGoalsRepositoryError
-from repositories.user_goals_repository import UserGoalsRepository
+from ports.repositories.user_goals_repository import UserGoalsRepositoryPort
 from schemas.user_goals_schema import (
     UserGoalCreate,
     UserGoalPublic,
@@ -23,7 +23,7 @@ class UserGoalsService:
     - Coordinate repository operations
     """
 
-    def __init__(self, goals_repo: UserGoalsRepository) -> None:
+    def __init__(self, goals_repo: UserGoalsRepositoryPort) -> None:
         self.goals_repo = goals_repo
 
     def create_goal(

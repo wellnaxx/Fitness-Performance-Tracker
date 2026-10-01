@@ -24,9 +24,9 @@ from core.errors.workout_exercise import (
     WorkoutExerciseUpdateError,
     WorkoutExerciseValidationError,
 )
-from repositories.exercise_repository import ExerciseRepository
-from repositories.workout_exercise_repository import WorkoutExerciseRepository
-from repositories.workout_repository import WorkoutRepository
+from ports.repositories.exercise_repository import ExerciseRepositoryPort
+from ports.repositories.workout_exercise_repository import WorkoutExerciseRepositoryPort
+from ports.repositories.workout_repository import WorkoutRepositoryPort
 from schemas.workout_exercises_schema import (
     WorkoutExerciseCreate,
     WorkoutExercisePublic,
@@ -38,17 +38,17 @@ from schemas.workout_schema import WorkoutPublic
 class WorkoutExerciseService:
     def __init__(
         self,
-        workout_exercise_repository: WorkoutExerciseRepository,
-        workout_repository: WorkoutRepository,
-        exercise_repository: ExerciseRepository,
+        workout_exercise_repository: WorkoutExerciseRepositoryPort,
+        workout_repository: WorkoutRepositoryPort,
+        exercise_repository: ExerciseRepositoryPort,
     ) -> None:
         """
         Initialize WorkoutExerciseService with repository dependencies.
 
         Args:
-            workout_exercise_repository: WorkoutExerciseRepository instance for database operations
-            workout_repository: WorkoutRepository instance for database operations
-            exercise_repository: ExerciseRepository instance for database operations
+            workout_exercise_repository: WorkoutExerciseRepositoryPort instance for database operations
+            workout_repository: WorkoutRepositoryPort instance for database operations
+            exercise_repository: ExerciseRepositoryPort instance for database operations
         """
         self.workout_exercise_repository = workout_exercise_repository
         self.workout_repository = workout_repository
