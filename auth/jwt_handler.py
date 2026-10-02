@@ -181,7 +181,8 @@ def decode_token(
             config.jwt_secret,
             algorithms=[config.jwt_algorithm],
         )
-    except JWTError:
+    except (JWTError, TypeError):
+        # python-jose can raise TypeError for null or container-valued date claims.
         return None
 
     payload = TokenPayload.from_dict(raw_payload)
