@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
+from utils.pagination import DEFAULT_LIMIT, DEFAULT_OFFSET
+
 if TYPE_CHECKING:
     from datetime import date
 
@@ -41,8 +43,8 @@ class WorkoutRepositoryPort(Protocol):
         self,
         user_id: int,
         search: str | None = None,
-        limit: int = 100,
-        offset: int = 0,
+        limit: int = DEFAULT_LIMIT,
+        offset: int = DEFAULT_OFFSET,
         date_from: date | None = None,
         date_to: date | None = None,
     ) -> list[WorkoutPublic]:

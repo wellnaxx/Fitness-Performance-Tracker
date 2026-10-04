@@ -8,6 +8,7 @@ from core.errors.exercise import (
 from core.errors.repository import ExerciseRepositoryError
 from ports.repositories.exercise_repository import ExerciseRepositoryPort
 from schemas.exercise_schema import ExerciseCreate, ExercisePublic, ExerciseUpdate
+from utils.pagination import DEFAULT_LIMIT, DEFAULT_OFFSET
 
 
 class ExerciseService:
@@ -53,8 +54,8 @@ class ExerciseService:
     def list_visible_by_user(
         self,
         user_id: int,
-        limit: int = 100,
-        offset: int = 0,
+        limit: int = DEFAULT_LIMIT,
+        offset: int = DEFAULT_OFFSET,
         search: str | None = None,
         muscle_group: str | None = None,
         equipment: str | None = None,

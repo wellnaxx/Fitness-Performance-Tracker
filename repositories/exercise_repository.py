@@ -13,6 +13,7 @@ from core.errors.repository import ExerciseRepositoryError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from data.mappers.exercise import map_exercise
 from data.queries import QUERIES
+from utils.pagination import DEFAULT_LIMIT, DEFAULT_OFFSET, normalize_pagination
 
 if TYPE_CHECKING:
     from schemas.exercise_schema import ExerciseCreate, ExercisePublic, ExerciseUpdate
@@ -109,8 +110,8 @@ class ExerciseRepository:
     def list_visible(
         self,
         user_id: int,
-        limit: int = 100,
-        offset: int = 0,
+        limit: int = DEFAULT_LIMIT,
+        offset: int = DEFAULT_OFFSET,
         search: str | None = None,
         muscle_group: str | None = None,
         equipment: str | None = None,
@@ -136,8 +137,7 @@ class ExerciseRepository:
         Returns:
             list[ExercisePublic]: A list of visible exercises.
         """
-        safe_limit = max(1, min(limit, 1000))  # Enforce reasonable limits to prevent abuse
-        safe_offset = max(0, offset)
+        pagination = normalize_pagination(limit, offset)
         filters: list[str] = []
         params: list[object] = [user_id]
 
@@ -160,7 +160,7 @@ class ExerciseRepository:
             params.append(is_custom)
 
         sql = QUERIES.exercises.list_visible.format(filters=" ".join(filters))
-        params.extend([safe_limit, safe_offset])
+        params.extend([pagination.limit, pagination.offset])
 
         rows = fetch_all(sql, tuple(params))
         return [map_exercise(row) for row in rows]

@@ -4,10 +4,12 @@ from fastapi import APIRouter, Depends, status
 from fastapi.params import Query
 
 from dependencies.auth import get_current_user
+from dependencies.pagination import get_pagination
 from dependencies.providers import get_exercise_service
 from schemas.exercise_schema import ExerciseCreate, ExercisePublic, ExerciseUpdate
 from schemas.user_schema import UserInternal
 from services.exercise_service import ExerciseService
+from utils.pagination import PaginationParams
 
 exercise_router = APIRouter(prefix="/exercises", tags=["exercises"])
 
@@ -40,8 +42,7 @@ def get_exercise_by_id(
 def list_exercises(
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[ExerciseService, Depends(get_exercise_service)],
-    limit: Annotated[int, Query(ge=1, le=1000, description="Maximum number of exercises to return.")] = 100,
-    offset: Annotated[int, Query(ge=0, description="Number of exercises to skip.")] = 0,
+    pagination: Annotated[PaginationParams, Depends(get_pagination)],
     search: Annotated[str | None, Query(description="Search term for exercise names.")] = None,
     muscle_group: Annotated[str | None, Query(description="Filter by muscle group.")] = None,
     equipment: Annotated[str | None, Query(description="Filter by equipment.")] = None,
@@ -53,8 +54,8 @@ def list_exercises(
     """
     return service.list_visible_by_user(
         user_id=current_user.id,
-        limit=limit,
-        offset=offset,
+        limit=pagination.limit,
+        offset=pagination.offset,
         search=search,
         muscle_group=muscle_group,
         equipment=equipment,

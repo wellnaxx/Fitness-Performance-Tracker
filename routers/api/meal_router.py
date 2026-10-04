@@ -4,10 +4,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, status
 
 from dependencies.auth import get_current_user
+from dependencies.pagination import get_pagination
 from dependencies.providers import get_meal_service
 from schemas.meal_schema import MealCreate, MealPublic, MealUpdate
 from schemas.user_schema import UserInternal
 from services.meal_service import MealService
+from utils.pagination import PaginationParams
 from utils.validators import validate_meal_type
 
 meal_router = APIRouter(prefix="/meals", tags=["meals"])
@@ -41,8 +43,7 @@ def get_meal_by_id(
 def list_meals(
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[MealService, Depends(get_meal_service)],
-    limit: Annotated[int, Query(ge=1, le=1000, description="Maximum number of meals to return.")] = 100,
-    offset: Annotated[int, Query(ge=0, description="Number of meals to skip.")] = 0,
+    pagination: Annotated[PaginationParams, Depends(get_pagination)],
     date_from: Annotated[date | None, Query(description="Filter meals from this date inclusive.")] = None,
     date_to: Annotated[date | None, Query(description="Filter meals up to this date inclusive.")] = None,
     meal_type: Annotated[str | None, Query(description="Filter by meal type.")] = None,
@@ -53,8 +54,8 @@ def list_meals(
     normalized_meal_type = _normalize_meal_type(meal_type)
     return service.list_visible_by_user(
         user_id=current_user.id,
-        limit=limit,
-        offset=offset,
+        limit=pagination.limit,
+        offset=pagination.offset,
         date_from=date_from,
         date_to=date_to,
         meal_type=normalized_meal_type,

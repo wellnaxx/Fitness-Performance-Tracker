@@ -13,6 +13,7 @@ from core.errors.repository import UserRepositoryError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from data.mappers.user import map_user
 from data.queries import QUERIES
+from utils.pagination import DEFAULT_LIMIT, DEFAULT_OFFSET, normalize_pagination
 
 if TYPE_CHECKING:
     from schemas.user_schema import UserCreate, UserInternal
@@ -151,7 +152,7 @@ class UserRepository:
             return None
         return map_user(row)
 
-    def get_all(self, limit: int = 100, offset: int = 0) -> list[UserInternal]:
+    def get_all(self, limit: int = DEFAULT_LIMIT, offset: int = DEFAULT_OFFSET) -> list[UserInternal]:
         """
         Retrieve users with pagination.
 
@@ -162,12 +163,11 @@ class UserRepository:
         Returns:
             Users ordered from newest to oldest.
         """
-        safe_limit = max(1, min(limit, 1000))
-        safe_offset = max(0, offset)
+        pagination = normalize_pagination(limit, offset)
 
         rows = fetch_all(
             QUERIES.users.get_all,
-            (safe_limit, safe_offset),
+            (pagination.limit, pagination.offset),
         )
         return [map_user(row) for row in rows]
 

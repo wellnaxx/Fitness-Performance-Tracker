@@ -5,10 +5,12 @@ from fastapi import APIRouter, Depends, status
 from fastapi.params import Query
 
 from dependencies.auth import get_current_user
+from dependencies.pagination import get_pagination
 from dependencies.providers import get_workout_service
 from schemas.user_schema import UserInternal
 from schemas.workout_schema import WorkoutCreate, WorkoutPublic, WorkoutUpdate
 from services.workout_service import WorkoutService
+from utils.pagination import PaginationParams
 
 workout_router = APIRouter(prefix="/workouts", tags=["workouts"])
 
@@ -41,9 +43,8 @@ def get_workout_by_id(
 def list_workouts(
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[WorkoutService, Depends(get_workout_service)],
+    pagination: Annotated[PaginationParams, Depends(get_pagination)],
     search: Annotated[str | None, Query(min_length=1)] = None,
-    limit: Annotated[int, Query(ge=1, le=1000)] = 100,
-    offset: Annotated[int, Query(ge=0)] = 0,
     date_from: Annotated[date | None, Query(description="Filter workouts from this date (inclusive).")] = None,
     date_to: Annotated[date | None, Query(description="Filter workouts up to this date (inclusive).")] = None,
 ) -> list[WorkoutPublic]:
@@ -51,7 +52,12 @@ def list_workouts(
     List workouts visible to the authenticated user with pagination.
     """
     return service.list_visible_by_user(
-        current_user.id, search=search, limit=limit, offset=offset, date_from=date_from, date_to=date_to
+        current_user.id,
+        search=search,
+        limit=pagination.limit,
+        offset=pagination.offset,
+        date_from=date_from,
+        date_to=date_to,
     )
 
 

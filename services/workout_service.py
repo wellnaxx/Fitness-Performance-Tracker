@@ -24,6 +24,7 @@ from core.errors.workout import (
 )
 from ports.repositories.workout_repository import WorkoutRepositoryPort
 from schemas.workout_schema import WorkoutCreate, WorkoutPublic, WorkoutUpdate
+from utils.pagination import DEFAULT_LIMIT, DEFAULT_OFFSET
 
 
 class WorkoutService:
@@ -87,8 +88,8 @@ class WorkoutService:
         self,
         user_id: int,
         search: str | None = None,
-        limit: int = 100,
-        offset: int = 0,
+        limit: int = DEFAULT_LIMIT,
+        offset: int = DEFAULT_OFFSET,
         date_from: date | None = None,
         date_to: date | None = None,
     ) -> list[WorkoutPublic]:

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
+from utils.pagination import DEFAULT_LIMIT, DEFAULT_OFFSET
+
 if TYPE_CHECKING:
     from schemas.user_goals_schema import UserGoalCreate, UserGoalPublic, UserGoalUpdate
 
@@ -27,7 +29,12 @@ class UserGoalsRepositoryPort(Protocol):
         """Retrieve the currently active goal for a user."""
         ...
 
-    def get_all(self, user_id: int, limit: int = 100, offset: int = 0) -> list[UserGoalPublic]:
+    def get_all(
+        self,
+        user_id: int,
+        limit: int = DEFAULT_LIMIT,
+        offset: int = DEFAULT_OFFSET,
+    ) -> list[UserGoalPublic]:
         """Retrieve all goals for a specific user with pagination."""
         ...
 

@@ -13,6 +13,7 @@ from core.errors.repository import MealRepositoryError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from data.mappers.meal import map_meal
 from data.queries import QUERIES
+from utils.pagination import DEFAULT_LIMIT, DEFAULT_OFFSET, normalize_pagination
 
 if TYPE_CHECKING:
     from datetime import date
@@ -107,8 +108,8 @@ class MealRepository:
     def list_by_user(
         self,
         user_id: int,
-        limit: int = 100,
-        offset: int = 0,
+        limit: int = DEFAULT_LIMIT,
+        offset: int = DEFAULT_OFFSET,
         date_from: date | None = None,
         date_to: date | None = None,
         meal_type: str | None = None,
@@ -127,8 +128,7 @@ class MealRepository:
         Returns:
             A list of meals ordered from newest to oldest.
         """
-        safe_limit = max(1, min(limit, 1000))
-        safe_offset = max(0, offset)
+        pagination = normalize_pagination(limit, offset)
 
         filters: list[str] = []
         params: list[object] = [user_id]
@@ -146,7 +146,7 @@ class MealRepository:
             params.append(meal_type)
 
         sql = QUERIES.meals.list_by_user.format(filters=" ".join(filters))
-        params.extend([safe_limit, safe_offset])
+        params.extend([pagination.limit, pagination.offset])
 
         rows = fetch_all(sql, tuple(params))
         return [map_meal(row) for row in rows]

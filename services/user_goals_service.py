@@ -11,6 +11,7 @@ from schemas.user_goals_schema import (
     UserGoalUpdate,
 )
 from schemas.user_schema import UserInternal
+from utils.pagination import DEFAULT_LIMIT, DEFAULT_OFFSET
 
 
 class UserGoalsService:
@@ -57,8 +58,8 @@ class UserGoalsService:
     def get_goal_history(
         self,
         current_user: UserInternal,
-        limit: int = 100,
-        offset: int = 0,
+        limit: int = DEFAULT_LIMIT,
+        offset: int = DEFAULT_OFFSET,
     ) -> list[UserGoalPublic]:
         """
         Return the authenticated user's full goal history with pagination.

@@ -19,6 +19,7 @@ from core.errors.meal import MealCreationError, MealDeleteError, MealNotFoundErr
 from core.errors.repository import MealRepositoryError
 from ports.repositories.meal_repository import MealRepositoryPort
 from schemas.meal_schema import MealCreate, MealPublic, MealUpdate
+from utils.pagination import DEFAULT_LIMIT, DEFAULT_OFFSET
 
 
 class MealService:
@@ -80,8 +81,8 @@ class MealService:
     def list_visible_by_user(
         self,
         user_id: int,
-        limit: int = 100,
-        offset: int = 0,
+        limit: int = DEFAULT_LIMIT,
+        offset: int = DEFAULT_OFFSET,
         date_from: date | None = None,
         date_to: date | None = None,
         meal_type: str | None = None,

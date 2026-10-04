@@ -13,6 +13,7 @@ from core.errors.repository import UserGoalsRepositoryError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from data.mappers.user_goal import map_user_goal
 from data.queries import QUERIES
+from utils.pagination import DEFAULT_LIMIT, DEFAULT_OFFSET, normalize_pagination
 
 if TYPE_CHECKING:
     from schemas.user_goals_schema import UserGoalCreate, UserGoalPublic, UserGoalUpdate
@@ -135,7 +136,12 @@ class UserGoalsRepository:
             return None
         return map_user_goal(row)
 
-    def get_all(self, user_id: int, limit: int = 100, offset: int = 0) -> list[UserGoalPublic]:
+    def get_all(
+        self,
+        user_id: int,
+        limit: int = DEFAULT_LIMIT,
+        offset: int = DEFAULT_OFFSET,
+    ) -> list[UserGoalPublic]:
         """
         Retrieve all goals for a specific user with pagination.
 
@@ -148,10 +154,9 @@ class UserGoalsRepository:
             A list of the user's goals ordered from newest to oldest.
         """
 
-        safe_limit = max(1, min(limit, 1000))  # Enforce reasonable limits
-        safe_offset = max(0, offset)
+        pagination = normalize_pagination(limit, offset)
         sql = QUERIES.user_goals.get_all
-        rows = fetch_all(sql, (user_id, safe_limit, safe_offset))
+        rows = fetch_all(sql, (user_id, pagination.limit, pagination.offset))
         return [map_user_goal(row) for row in rows]
 
     def update(self, goal_id: int, update_data: UserGoalUpdate) -> UserGoalPublic | None:

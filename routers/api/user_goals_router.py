@@ -1,9 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, status
 
 from core.errors.goals import UserGoalNotFoundError
 from dependencies.auth import get_current_user
+from dependencies.pagination import get_pagination
 from dependencies.providers import get_user_goals_service
 from schemas.user_goals_schema import (
     UserGoalCreate,
@@ -12,6 +13,7 @@ from schemas.user_goals_schema import (
 )
 from schemas.user_schema import UserInternal
 from services.user_goals_service import UserGoalsService
+from utils.pagination import PaginationParams
 
 user_goals_router = APIRouter(prefix="/goals", tags=["user-goals"])
 
@@ -46,10 +48,9 @@ def get_current_goal(
 def get_goal_history(
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
-    limit: Annotated[int, Query(ge=1, le=1000, description="Maximum number of goals to return.")] = 100,
-    offset: Annotated[int, Query(ge=0, description="Number of goals to skip.")] = 0,
+    pagination: Annotated[PaginationParams, Depends(get_pagination)],
 ) -> list[UserGoalPublic]:
-    return service.get_goal_history(current_user, limit, offset)
+    return service.get_goal_history(current_user, pagination.limit, pagination.offset)
 
 
 @user_goals_router.get(
