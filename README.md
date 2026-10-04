@@ -75,7 +75,7 @@ Fitness-Performance-Tracker/
 |-- routers/            # API route modules
 |-- schemas/            # Pydantic request and response models
 |-- services/           # business logic layer
-|-- tests/              # SQL loading, row mapper and repository regression tests
+|-- tests/              # service, authentication, schema, HTTP and repository tests
 |-- utils/              # environment and validation helpers
 `-- main.py             # FastAPI application entrypoint
 ```
@@ -143,11 +143,34 @@ only: pass all runtime values separately through the executor's `%s` parameters.
 SQL files must be included when copying or deploying the backend. Queries are
 cached for the life of the process, so restart the backend after editing them.
 
-Run the database-independent regression tests with:
+Run the database-independent tests with:
 
 ```bash
 python -m unittest discover -s tests -v
 ```
+
+The suite covers successful operations and failure paths across all six services:
+registration, login, password retries, token revocation, ownership checks, goal
+activation and partial date updates, exercise name conflicts, workout ordering,
+and failed repository writes. Service tests use autospecced repository protocols;
+the meal protocol tests also exercise a complete flow with an in-memory repository.
+
+Additional tests cover real password hashing and JWT signing/validation, request
+schema boundaries for all eleven entities, shared validators, HTTP error responses,
+SQL loading and parameter binding, and database row mapping. No running database or
+application server is required. Repository tests mock database execution, so PostgreSQL
+constraints, concurrent requests, and transaction isolation still need integration tests.
+
+To measure statement and branch coverage, install the optional `coverage` development
+tool in your virtual environment and run:
+
+```bash
+python -m coverage run --branch --source=services,auth,schemas,utils.validators -m unittest discover -s tests
+python -m coverage report -m
+```
+
+This report measures those modules only. Full branch coverage helps find untested
+paths; it does not prove that every possible input or database interaction is correct.
 
 ## Database Model
 
@@ -360,7 +383,7 @@ The schema is defined in `data/schema.sql`, and the current ERD is included belo
 ## Development Notes
 
 - The app currently exposes API routes only.
-- Automated tests are not implemented yet; current verification is mainly through Swagger UI and the Postman collection.
+- Automated tests run with `python -m unittest discover -s tests -v`; Swagger UI and Postman support manual API verification.
 - Ruff configuration is defined in `pyproject.toml`.
 - `data/init_db.py` is the quickest way to reset and rebuild the database during local development.
 
@@ -369,7 +392,7 @@ The schema is defined in `data/schema.sql`, and the current ERD is included belo
 - add set-entry API layers
 - add nutrition endpoints for meals and meal items
 - expose body-weight, measurement, and progress-photo tracking
-- add automated tests
+- add PostgreSQL integration tests for constraints, transactions, and concurrent writes
 - expand the Postman collection to cover the remaining slices
 - expand documentation and diagrams
 
