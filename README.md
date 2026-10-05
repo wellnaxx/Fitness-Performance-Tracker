@@ -117,6 +117,14 @@ for authentication failures. Add new error mappings here instead of repeating
 `HTTPException` conversion blocks in routes. FastAPI continues to handle
 request validation and framework HTTP errors, including their response headers.
 
+`utils/pagination.py` defines the shared pagination defaults and bounds.
+`dependencies/pagination.py` validates `limit` and `offset` for the exercise, meal,
+workout, and goal-history list routes. Defaults remain `limit=100` and `offset=0`;
+the API accepts limits from 1 to 1000 and nonnegative offsets, returning HTTP 422
+for invalid values. Repositories use the same normalization helper to clamp values
+from direct callers. Services and repository protocols share the defaults, and list
+responses remain arrays.
+
 Server failures are logged with exception information. Database, repository, and
 row-validation failures return a generic database error; unexpected failures return
 an internal-server-error message. User creation also uses a fixed public message
