@@ -10,7 +10,7 @@ from core.errors.database import DatabaseError
 from data.connection import get_connection
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
 
     from psycopg import Cursor
 
@@ -61,7 +61,7 @@ def _cursor_to_dict(cursor: Cursor[Row], row: Row | None) -> RowDict | None:
 
 
 @contextmanager
-def transaction_cursor() -> Iterator[Cursor[Row]]:
+def transaction_cursor() -> Generator[Cursor[Row]]:
     """Yield a cursor bound to a single transaction with automatic commit/rollback."""
     try:
         with get_connection() as conn, conn.cursor() as cursor:
@@ -81,14 +81,14 @@ def transaction_cursor() -> Iterator[Cursor[Row]]:
 
 def fetch_all_tx(cursor: Cursor[Row], sql: SQLQuery, params: SQLParams = ()) -> list[RowDict]:
     """Execute a SELECT inside an open transaction and return all rows as dicts."""
-    logger.debug("SELECT (tx) %s | params=%s", sql, params)
+    logger.debug("SELECT (tx) %s | parameter_count=%d", sql, len(params))
     cursor.execute(_as_query(sql), params)
     return _cursor_to_dicts(cursor)
 
 
 def fetch_one_tx(cursor: Cursor[Row], sql: SQLQuery, params: SQLParams = ()) -> RowDict | None:
     """Execute a SELECT inside an open transaction and return the first row as a dict, or None."""
-    logger.debug("SELECT (one tx) %s | params=%s", sql, params)
+    logger.debug("SELECT (one tx) %s | parameter_count=%d", sql, len(params))
     cursor.execute(_as_query(sql), params)
     return _cursor_to_dict(cursor, cursor.fetchone())
 
@@ -98,21 +98,21 @@ def execute_insert_tx(cursor: Cursor[Row], sql: SQLQuery, params: SQLParams = ()
     Execute an INSERT inside an open transaction and return the new row's id.
     IMPORTANT: SQL must include RETURNING id.
     """
-    logger.debug("INSERT (tx) %s | params=%s", sql, params)
+    logger.debug("INSERT (tx) %s | parameter_count=%d", sql, len(params))
     cursor.execute(_as_query(sql), params)
     return _extract_inserted_id(cursor.fetchone())
 
 
 def execute_write_tx(cursor: Cursor[Row], sql: SQLQuery, params: SQLParams = ()) -> int:
     """Execute an UPDATE or DELETE inside an open transaction and return affected row count."""
-    logger.debug("WRITE (tx) %s | params=%s", sql, params)
+    logger.debug("WRITE (tx) %s | parameter_count=%d", sql, len(params))
     cursor.execute(_as_query(sql), params)
     return int(cursor.rowcount)
 
 
 def fetch_all(sql: SQLQuery, params: SQLParams = ()) -> list[RowDict]:
     """Execute a SELECT and return all rows as dicts."""
-    logger.debug("SELECT %s | params=%s", sql, params)
+    logger.debug("SELECT %s | parameter_count=%d", sql, len(params))
 
     try:
         with get_connection() as conn, conn.cursor() as cursor:
@@ -127,7 +127,7 @@ def fetch_all(sql: SQLQuery, params: SQLParams = ()) -> list[RowDict]:
 
 def fetch_one(sql: SQLQuery, params: SQLParams = ()) -> RowDict | None:
     """Execute a SELECT and return the first row as a dict, or None."""
-    logger.debug("SELECT (one) %s | params=%s", sql, params)
+    logger.debug("SELECT (one) %s | parameter_count=%d", sql, len(params))
 
     try:
         with get_connection() as conn, conn.cursor() as cursor:
@@ -146,7 +146,7 @@ def execute_insert(sql: SQLQuery, params: SQLParams = ()) -> int:
     Execute an INSERT and return the new row's id.
     IMPORTANT: SQL must include RETURNING id.
     """
-    logger.debug("INSERT %s | params=%s", sql, params)
+    logger.debug("INSERT %s | parameter_count=%d", sql, len(params))
 
     try:
         with get_connection() as conn, conn.cursor() as cursor:
@@ -165,7 +165,7 @@ def execute_insert(sql: SQLQuery, params: SQLParams = ()) -> int:
 
 def execute_write(sql: SQLQuery, params: SQLParams = ()) -> int:
     """Execute an UPDATE or DELETE and return affected row count."""
-    logger.debug("WRITE %s | params=%s", sql, params)
+    logger.debug("WRITE %s | parameter_count=%d", sql, len(params))
 
     try:
         with get_connection() as conn, conn.cursor() as cursor:

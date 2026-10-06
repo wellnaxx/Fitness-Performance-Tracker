@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+from core.logging_config import configure_logging
 from data.connection import get_connection
 
 if TYPE_CHECKING:
@@ -73,9 +74,15 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Configure logging before running the requested database bootstrap."""
     args = parse_args()
+    configure_logging()
     init_db(
         reset=not args.no_reset,
         seed=not args.no_seed,
     )
+
+
+if __name__ == "__main__":
+    main()
