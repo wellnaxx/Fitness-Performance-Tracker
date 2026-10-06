@@ -258,7 +258,8 @@ DB_NAME=fitness_performance_tracker
 DB_USER=postgres
 DB_PASSWORD=your_password_here
 
-LOG_LEVEL=DEBUG
+LOG_LEVEL=INFO
+# LOG_FILE=logs/fitness-performance-tracker.log
 JWT_SECRET_KEY=replace_with_a_long_random_secret
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
@@ -285,6 +286,20 @@ If you prefer, you can still apply the schema manually with `psql`.
 ```bash
 uvicorn main:app --reload
 ```
+
+Logging is configured by `core/logging_config.py` during API startup and when
+running the database bootstrap CLI. Logs go to stdout with timestamps, levels,
+and logger names. `LOG_LEVEL` defaults to `INFO` and accepts `DEBUG`, `INFO`,
+`WARNING`, `ERROR`, `CRITICAL`, or `NOTSET` (case-insensitive). An unsupported
+value stops startup with a configuration error.
+
+Set `LOG_FILE` to also write UTF-8 logs to a rotating file. Parent directories
+are created automatically; files rotate at 10 MiB with five backups. Relative
+paths resolve from the process working directory. Uvicorn error and access
+logs use the shared handlers after application startup. Repeated configuration
+replaces the handlers instead of adding duplicate output, and Uvicorn's
+`--no-access-log` setting is respected. SQL debug messages
+include parameter counts rather than parameter values.
 
 Open:
 
