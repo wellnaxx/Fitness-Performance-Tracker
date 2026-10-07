@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
 from decimal import Decimal
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from core.errors.repository import BodyWeightEntryRowError
+from data.validation import RowValidator
 from schemas.body_weight_entry_schema import BodyWeightEntryPublic
+
+if TYPE_CHECKING:
+    from datetime import date, datetime
+
+_validator = RowValidator(BodyWeightEntryRowError)
 
 
 class BodyWeightEntryRow(TypedDict):
@@ -22,22 +27,12 @@ def _parse_body_weight_entry_row(
     row: dict[str, object],
 ) -> BodyWeightEntryRow:
     """Validate and normalize a raw database row into a typed BodyWeightEntryRow."""
-    id_value = row.get("id")
-    user_id = row.get("user_id")
-    weight = row.get("weight")
-    entry_date = row.get("entry_date")
-    created_at = row.get("created_at")
 
-    if not isinstance(id_value, int):
-        raise BodyWeightEntryRowError.invalid_type("id", "int")
-    if not isinstance(user_id, int):
-        raise BodyWeightEntryRowError.invalid_type("user_id", "int")
-    if not isinstance(weight, (Decimal, int, float)):
-        raise BodyWeightEntryRowError.invalid_type("weight", "numeric")
-    if not isinstance(entry_date, date):
-        raise BodyWeightEntryRowError.invalid_type("entry_date", "date")
-    if not isinstance(created_at, datetime):
-        raise BodyWeightEntryRowError.invalid_type("created_at", "datetime")
+    id_value = _validator.require_int(row.get("id"), "id")
+    user_id = _validator.require_int(row.get("user_id"), "user_id")
+    weight = _validator.require_numeric(row.get("weight"), "weight")
+    entry_date = _validator.require_date(row.get("entry_date"), "entry_date")
+    created_at = _validator.require_datetime(row.get("created_at"), "created_at")
 
     return BodyWeightEntryRow(
         id=id_value,

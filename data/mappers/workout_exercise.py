@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import TypedDict
 
 from core.errors.repository import WorkoutExerciseRowError
+from data.validation import RowValidator
 from schemas.workout_exercises_schema import WorkoutExercisePublic
+
+_validator = RowValidator(WorkoutExerciseRowError)
 
 
 class WorkoutExerciseRow(TypedDict):
@@ -19,25 +22,13 @@ class WorkoutExerciseRow(TypedDict):
 
 def _parse_workout_exercise_row(row: dict[str, object]) -> WorkoutExerciseRow:
     """Validate and normalize a raw database row into a typed WorkoutExerciseRow."""
-    id_value = row.get("id")
-    workout_id = row.get("workout_id")
-    exercise_id = row.get("exercise_id")
-    order_index = row.get("order_index")
-    rest_seconds = row.get("rest_seconds")
-    notes = row.get("notes")
 
-    if not isinstance(id_value, int):
-        raise WorkoutExerciseRowError.invalid_type("id", "int")
-    if not isinstance(workout_id, int):
-        raise WorkoutExerciseRowError.invalid_type("workout_id", "int")
-    if not isinstance(exercise_id, int):
-        raise WorkoutExerciseRowError.invalid_type("exercise_id", "int")
-    if not isinstance(order_index, int):
-        raise WorkoutExerciseRowError.invalid_type("order_index", "int")
-    if rest_seconds is not None and not isinstance(rest_seconds, int):
-        raise WorkoutExerciseRowError.invalid_type("rest_seconds", "int | None")
-    if notes is not None and not isinstance(notes, str):
-        raise WorkoutExerciseRowError.invalid_type("notes", "str | None")
+    id_value = _validator.require_int(row.get("id"), "id")
+    workout_id = _validator.require_int(row.get("workout_id"), "workout_id")
+    exercise_id = _validator.require_int(row.get("exercise_id"), "exercise_id")
+    order_index = _validator.require_int(row.get("order_index"), "order_index")
+    rest_seconds = _validator.require_optional_int(row.get("rest_seconds"), "rest_seconds")
+    notes = _validator.require_optional_str(row.get("notes"), "notes")
 
     return WorkoutExerciseRow(
         id=id_value,

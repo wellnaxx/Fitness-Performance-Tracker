@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from decimal import Decimal
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from core.errors.repository import SetEntryRowError
+from data.validation import RowValidator
 from schemas.set_entry_schema import SetEntryPublic
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+_validator = RowValidator(SetEntryRowError)
 
 
 class SetEntryRow(TypedDict):
@@ -24,34 +29,16 @@ class SetEntryRow(TypedDict):
 
 def _parse_set_entry_row(row: dict[str, object]) -> SetEntryRow:
     """Validate and normalize a raw database row into a typed SetEntryRow."""
-    id_value = row.get("id")
-    workout_exercise_id = row.get("workout_exercise_id")
-    set_number = row.get("set_number")
-    reps = row.get("reps")
-    weight = row.get("weight")
-    rpe = row.get("rpe")
-    is_warmup = row.get("is_warmup")
-    completed = row.get("completed")
-    created_at = row.get("created_at")
 
-    if not isinstance(id_value, int):
-        raise SetEntryRowError.invalid_type("id", "int")
-    if not isinstance(workout_exercise_id, int):
-        raise SetEntryRowError.invalid_type("workout_exercise_id", "int")
-    if not isinstance(set_number, int):
-        raise SetEntryRowError.invalid_type("set_number", "int")
-    if not isinstance(reps, int):
-        raise SetEntryRowError.invalid_type("reps", "int")
-    if not isinstance(weight, (Decimal, int, float)):
-        raise SetEntryRowError.invalid_type("weight", "numeric")
-    if rpe is not None and not isinstance(rpe, int):
-        raise SetEntryRowError.invalid_type("rpe", "int | None")
-    if not isinstance(is_warmup, bool):
-        raise SetEntryRowError.invalid_type("is_warmup", "bool")
-    if not isinstance(completed, bool):
-        raise SetEntryRowError.invalid_type("completed", "bool")
-    if not isinstance(created_at, datetime):
-        raise SetEntryRowError.invalid_type("created_at", "datetime")
+    id_value = _validator.require_int(row.get("id"), "id")
+    workout_exercise_id = _validator.require_int(row.get("workout_exercise_id"), "workout_exercise_id")
+    set_number = _validator.require_int(row.get("set_number"), "set_number")
+    reps = _validator.require_int(row.get("reps"), "reps")
+    weight = _validator.require_numeric(row.get("weight"), "weight")
+    rpe = _validator.require_optional_int(row.get("rpe"), "rpe")
+    is_warmup = _validator.require_bool(row.get("is_warmup"), "is_warmup")
+    completed = _validator.require_bool(row.get("completed"), "completed")
+    created_at = _validator.require_datetime(row.get("created_at"), "created_at")
 
     return SetEntryRow(
         id=id_value,

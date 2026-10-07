@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from core.errors.repository import MealRowError
+from data.validation import RowValidator
 from schemas.meal_schema import MealPublic
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+_validator = RowValidator(MealRowError)
 
 
 class MealRow(TypedDict):
@@ -23,34 +28,16 @@ class MealRow(TypedDict):
 
 def _parse_meal_row(row: dict[str, object]) -> MealRow:
     """Validate and normalize a raw database row into a typed MealRow."""
-    id_value = row.get("id")
-    user_id = row.get("user_id")
-    name = row.get("name")
-    description = row.get("description")
-    eaten_at = row.get("eaten_at")
-    meal_type = row.get("meal_type")
-    notes = row.get("notes")
-    created_at = row.get("created_at")
-    updated_at = row.get("updated_at")
 
-    if not isinstance(id_value, int):
-        raise MealRowError.invalid_type("id", "int")
-    if not isinstance(user_id, int):
-        raise MealRowError.invalid_type("user_id", "int")
-    if not isinstance(name, str):
-        raise MealRowError.invalid_type("name", "str")
-    if description is not None and not isinstance(description, str):
-        raise MealRowError.invalid_type("description", "str | None")
-    if not isinstance(eaten_at, datetime):
-        raise MealRowError.invalid_type("eaten_at", "datetime")
-    if not isinstance(meal_type, str):
-        raise MealRowError.invalid_type("meal_type", "str")
-    if notes is not None and not isinstance(notes, str):
-        raise MealRowError.invalid_type("notes", "str | None")
-    if not isinstance(created_at, datetime):
-        raise MealRowError.invalid_type("created_at", "datetime")
-    if not isinstance(updated_at, datetime):
-        raise MealRowError.invalid_type("updated_at", "datetime")
+    id_value = _validator.require_int(row.get("id"), "id")
+    user_id = _validator.require_int(row.get("user_id"), "user_id")
+    name = _validator.require_str(row.get("name"), "name")
+    description = _validator.require_optional_str(row.get("description"), "description")
+    eaten_at = _validator.require_datetime(row.get("eaten_at"), "eaten_at")
+    meal_type = _validator.require_str(row.get("meal_type"), "meal_type")
+    notes = _validator.require_optional_str(row.get("notes"), "notes")
+    created_at = _validator.require_datetime(row.get("created_at"), "created_at")
+    updated_at = _validator.require_datetime(row.get("updated_at"), "updated_at")
 
     return MealRow(
         id=id_value,

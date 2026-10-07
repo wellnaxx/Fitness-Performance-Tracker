@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from core.errors.repository import WorkoutRowError
+from data.validation import RowValidator
 from schemas.workout_schema import WorkoutPublic
+
+if TYPE_CHECKING:
+    from datetime import date, datetime
+
+_validator = RowValidator(WorkoutRowError)
 
 
 class WorkoutRow(TypedDict):
@@ -24,37 +29,17 @@ class WorkoutRow(TypedDict):
 
 def _parse_workout_row(row: dict[str, object]) -> WorkoutRow:
     """Validate and normalize a raw database row into a typed WorkoutRow."""
-    id_value = row.get("id")
-    user_id = row.get("user_id")
-    name = row.get("name")
-    description = row.get("description")
-    workout_date = row.get("workout_date")
-    started_at = row.get("started_at")
-    completed_at = row.get("completed_at")
-    notes = row.get("notes")
-    created_at = row.get("created_at")
-    updated_at = row.get("updated_at")
 
-    if not isinstance(id_value, int):
-        raise WorkoutRowError.invalid_type("id", "int")
-    if user_id is not None and not isinstance(user_id, int):
-        raise WorkoutRowError.invalid_type("user_id", "int | None")
-    if not isinstance(name, str):
-        raise WorkoutRowError.invalid_type("name", "str")
-    if description is not None and not isinstance(description, str):
-        raise WorkoutRowError.invalid_type("description", "str | None")
-    if not isinstance(workout_date, date):
-        raise WorkoutRowError.invalid_type("workout_date", "date")
-    if started_at is not None and not isinstance(started_at, datetime):
-        raise WorkoutRowError.invalid_type("started_at", "datetime | None")
-    if completed_at is not None and not isinstance(completed_at, datetime):
-        raise WorkoutRowError.invalid_type("completed_at", "datetime | None")
-    if notes is not None and not isinstance(notes, str):
-        raise WorkoutRowError.invalid_type("notes", "str | None")
-    if not isinstance(created_at, datetime):
-        raise WorkoutRowError.invalid_type("created_at", "datetime")
-    if not isinstance(updated_at, datetime):
-        raise WorkoutRowError.invalid_type("updated_at", "datetime")
+    id_value = _validator.require_int(row.get("id"), "id")
+    user_id = _validator.require_optional_int(row.get("user_id"), "user_id")
+    name = _validator.require_str(row.get("name"), "name")
+    description = _validator.require_optional_str(row.get("description"), "description")
+    workout_date = _validator.require_date(row.get("workout_date"), "workout_date")
+    started_at = _validator.require_optional_datetime(row.get("started_at"), "started_at")
+    completed_at = _validator.require_optional_datetime(row.get("completed_at"), "completed_at")
+    notes = _validator.require_optional_str(row.get("notes"), "notes")
+    created_at = _validator.require_datetime(row.get("created_at"), "created_at")
+    updated_at = _validator.require_datetime(row.get("updated_at"), "updated_at")
 
     return WorkoutRow(
         id=id_value,

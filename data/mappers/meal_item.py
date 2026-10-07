@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from decimal import Decimal
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from core.errors.repository import MealItemRowError
+from data.validation import RowValidator
 from schemas.meal_item_schema import MealItemPublic
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+_validator = RowValidator(MealItemRowError)
 
 
 class MealItemRow(TypedDict):
@@ -24,34 +29,16 @@ class MealItemRow(TypedDict):
 
 def _parse_meal_item_row(row: dict[str, object]) -> MealItemRow:
     """Validate and normalize a raw database row into a typed MealItemRow."""
-    id_value = row.get("id")
-    meal_id = row.get("meal_id")
-    name = row.get("name")
-    serving_size = row.get("serving_size")
-    calories = row.get("calories")
-    protein = row.get("protein")
-    carbs = row.get("carbs")
-    fats = row.get("fats")
-    created_at = row.get("created_at")
 
-    if not isinstance(id_value, int):
-        raise MealItemRowError.invalid_type("id", "int")
-    if not isinstance(meal_id, int):
-        raise MealItemRowError.invalid_type("meal_id", "int")
-    if not isinstance(name, str):
-        raise MealItemRowError.invalid_type("name", "str")
-    if serving_size is not None and not isinstance(serving_size, (Decimal, int, float)):
-        raise MealItemRowError.invalid_type("serving_size", "numeric | None")
-    if not isinstance(calories, (Decimal, int, float)):
-        raise MealItemRowError.invalid_type("calories", "numeric")
-    if not isinstance(protein, (Decimal, int, float)):
-        raise MealItemRowError.invalid_type("protein", "numeric")
-    if not isinstance(carbs, (Decimal, int, float)):
-        raise MealItemRowError.invalid_type("carbs", "numeric")
-    if not isinstance(fats, (Decimal, int, float)):
-        raise MealItemRowError.invalid_type("fats", "numeric")
-    if not isinstance(created_at, datetime):
-        raise MealItemRowError.invalid_type("created_at", "datetime")
+    id_value = _validator.require_int(row.get("id"), "id")
+    meal_id = _validator.require_int(row.get("meal_id"), "meal_id")
+    name = _validator.require_str(row.get("name"), "name")
+    serving_size = _validator.require_optional_numeric(row.get("serving_size"), "serving_size")
+    calories = _validator.require_numeric(row.get("calories"), "calories")
+    protein = _validator.require_numeric(row.get("protein"), "protein")
+    carbs = _validator.require_numeric(row.get("carbs"), "carbs")
+    fats = _validator.require_numeric(row.get("fats"), "fats")
+    created_at = _validator.require_datetime(row.get("created_at"), "created_at")
 
     return MealItemRow(
         id=id_value,

@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from core.errors.repository import ProgressPhotoRowError
+from data.validation import RowValidator
 from schemas.progress_photo_schema import ProgressPhotoPublic
+
+if TYPE_CHECKING:
+    from datetime import date, datetime
+
+_validator = RowValidator(ProgressPhotoRowError)
 
 
 class ProgressPhotoRow(TypedDict):
@@ -20,25 +25,13 @@ class ProgressPhotoRow(TypedDict):
 
 def _parse_progress_photo_row(row: dict[str, object]) -> ProgressPhotoRow:
     """Validate and normalize a raw database row into a typed ProgressPhotoRow."""
-    id_value = row.get("id")
-    user_id = row.get("user_id")
-    photo_url = row.get("photo_url")
-    entry_date = row.get("entry_date")
-    notes = row.get("notes")
-    created_at = row.get("created_at")
 
-    if not isinstance(id_value, int):
-        raise ProgressPhotoRowError.invalid_type("id", "int")
-    if not isinstance(user_id, int):
-        raise ProgressPhotoRowError.invalid_type("user_id", "int")
-    if not isinstance(photo_url, str):
-        raise ProgressPhotoRowError.invalid_type("photo_url", "str")
-    if not isinstance(entry_date, date):
-        raise ProgressPhotoRowError.invalid_type("entry_date", "date")
-    if notes is not None and not isinstance(notes, str):
-        raise ProgressPhotoRowError.invalid_type("notes", "str | None")
-    if not isinstance(created_at, datetime):
-        raise ProgressPhotoRowError.invalid_type("created_at", "datetime")
+    id_value = _validator.require_int(row.get("id"), "id")
+    user_id = _validator.require_int(row.get("user_id"), "user_id")
+    photo_url = _validator.require_str(row.get("photo_url"), "photo_url")
+    entry_date = _validator.require_date(row.get("entry_date"), "entry_date")
+    notes = _validator.require_optional_str(row.get("notes"), "notes")
+    created_at = _validator.require_datetime(row.get("created_at"), "created_at")
 
     return ProgressPhotoRow(
         id=id_value,

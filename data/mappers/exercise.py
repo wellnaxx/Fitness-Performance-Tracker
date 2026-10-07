@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from core.errors.repository import ExerciseRowError
+from data.validation import RowValidator
 from schemas.exercise_schema import ExercisePublic
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+_validator = RowValidator(ExerciseRowError)
 
 
 class ExerciseRow(TypedDict):
@@ -35,26 +40,16 @@ def _parse_exercise_row(row: dict[str, object]) -> ExerciseRow:
     created_at = row["created_at"]
     updated_at = row["updated_at"]
 
-    if not isinstance(id_value, int):
-        raise ExerciseRowError.invalid_type("id", "int")
-    if not isinstance(name, str):
-        raise ExerciseRowError.invalid_type("name", "str")
-    if description is not None and not isinstance(description, str):
-        raise ExerciseRowError.invalid_type("description", "str | None")
-    if not isinstance(muscle_group, str):
-        raise ExerciseRowError.invalid_type("muscle_group", "str")
-    if equipment is not None and not isinstance(equipment, str):
-        raise ExerciseRowError.invalid_type("equipment", "str | None")
-    if not isinstance(is_compound, bool):
-        raise ExerciseRowError.invalid_type("is_compound", "bool")
-    if created_by is not None and not isinstance(created_by, int):
-        raise ExerciseRowError.invalid_type("created_by", "int | None")
-    if not isinstance(is_custom, bool):
-        raise ExerciseRowError.invalid_type("is_custom", "bool")
-    if not isinstance(created_at, datetime):
-        raise ExerciseRowError.invalid_type("created_at", "datetime")
-    if not isinstance(updated_at, datetime):
-        raise ExerciseRowError.invalid_type("updated_at", "datetime")
+    id_value = _validator.require_int(id_value, "id")
+    name = _validator.require_str(name, "name")
+    description = _validator.require_optional_str(description, "description")
+    muscle_group = _validator.require_str(muscle_group, "muscle_group")
+    equipment = _validator.require_optional_str(equipment, "equipment")
+    is_compound = _validator.require_bool(is_compound, "is_compound")
+    created_by = _validator.require_optional_int(created_by, "created_by")
+    is_custom = _validator.require_bool(is_custom, "is_custom")
+    created_at = _validator.require_datetime(created_at, "created_at")
+    updated_at = _validator.require_datetime(updated_at, "updated_at")
     return ExerciseRow(
         id=id_value,
         name=name,
