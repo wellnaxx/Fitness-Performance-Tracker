@@ -140,8 +140,15 @@ repositories use references such as `QUERIES.users.get_by_id`.
 Database row types and conversion functions live in `data/mappers/<entity>.py`.
 Repositories pass fetched rows to functions such as `map_user(row)`; mappers
 validate column types, normalize numeric values and construct the Pydantic model.
-Keep row validation and conversion in these modules when adding fields or
-entities. Mappers can be tested directly without a database connection.
+`data/validation.py` provides a shared `RowValidator` for integer, string, boolean,
+date, datetime, numeric, and nullable values. Each mapper binds its own row error
+class so existing exception types and field messages are preserved. Type checks
+retain the existing mapper rules; Pydantic applies value constraints afterward.
+Numeric normalization stays in the mapper where conversion policies differ, with
+a shared nullable Decimal conversion for body measurements.
+Keep entity-specific row mapping in these modules when adding fields or entities,
+and reuse the validation helpers for column checks. Mappers and helpers can be
+tested directly without a database connection.
 
 To add a query, create its SQL file and register it in the corresponding query
 dataclass and `QueryRegistry` property. Optional predicates live in `filter_*.sql`
