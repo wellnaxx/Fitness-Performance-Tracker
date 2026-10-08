@@ -69,7 +69,7 @@ Fitness-Performance-Tracker/
 |   `-- sql/            # SQL files grouped by entity and operation
 |-- dependencies/       # FastAPI dependency providers and auth deps
 |-- docs/               # docs assets such as the ERD image
-|-- ports/repositories/ # Repository contracts used by services and authentication
+|-- ports/              # Repository and unit-of-work contracts
 |-- postman/            # manual API testing collection
 |-- repositories/       # SQL repositories per domain
 |-- routers/            # API route modules
@@ -109,6 +109,26 @@ parameters, and return types, without inheriting from the protocol or a concrete
 repository. This lets service tests use small typed fakes, as shown in
 `tests/test_repository_protocols.py`. Extend the relevant contract when a service
 needs a new operation; SQL and row-mapping details remain in the implementations.
+
+`ports/unit_of_work.py` defines an explicit transaction boundary, implemented by
+`data/unit_of_work.py`. Goal creation, updates, activation, and deactivation open
+one connection and use `UserGoalsUnitOfWorkRepository` for every read and write.
+`UserGoalsRepository` calls an injected `QueryExecutor` directly: the default is
+the standalone executor module, while `TransactionExecutor` binds the same
+operations to the unit of work's cursor. Both paths reuse the goal queries and mapping.
+The service calls `commit()` after ownership checks, date validation, writes, and
+result mapping succeed. Leaving without a successful commit rolls back the work,
+so a failed replacement goal cannot leave the previous goal deactivated. Reads
+such as goal history continue to use the ordinary repository.
+
+Each goal transaction first locks the owner's user row with `FOR UPDATE`, including
+when the user has no goals yet. This serializes concurrent goal writes for the same
+user through these service operations. A user deleted before the lock is acquired
+produces `UserNotFoundError`. Repositories inside the unit of work never commit
+independently. To extend the boundary to another entity, add its transaction-bound
+repository and port to the unit of work, reusing the existing SQL and mapper.
+Unit tests cover explicit commits, rollback paths, driver errors, and resource
+cleanup; PostgreSQL locking and concurrent requests still require integration tests.
 
 `core/exception_handlers.py` owns the exception-to-HTTP mappings, registered by
 `main.py`. Routers and authentication dependencies raise typed application errors;
