@@ -127,6 +127,7 @@ class UserGoalsQueries:
     update: str
     deactivate_goal: str
     activate_goal: str
+    lock_for_user: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -302,6 +303,7 @@ class QueryRegistry:
             update=load_sql("user_goals/update.sql"),
             deactivate_goal=load_sql("user_goals/deactivate_goal.sql"),
             activate_goal=load_sql("user_goals/activate_goal.sql"),
+            lock_for_user=load_sql("user_goals/lock_for_user.sql"),
         )
 
     @cached_property

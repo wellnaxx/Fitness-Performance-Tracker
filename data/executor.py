@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
 from psycopg.abc import QueryNoTemplate
 
@@ -20,6 +20,18 @@ type SQLParams = tuple[object, ...]
 type SQLQuery = str | QueryNoTemplate
 type Row = tuple[object, ...]
 type RowDict = dict[str, object]
+
+
+class QueryExecutor(Protocol):
+    """SQL operations that a repository can use independently of transaction ownership."""
+
+    def fetch_one(self, sql: SQLQuery, params: SQLParams = ()) -> RowDict | None: ...
+
+    def fetch_all(self, sql: SQLQuery, params: SQLParams = ()) -> list[RowDict]: ...
+
+    def execute_insert(self, sql: SQLQuery, params: SQLParams = ()) -> int: ...
+
+    def execute_write(self, sql: SQLQuery, params: SQLParams = ()) -> int: ...
 
 
 def _as_query(sql: SQLQuery) -> QueryNoTemplate:
@@ -108,6 +120,25 @@ def execute_write_tx(cursor: Cursor[Row], sql: SQLQuery, params: SQLParams = ())
     logger.debug("WRITE (tx) %s | parameter_count=%d", sql, len(params))
     cursor.execute(_as_query(sql), params)
     return int(cursor.rowcount)
+
+
+class TransactionExecutor:
+    """Execute repository queries on a cursor owned by a unit of work; never commit."""
+
+    def __init__(self, cursor: Cursor[Row]) -> None:
+        self._cursor = cursor
+
+    def fetch_one(self, sql: SQLQuery, params: SQLParams = ()) -> RowDict | None:
+        return fetch_one_tx(self._cursor, sql, params)
+
+    def fetch_all(self, sql: SQLQuery, params: SQLParams = ()) -> list[RowDict]:
+        return fetch_all_tx(self._cursor, sql, params)
+
+    def execute_insert(self, sql: SQLQuery, params: SQLParams = ()) -> int:
+        return execute_insert_tx(self._cursor, sql, params)
+
+    def execute_write(self, sql: SQLQuery, params: SQLParams = ()) -> int:
+        return execute_write_tx(self._cursor, sql, params)
 
 
 def fetch_all(sql: SQLQuery, params: SQLParams = ()) -> list[RowDict]:

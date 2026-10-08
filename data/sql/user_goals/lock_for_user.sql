@@ -1,0 +1,4 @@
+SELECT id
+FROM users
+WHERE id = %s
+FOR UPDATE;

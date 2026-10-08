@@ -65,7 +65,7 @@ class RepositoryPaginationTests(TestCase):
             ("exercise_repository", ExerciseRepository().list_visible, (USER_ID,)),
             ("meal_repository", MealRepository().list_by_user, (USER_ID,)),
             ("progress_photo_repository", ProgressPhotoRepository().list_by_user, (USER_ID,)),
-            ("user_goals_repository", UserGoalsRepository().get_all, (USER_ID,)),
+            ("user_goals_repository.default_executor", UserGoalsRepository().get_all, (USER_ID,)),
             ("user_repository", UserRepository().get_all, ()),
             ("workout_repository", WorkoutRepository().list_by_user, (USER_ID,)),
             ("workout_repository", WorkoutRepository().get_all_visible_for_user, (USER_ID,)),
@@ -191,7 +191,7 @@ class HttpPaginationTests(IsolatedAsyncioTestCase):
                 self.assertEqual(response.payload, [item.model_dump(mode="json")])
 
     async def test_pagination_does_not_discard_resource_filters(self) -> None:
-        cases = (
+        cases: tuple[tuple[str, Mock, dict[str, object]], ...] = (
             (
                 "/exercises/?limit=3&offset=2&search=squat&muscle_group=Legs&equipment=Barbell"
                 "&is_compound=false&is_custom=false",

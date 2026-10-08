@@ -10,12 +10,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Final
 
 from core.errors.repository import UserGoalsRepositoryError
-from data.executor import execute_insert, execute_write, fetch_all, fetch_one
+from data import executor as default_executor
 from data.mappers.user_goal import map_user_goal
 from data.queries import QUERIES
 from utils.pagination import DEFAULT_LIMIT, DEFAULT_OFFSET, normalize_pagination
 
 if TYPE_CHECKING:
+    from data.executor import QueryExecutor
     from schemas.user_goals_schema import UserGoalCreate, UserGoalPublic, UserGoalUpdate
 
 
@@ -45,6 +46,9 @@ class UserGoalsRepository:
         "is_active",
     }
 
+    def __init__(self, executor: QueryExecutor = default_executor) -> None:
+        self._executor = executor
+
     def create(self, user_id: int, goal_data: UserGoalCreate) -> UserGoalPublic:
         """
         Create a new goal for a specific user.
@@ -61,7 +65,7 @@ class UserGoalsRepository:
         """
 
         sql = QUERIES.user_goals.create
-        goal_id = execute_insert(
+        goal_id = self._executor.execute_insert(
             sql,
             (
                 user_id,
@@ -93,7 +97,7 @@ class UserGoalsRepository:
         """
 
         sql = QUERIES.user_goals.get_by_id
-        row = fetch_one(sql, (goal_id,))
+        row = self._executor.fetch_one(sql, (goal_id,))
         if row is None:
             return None
         return map_user_goal(row)
@@ -111,7 +115,7 @@ class UserGoalsRepository:
         """
 
         sql = QUERIES.user_goals.get_by_user_and_id
-        row = fetch_one(sql, (goal_id, user_id))
+        row = self._executor.fetch_one(sql, (goal_id, user_id))
         if row is None:
             return None
         return map_user_goal(row)
@@ -131,7 +135,7 @@ class UserGoalsRepository:
         """
 
         sql = QUERIES.user_goals.get_active_goal
-        row = fetch_one(sql, (user_id,))
+        row = self._executor.fetch_one(sql, (user_id,))
         if row is None:
             return None
         return map_user_goal(row)
@@ -156,7 +160,7 @@ class UserGoalsRepository:
 
         pagination = normalize_pagination(limit, offset)
         sql = QUERIES.user_goals.get_all
-        rows = fetch_all(sql, (user_id, pagination.limit, pagination.offset))
+        rows = self._executor.fetch_all(sql, (user_id, pagination.limit, pagination.offset))
         return [map_user_goal(row) for row in rows]
 
     def update(self, goal_id: int, update_data: UserGoalUpdate) -> UserGoalPublic | None:
@@ -186,7 +190,7 @@ class UserGoalsRepository:
             raise UserGoalsRepositoryError.invalid_update_fields(unknown)
         set_clause = ", ".join(f"{k} = %s" for k in fields)
         sql = QUERIES.user_goals.update.format(set_clause=set_clause)
-        execute_write(sql, (*fields.values(), goal_id))
+        self._executor.execute_write(sql, (*fields.values(), goal_id))
         return self.get_by_id(goal_id)
 
     def deactivate_goal(self, goal_id: int) -> UserGoalPublic | None:
@@ -201,7 +205,7 @@ class UserGoalsRepository:
         """
 
         sql = QUERIES.user_goals.deactivate_goal
-        execute_write(sql, (goal_id,))
+        self._executor.execute_write(sql, (goal_id,))
         return self.get_by_id(goal_id)
 
     def activate_goal(self, user_id: int, goal_id: int) -> UserGoalPublic | None:
@@ -221,5 +225,5 @@ class UserGoalsRepository:
         """
 
         sql = QUERIES.user_goals.activate_goal
-        execute_write(sql, (goal_id, user_id))
+        self._executor.execute_write(sql, (goal_id, user_id))
         return self.get_by_id(goal_id)

@@ -1,10 +1,15 @@
+from collections.abc import Generator
+from contextlib import contextmanager
+
 from core.errors.goals import (
     UserGoalCreationError,
     UserGoalNotFoundError,
     UserGoalValidationError,
 )
 from core.errors.repository import UserGoalsRepositoryError
+from core.errors.user import UserNotFoundError
 from ports.repositories.user_goals_repository import UserGoalsRepositoryPort
+from ports.unit_of_work import UnitOfWorkPort
 from schemas.user_goals_schema import (
     UserGoalCreate,
     UserGoalPublic,
@@ -24,8 +29,16 @@ class UserGoalsService:
     - Coordinate repository operations
     """
 
-    def __init__(self, goals_repo: UserGoalsRepositoryPort) -> None:
+    def __init__(self, goals_repo: UserGoalsRepositoryPort, unit_of_work: UnitOfWorkPort) -> None:
         self.goals_repo = goals_repo
+        self.unit_of_work = unit_of_work
+
+    @contextmanager
+    def _goal_transaction(self, user_id: int) -> Generator[UnitOfWorkPort]:
+        with self.unit_of_work as uow:
+            if not uow.goals.lock_for_user(user_id):
+                raise UserNotFoundError.not_found(user_id)
+            yield uow
 
     def create_goal(
         self,
@@ -39,15 +52,18 @@ class UserGoalsService:
         - If the new goal is active, any existing active goal is deactivated first.
         """
 
-        if goal_data.is_active:
-            current_active = self.goals_repo.get_active_goal(current_user.id)
-            if current_active is not None:
-                self.goals_repo.deactivate_goal(current_active.id)
+        with self._goal_transaction(current_user.id) as uow:
+            if goal_data.is_active:
+                current_active = uow.goals.get_active_goal(current_user.id)
+                if current_active is not None:
+                    uow.goals.deactivate_goal(current_active.id)
 
-        try:
-            return self.goals_repo.create(current_user.id, goal_data)
-        except UserGoalsRepositoryError as exc:
-            raise UserGoalCreationError.create_failed() from exc
+            try:
+                goal = uow.goals.create(current_user.id, goal_data)
+            except UserGoalsRepositoryError as exc:
+                raise UserGoalCreationError.create_failed() from exc
+            uow.commit()
+            return goal
 
     def get_current_goal(self, current_user: UserInternal) -> UserGoalPublic | None:
         """
@@ -96,27 +112,31 @@ class UserGoalsService:
         - If the goal is being activated, any existing active goal is deactivated first.
         """
 
-        existing_goal = self.goals_repo.get_by_user_and_id(current_user.id, goal_id)
-        if existing_goal is None:
-            raise UserGoalNotFoundError.not_found(goal_id=goal_id)
+        with self._goal_transaction(current_user.id) as uow:
+            existing_goal = uow.goals.get_by_user_and_id(current_user.id, goal_id)
+            if existing_goal is None:
+                raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
-        next_start_date = (
-            update_data.start_date if update_data.start_date is not None else existing_goal.start_date
-        )
-        next_end_date = update_data.end_date if update_data.end_date is not None else existing_goal.end_date
-        if next_end_date is not None and next_end_date < next_start_date:
-            raise UserGoalValidationError.end_date_before_start_date()
+            next_start_date = (
+                update_data.start_date if update_data.start_date is not None else existing_goal.start_date
+            )
+            next_end_date = (
+                update_data.end_date if update_data.end_date is not None else existing_goal.end_date
+            )
+            if next_end_date is not None and next_end_date < next_start_date:
+                raise UserGoalValidationError.end_date_before_start_date()
 
-        if update_data.is_active is True:
-            current_active = self.goals_repo.get_active_goal(current_user.id)
-            if current_active is not None and current_active.id != goal_id:
-                self.goals_repo.deactivate_goal(current_active.id)
+            if update_data.is_active is True:
+                current_active = uow.goals.get_active_goal(current_user.id)
+                if current_active is not None and current_active.id != goal_id:
+                    uow.goals.deactivate_goal(current_active.id)
 
-        updated_goal = self.goals_repo.update(goal_id, update_data)
-        if updated_goal is None:
-            raise UserGoalNotFoundError.not_found(goal_id=goal_id)
+            updated_goal = uow.goals.update(goal_id, update_data)
+            if updated_goal is None:
+                raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
-        return updated_goal
+            uow.commit()
+            return updated_goal
 
     def activate_goal(
         self,
@@ -130,15 +150,17 @@ class UserGoalsService:
         - Goal must belong to the current user.
         - Only one goal may be active at a time.
         """
-        goal = self.goals_repo.get_by_user_and_id(current_user.id, goal_id)
-        if goal is None:
-            raise UserGoalNotFoundError.not_found(goal_id=goal_id)
+        with self._goal_transaction(current_user.id) as uow:
+            goal = uow.goals.get_by_user_and_id(current_user.id, goal_id)
+            if goal is None:
+                raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
-        activated_goal = self.goals_repo.activate_goal(current_user.id, goal_id)
-        if activated_goal is None:
-            raise UserGoalNotFoundError.not_found(goal_id=goal_id)
+            activated_goal = uow.goals.activate_goal(current_user.id, goal_id)
+            if activated_goal is None:
+                raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
-        return activated_goal
+            uow.commit()
+            return activated_goal
 
     def deactivate_goal(
         self,
@@ -148,12 +170,14 @@ class UserGoalsService:
         """
         Mark one of the user's goals as inactive.
         """
-        goal = self.goals_repo.get_by_user_and_id(current_user.id, goal_id)
-        if goal is None:
-            raise UserGoalNotFoundError.not_found(goal_id=goal_id)
+        with self._goal_transaction(current_user.id) as uow:
+            goal = uow.goals.get_by_user_and_id(current_user.id, goal_id)
+            if goal is None:
+                raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
-        updated_goal = self.goals_repo.deactivate_goal(goal_id)
-        if updated_goal is None:
-            raise UserGoalNotFoundError.not_found(goal_id=goal_id)
+            updated_goal = uow.goals.deactivate_goal(goal_id)
+            if updated_goal is None:
+                raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
-        return updated_goal
+            uow.commit()
+            return updated_goal

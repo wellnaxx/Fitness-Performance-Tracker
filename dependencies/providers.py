@@ -7,12 +7,14 @@ provider function it needs — no service is ever instantiated manually in a rou
 
 from fastapi import Depends
 
+from data.unit_of_work import PostgresUnitOfWork
 from ports.repositories.exercise_repository import ExerciseRepositoryPort
 from ports.repositories.meal_repository import MealRepositoryPort
 from ports.repositories.user_goals_repository import UserGoalsRepositoryPort
 from ports.repositories.user_repository import UserRepositoryPort
 from ports.repositories.workout_exercise_repository import WorkoutExerciseRepositoryPort
 from ports.repositories.workout_repository import WorkoutRepositoryPort
+from ports.unit_of_work import UnitOfWorkPort
 from repositories.exercise_repository import ExerciseRepository
 from repositories.meal_repository import MealRepository
 from repositories.user_goals_repository import UserGoalsRepository
@@ -41,10 +43,15 @@ def get_user_goals_repository() -> UserGoalsRepositoryPort:
     return UserGoalsRepository()
 
 
+def get_unit_of_work() -> UnitOfWorkPort:
+    return PostgresUnitOfWork()
+
+
 def get_user_goals_service(
     repo: UserGoalsRepositoryPort = Depends(get_user_goals_repository),
+    unit_of_work: UnitOfWorkPort = Depends(get_unit_of_work),
 ) -> UserGoalsService:
-    return UserGoalsService(repo)
+    return UserGoalsService(repo, unit_of_work)
 
 
 def get_exercise_repository() -> ExerciseRepositoryPort:
