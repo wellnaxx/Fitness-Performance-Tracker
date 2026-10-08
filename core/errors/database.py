@@ -5,6 +5,18 @@ class DatabaseError(RuntimeError):
     """Raised when a database operation fails."""
 
     @classmethod
+    def transaction_failed(cls, exc: Exception) -> DatabaseError:
+        return cls(f"Database transaction failed ({exc.__class__.__name__}): {exc}")
+
+    @classmethod
+    def no_active_transaction(cls) -> DatabaseError:
+        return cls("The unit of work has no active transaction.")
+
+    @classmethod
+    def transaction_already_active(cls) -> DatabaseError:
+        return cls("The unit of work already has an active transaction.")
+
+    @classmethod
     def wrong_query_result(cls) -> DatabaseError:
         return cls("Query did not return a result set.")
 
