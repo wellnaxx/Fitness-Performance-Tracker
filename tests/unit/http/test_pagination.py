@@ -28,7 +28,7 @@ from routers.api.meal_router import meal_router
 from routers.api.user_goals_router import user_goals_router
 from routers.api.workout_router import workout_router
 from tests.fixtures import TODAY, USER_ID, exercise, goal, meal, user, workout
-from tests.test_exception_handlers import request
+from tests.unit.http.test_exception_handlers import request
 from utils.pagination import PaginationParams, normalize_pagination
 
 if TYPE_CHECKING:

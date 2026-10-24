@@ -1,0 +1,1 @@
+"""Repository protocol compatibility tests."""

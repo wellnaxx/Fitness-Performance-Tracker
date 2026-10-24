@@ -75,7 +75,17 @@ Fitness-Performance-Tracker/
 |-- routers/            # API route modules
 |-- schemas/            # Pydantic request and response models
 |-- services/           # business logic layer
-|-- tests/              # service, authentication, schema, HTTP and repository tests
+|-- tests/
+|   |-- fixtures.py     # shared model fixtures
+|   `-- unit/           # tests grouped by application responsibility
+|       |-- auth/
+|       |-- core/
+|       |-- data/
+|       |-- http/
+|       |-- ports/
+|       |-- schemas/
+|       |-- services/
+|       `-- utils/
 |-- utils/              # environment and validation helpers
 `-- main.py             # FastAPI application entrypoint
 ```
@@ -107,7 +117,7 @@ repository protocol.
 Implementations satisfy protocols structurally: they need matching method names,
 parameters, and return types, without inheriting from the protocol or a concrete
 repository. This lets service tests use small typed fakes, as shown in
-`tests/test_repository_protocols.py`. Extend the relevant contract when a service
+`tests/unit/ports/test_repository_protocols.py`. Extend the relevant contract when a service
 needs a new operation; SQL and row-mapping details remain in the implementations.
 
 `ports/unit_of_work.py` defines an explicit transaction boundary, implemented by
@@ -182,6 +192,13 @@ Run the database-independent tests with:
 
 ```bash
 python -m unittest discover -s tests -v
+```
+
+Tests live under `tests/unit/`, grouped by responsibility. Shared model fixtures
+remain in `tests/fixtures.py`. Run one test module with its package path, for example:
+
+```bash
+python -m unittest tests.unit.services.test_user_goals_service -v
 ```
 
 The suite covers successful operations and failure paths across all six services:

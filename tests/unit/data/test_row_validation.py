@@ -22,7 +22,7 @@ from core.errors.repository import (
     WorkoutRowError,
 )
 from data.validation import RowValidator
-from tests.test_row_mappers import mapper_cases
+from tests.unit.data.test_row_mappers import mapper_cases
 
 if TYPE_CHECKING:
     from collections.abc import Callable

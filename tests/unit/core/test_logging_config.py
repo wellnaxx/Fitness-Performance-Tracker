@@ -17,7 +17,7 @@ from core.logging_config import LoggingConfig, LoggingConfigurationError, load_l
 from data import executor, init_db
 from main import app
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 def run_logging_script(source: str, *args: str) -> subprocess.CompletedProcess[str]:
