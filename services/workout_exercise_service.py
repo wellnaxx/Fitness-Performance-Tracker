@@ -16,7 +16,6 @@ import logging
 
 from core.errors.exercise import ExerciseNotFoundError
 from core.errors.repository import WorkoutExerciseRepositoryError
-from core.errors.workout import WorkoutNotFoundError
 from core.errors.workout_exercise import (
     WorkoutExerciseCreationError,
     WorkoutExerciseDeleteError,
@@ -32,7 +31,7 @@ from schemas.workout_exercises_schema import (
     WorkoutExercisePublic,
     WorkoutExerciseUpdate,
 )
-from schemas.workout_schema import WorkoutPublic
+from services.ownership import require_owned_workout
 
 
 class WorkoutExerciseService:
@@ -74,7 +73,7 @@ class WorkoutExerciseService:
             WorkoutNotFoundError: If the workout does not exist or is not accessible to the user
             ExerciseNotFoundError: If the exercise does not exist or is not accessible to the user
         """
-        self._get_owned_workout(user_id, workout_id)
+        require_owned_workout(self.workout_repository, user_id, workout_id)
         self._validate_target_exercise(user_id, workout_exercise_data.exercise_id)
 
         existing_entries = self.workout_exercise_repository.list_by_workout(workout_id)
@@ -110,7 +109,7 @@ class WorkoutExerciseService:
             or not visible to the user
             WorkoutNotFoundError: If the workout does not exist or is not accessible to the user
         """
-        self._get_owned_workout(user_id, workout_id)
+        require_owned_workout(self.workout_repository, user_id, workout_id)
         workout_exercise = self._get_workout_exercise_or_raise(workout_id, workout_exercise_id)
 
         self.logger.info(
@@ -132,7 +131,7 @@ class WorkoutExerciseService:
         Raises:
             WorkoutNotFoundError: If the workout does not exist or is not accessible to the user
         """
-        self._get_owned_workout(user_id, workout_id)
+        require_owned_workout(self.workout_repository, user_id, workout_id)
 
         workout_exercises = self.workout_exercise_repository.list_by_workout(workout_id)
         self.logger.info(
@@ -165,7 +164,7 @@ class WorkoutExerciseService:
             ExerciseNotFoundError: If the new exercise does not exist or is not accessible to the user
             WorkoutExerciseUpdateError: If updating the workout exercise fails
         """
-        self._get_owned_workout(user_id, workout_id)
+        require_owned_workout(self.workout_repository, user_id, workout_id)
 
         self._get_workout_exercise_or_raise(workout_id, workout_exercise_id)
 
@@ -213,7 +212,7 @@ class WorkoutExerciseService:
             WorkoutNotFoundError: If the workout does not exist or is not accessible to the user
             WorkoutExerciseDeleteError: If deleting the workout exercise fails
         """
-        self._get_owned_workout(user_id, workout_id)
+        require_owned_workout(self.workout_repository, user_id, workout_id)
         self._get_workout_exercise_or_raise(workout_id, workout_exercise_id)
 
         try:
@@ -233,14 +232,6 @@ class WorkoutExerciseService:
         self.logger.info(
             f"Workout exercise with ID {workout_exercise_id} deleted successfully for user {user_id}."
         )
-
-    def _get_owned_workout(self, user_id: int, workout_id: int) -> WorkoutPublic:
-        workout = self.workout_repository.get_by_user_and_id(user_id, workout_id)
-        if workout is None:
-            self.logger.warning(f"Workout with ID {workout_id} not found or not visible to user {user_id}.")
-            raise WorkoutNotFoundError.not_accessible(workout_id=workout_id)
-        return workout
-
 
     def _get_workout_exercise_or_raise(
         self,
