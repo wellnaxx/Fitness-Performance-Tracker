@@ -23,6 +23,14 @@ class WorkoutExerciseRepositoryPort(Protocol):
         """Create a workout exercise and shift later order indexes in one transaction."""
         ...
 
+    def get_by_id(self, workout_exercise_id: int) -> WorkoutExercisePublic | None:
+        """Retrieve a workout exercise by ID, or return None if it does not exist.
+
+        This lookup does not check workout ownership. Callers must verify access
+        to the returned exercise's workout before exposing data or modifying it.
+        """
+        ...
+
     def get_by_workout_and_id(self, workout_id: int, workout_exercise_id: int) -> WorkoutExercisePublic | None:
         """Retrieve a workout exercise by ID only if it belongs to the workout."""
         ...
