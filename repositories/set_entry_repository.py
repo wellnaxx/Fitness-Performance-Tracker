@@ -212,31 +212,3 @@ class SetEntryRepository:
             QUERIES.set_entries.normalize_set_numbers,
             (workout_exercise_id,),
         )
-
-    def get_by_workout_exercise_id_and_id(
-        self,
-        workout_exercise_id: int,
-        set_entry_id: int,
-    ) -> SetEntryPublic | None:
-        """Compatibility wrapper for `get_by_workout_exercise_and_id`."""
-        return self.get_by_workout_exercise_and_id(workout_exercise_id, set_entry_id)
-
-    def list_by_workout_exercise_id(
-        self,
-        workout_exercise_id: int,
-    ) -> list[SetEntryPublic]:
-        """Compatibility wrapper for `list_by_workout_exercise`."""
-        return self.list_by_workout_exercise(workout_exercise_id)
-
-    def update(
-        self,
-        set_entry_id: int,
-        workout_exercise_id: int,
-        update_data: SetEntryUpdate,
-    ) -> SetEntryPublic | None:
-        """Compatibility wrapper for `update_in_workout_exercise`."""
-        return self.update_in_workout_exercise(workout_exercise_id, set_entry_id, update_data)
-
-    def delete(self, set_entry_id: int, workout_exercise_id: int) -> bool:
-        """Compatibility wrapper for `delete_in_workout_exercise`."""
-        return self.delete_in_workout_exercise(workout_exercise_id, set_entry_id)
