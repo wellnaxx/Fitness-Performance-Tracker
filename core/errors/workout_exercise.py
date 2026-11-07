@@ -14,6 +14,17 @@ class WorkoutExerciseValidationError(ServiceError):
     def invalid_update_order_index(cls, order_index: int) -> WorkoutExerciseValidationError:
         return cls(f"Invalid order index {order_index} for workout exercise update.")
 
+    @classmethod
+    def mismatched_ids(
+        cls, set_workout_exercise_id: int, requested_workout_exercise_id: int
+    ) -> WorkoutExerciseValidationError:
+        """Describe a parent mismatch after the caller has verified workout ownership."""
+        return cls(
+            f"Workout exercise ID mismatch: the set entry belongs to "
+            f"workout exercise {set_workout_exercise_id}, but "
+            f"workout exercise {requested_workout_exercise_id} was provided."
+        )
+
 
 class WorkoutExerciseCreationError(ServiceError):
     """Raised when creating a workout exercise fails."""
