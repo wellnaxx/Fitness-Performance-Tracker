@@ -9,6 +9,7 @@ from psycopg import Error
 
 from core.errors.database import DatabaseError
 from data.connection import get_connection
+from repositories.set_entry_unit_of_work_repository import SetEntryUnitOfWorkRepository
 from repositories.user_goals_unit_of_work_repository import UserGoalsUnitOfWorkRepository
 
 if TYPE_CHECKING:
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
     from psycopg import Connection, Cursor
 
     from data.executor import Row
-    from ports.unit_of_work import UnitOfWorkUserGoalsRepositoryPort
+    from ports.unit_of_work import UnitOfWorkSetEntryRepositoryPort, UnitOfWorkUserGoalsRepositoryPort
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class PostgresUnitOfWork:
         self._conn: Connection[Row] | None = None
         self._cursor: Cursor[Row] | None = None
         self._goals: UnitOfWorkUserGoalsRepositoryPort | None = None
+        self._set_entry: UnitOfWorkSetEntryRepositoryPort | None = None
         self._committed = False
 
     @property
@@ -37,7 +39,15 @@ class PostgresUnitOfWork:
             raise DatabaseError.no_active_transaction()
         return self._goals
 
+    @property
+    def set_entry(self) -> UnitOfWorkSetEntryRepositoryPort:
+        """Return the set repository while active; reject access outside the context."""
+        if self._set_entry is None:
+            raise DatabaseError.no_active_transaction()
+        return self._set_entry
+
     def __enter__(self) -> PostgresUnitOfWork:
+        """Open one cursor for goal and set repositories; clean up partial setup failures."""
         if self._conn is not None:
             raise DatabaseError.transaction_already_active()
 
@@ -47,6 +57,7 @@ class PostgresUnitOfWork:
             conn = get_connection()
             cursor = conn.cursor()
             goals = UserGoalsUnitOfWorkRepository(cursor)
+            set_entry = SetEntryUnitOfWorkRepository(cursor)
         except Exception as exc:
             self._close_resources(cursor, conn)
             if isinstance(exc, DatabaseError):
@@ -57,6 +68,7 @@ class PostgresUnitOfWork:
         self._conn = conn
         self._cursor = cursor
         self._goals = goals
+        self._set_entry = set_entry
         self._committed = False
         return self
 
@@ -66,6 +78,11 @@ class PostgresUnitOfWork:
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> None:
+        """Roll back uncommitted work, clear repositories, and close database resources.
+
+        Preserve application exceptions if rollback also fails. Translate driver
+        errors into DatabaseError after cleanup; never suppress the body error.
+        """
         rollback_error: Exception | None = None
         try:
             if not self._committed:
@@ -79,6 +96,7 @@ class PostgresUnitOfWork:
             self._cursor = None
             self._conn = None
             self._goals = None
+            self._set_entry = None
 
         if isinstance(exc, Error):
             logger.error("Database transaction failed", exc_info=(type(exc), exc, tb))
