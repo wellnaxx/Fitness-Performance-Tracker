@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 
 
 class SetEntryBase(BaseModel):
+    """Set values shared by creation and responses; positions are one-based."""
+
     workout_exercise_id: int = Field(description="ID of the parent workout exercise")
     set_number: int = Field(gt=0, description="Set number within the exercise")
     reps: int = Field(ge=0, description="Number of repetitions completed")
@@ -21,10 +23,17 @@ class SetEntryBase(BaseModel):
 
 
 class SetEntryCreate(SetEntryBase):
-    pass
+    """Create payload; the service checks ownership and the maximum insertion position."""
 
 
 class SetEntryUpdate(BaseModel):
+    """Partial changes; omitted or None fields keep their stored values.
+
+    The repository ignores None, so this payload cannot clear rpe to NULL.
+    Zero repetitions/weight and False flags are valid updates. The service
+    validates moves against the current set count after locking the parent.
+    """
+
     set_number: int | None = Field(default=None, gt=0)
     reps: int | None = Field(default=None, ge=0)
     weight: float | None = Field(default=None, ge=0)
@@ -34,5 +43,7 @@ class SetEntryUpdate(BaseModel):
 
 
 class SetEntryPublic(SetEntryBase):
+    """Persisted set values with the assigned identifier and creation time."""
+
     id: int
     created_at: datetime
