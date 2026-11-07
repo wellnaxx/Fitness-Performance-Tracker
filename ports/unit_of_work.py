@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
+from ports.repositories.set_entry_repository import SetEntryRepositoryPort
 from ports.repositories.user_goals_repository import UserGoalsRepositoryPort
 
 if TYPE_CHECKING:
@@ -18,12 +19,30 @@ class UnitOfWorkUserGoalsRepositoryPort(UserGoalsRepositoryPort, Protocol):
         ...
 
 
+class UnitOfWorkSetEntryRepositoryPort(SetEntryRepositoryPort, Protocol):
+    """Set-entry operations sharing one cursor and never committing independently."""
+
+    def lock_for_workout_exercise(self, workout_exercise_id: int) -> bool:
+        """Lock the parent row, including an exercise without sets.
+
+        Return False if the parent is missing. Ownership must be checked by the
+        service before locking. Cooperating set writers use the same parent lock
+        to serialize counting, shifting, updates, and deletion.
+        """
+        ...
+
+
 class UnitOfWorkPort(Protocol):
     """Commit explicitly; otherwise roll back when leaving the context."""
 
     @property
     def goals(self) -> UnitOfWorkUserGoalsRepositoryPort:
         """Return the goal repository belonging to the active transaction."""
+        ...
+
+    @property
+    def set_entry(self) -> UnitOfWorkSetEntryRepositoryPort:
+        """Return the active transaction's set repository, including ordering operations."""
         ...
 
     def __enter__(self) -> UnitOfWorkPort:
