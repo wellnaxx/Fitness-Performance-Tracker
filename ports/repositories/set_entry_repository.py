@@ -133,6 +133,30 @@ class SetEntryRepositoryPort(Protocol):
         """
         ...
 
+    def shift_set_numbers_in_range(
+        self,
+        workout_exercise_id: int,
+        start: int,
+        end: int,
+        delta: int,
+        exclude_set_entry_id: int,
+    ) -> None:
+        """Shift entries in an inclusive range, excluding the target set by ID.
+
+        Args:
+            workout_exercise_id: Parent workout exercise ID.
+            start: Inclusive lower bound of the set numbers to shift.
+            end: Inclusive upper bound of the set numbers to shift.
+            delta: Signed amount to add to each matching set number.
+            exclude_set_entry_id: Set entry whose number must remain unchanged.
+
+        Returns:
+            None. No matching entries or start greater than end is a no-op.
+
+        The caller coordinates this shift and the target update in one transaction.
+        """
+        ...
+
     def normalize_set_numbers(self, workout_exercise_id: int) -> None:
         """Renumber an exercise's entries consecutively starting at 1.
 
