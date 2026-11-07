@@ -112,7 +112,9 @@ class SetEntryQueries:
     update_in_workout_exercise: str
     delete_in_workout_exercise: str
     shift_set_numbers: str
+    shift_set_numbers_in_range: str
     normalize_set_numbers: str
+    lock_for_workout_exercise: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -288,7 +290,9 @@ class QueryRegistry:
             update_in_workout_exercise=load_sql("set_entries/update_in_workout_exercise.sql"),
             delete_in_workout_exercise=load_sql("set_entries/delete_in_workout_exercise.sql"),
             shift_set_numbers=load_sql("set_entries/shift_set_numbers.sql"),
+            shift_set_numbers_in_range=load_sql("set_entries/shift_set_numbers_in_range.sql"),
             normalize_set_numbers=load_sql("set_entries/normalize_set_numbers.sql"),
+            lock_for_workout_exercise=load_sql("set_entries/lock_for_workout_exercise.sql"),
         )
 
     @cached_property
