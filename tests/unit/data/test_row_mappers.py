@@ -284,7 +284,7 @@ class RowMapperTests(TestCase):
             module = import_module(f"repositories.{entity}_repository")
             class_name = "".join(part.capitalize() for part in entity.split("_")) + "Repository"
             repository = getattr(module, class_name)()
-            executor = module.default_executor if entity == "user_goals" else module
+            executor = module.default_executor if entity in {"user_goals", "set_entry"} else module
             with self.subTest(entity=case.entity):
                 with patch.object(executor, "fetch_one", return_value=case.row):
                     self.assertEqual(repository.get_by_id(17), case.mapper(case.row))
