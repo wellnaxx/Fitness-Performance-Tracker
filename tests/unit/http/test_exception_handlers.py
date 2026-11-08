@@ -23,6 +23,12 @@ from core.errors.exercise import (
 )
 from core.errors.goals import UserGoalCreationError, UserGoalNotFoundError, UserGoalValidationError
 from core.errors.meal import MealCreationError, MealDeleteError, MealNotFoundError, MealUpdateError
+from core.errors.set_entry import (
+    SetEntryCreationError,
+    SetEntryDeleteError,
+    SetEntryNotFoundError,
+    SetEntryValidationError,
+)
 from core.errors.user import (
     EmailAlreadyExistsError,
     IdenticalPasswordsError,
@@ -154,6 +160,7 @@ class ExceptionHandlerTests(IsolatedAsyncioTestCase):
             (WorkoutNotFoundError.not_found(7), 404),
             (WorkoutExerciseNotFoundError.not_found(7), 404),
             (MealNotFoundError.not_found(7), 404),
+            (SetEntryNotFoundError.not_found(31), 404),
             (IncorrectOldPasswordError.incorrect(), 400),
             (IdenticalPasswordsError.must_differ(), 400),
             (UserDeleteError.blocked_by_related_records(), 400),
@@ -161,6 +168,9 @@ class ExceptionHandlerTests(IsolatedAsyncioTestCase):
             (ExerciseUpdateError.duplicate_name("Squat"), 400),
             (ExerciseDeleteError.custom_only(), 400),
             (WorkoutExerciseValidationError.invalid_create_order_index(9), 400),
+            (WorkoutExerciseValidationError.mismatched_ids(17, 99), 400),
+            (SetEntryValidationError.invalid_set_number(7, 5), 400),
+            (SetEntryValidationError.identical_set_number(3, 3), 400),
             (InputValidationError.invalid_meal_type({"lunch"}), 422),
             (UserCreationError.create_failed(), 500),
             (UserGoalCreationError.create_failed(), 500),
@@ -174,6 +184,8 @@ class ExceptionHandlerTests(IsolatedAsyncioTestCase):
             (MealCreationError.create_failed(), 500),
             (MealUpdateError.update_failed(7), 500),
             (MealDeleteError.delete_failed(7), 500),
+            (SetEntryCreationError.create_failed(), 500),
+            (SetEntryDeleteError.delete_failed(31), 500),
         )
         for error, expected_status in cases:
             with self.subTest(error=type(error).__name__), patch("core.exception_handlers.logger") as logger:
@@ -204,6 +216,18 @@ class ExceptionHandlerTests(IsolatedAsyncioTestCase):
                 self.assertEqual(response.payload, {"detail": public_detail})
                 logger.error.assert_called_once()
                 self.assertIs(logger.error.call_args.kwargs["exc_info"][1], error)
+
+    async def test_wrapped_set_creation_failure_hides_repository_details(self) -> None:
+        error = SetEntryCreationError.create_failed()
+        error.__cause__ = RepositoryError("private SQL parameters")
+        self.error = error
+        with patch("core.exception_handlers.logger") as logger:
+            response = await request(self.app, "/error")
+        self.assertEqual(response.status, 500)
+        self.assertEqual(response.payload, {"detail": "Failed to create set entry."})
+        self.assertNotIn("private", str(response.payload))
+        logger.error.assert_called_once()
+        self.assertIs(logger.error.call_args.kwargs["exc_info"][1].__cause__, error.__cause__)
 
     async def test_subclasses_use_the_nearest_registered_parent(self) -> None:
         class SpecificMealNotFoundError(MealNotFoundError):
