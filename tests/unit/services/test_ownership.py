@@ -9,6 +9,7 @@ from core.errors.workout_exercise import WorkoutExerciseNotFoundError
 from ports.repositories.set_entry_repository import SetEntryRepositoryPort
 from ports.repositories.workout_exercise_repository import WorkoutExerciseRepositoryPort
 from ports.repositories.workout_repository import WorkoutRepositoryPort
+from ports.unit_of_work import UnitOfWorkPort
 from schemas.set_entry_schema import SetEntryCreate
 from services.ownership import require_owned_workout
 from services.set_entry_service import SetEntryService
@@ -52,7 +53,8 @@ class SetEntryOwnershipTests(TestCase):
         self.sets = create_autospec(SetEntryRepositoryPort, instance=True, spec_set=True)
         self.exercises = create_autospec(WorkoutExerciseRepositoryPort, instance=True, spec_set=True)
         self.workouts = create_autospec(WorkoutRepositoryPort, instance=True, spec_set=True)
-        self.service = SetEntryService(self.sets, self.exercises, self.workouts)
+        self.uow = create_autospec(UnitOfWorkPort, instance=True, spec_set=True)
+        self.service = SetEntryService(self.sets, self.exercises, self.workouts, self.uow)
         self.data = SetEntryCreate(workout_exercise_id=ENTRY_ID, set_number=1, reps=0, weight=0)
 
     def test_missing_workout_exercise_blocks_workout_lookup_and_writes(self) -> None:
@@ -62,6 +64,7 @@ class SetEntryOwnershipTests(TestCase):
         self.exercises.get_by_id.assert_called_once_with(ENTRY_ID)
         self.assertEqual(self.workouts.mock_calls, [])
         self.assertEqual(self.sets.mock_calls, [])
+        self.uow.__enter__.assert_not_called()
 
     def test_inaccessible_parent_workout_blocks_writes(self) -> None:
         self.exercises.get_by_id.return_value = entry()
@@ -74,3 +77,4 @@ class SetEntryOwnershipTests(TestCase):
         self.exercises.get_by_id.assert_called_once_with(ENTRY_ID)
         self.workouts.get_by_user_and_id.assert_called_once_with(USER_ID, WORKOUT_ID)
         self.assertEqual(self.sets.mock_calls, [])
+        self.uow.__enter__.assert_not_called()
