@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from schemas.exercise_schema import ExercisePublic
 from schemas.meal_schema import MealPublic
+from schemas.set_entry_schema import SetEntryPublic
 from schemas.user_goals_schema import UserGoalPublic
 from schemas.user_schema import UserInternal
 from schemas.workout_exercises_schema import WorkoutExercisePublic
@@ -18,6 +19,7 @@ EXERCISE_ID = 13
 ENTRY_ID = 17
 GOAL_ID = 19
 MEAL_ID = 23
+SET_ENTRY_ID = 31
 
 
 def user() -> UserInternal:
@@ -71,6 +73,18 @@ def entry() -> WorkoutExercisePublic:
         exercise_id=EXERCISE_ID,
         order_index=0,
         rest_seconds=60,
+    )
+
+
+def set_entry() -> SetEntryPublic:
+    return SetEntryPublic(
+        id=SET_ENTRY_ID,
+        workout_exercise_id=ENTRY_ID,
+        set_number=3,
+        reps=5,
+        weight=20,
+        rpe=7,
+        created_at=NOW,
     )
 
 
