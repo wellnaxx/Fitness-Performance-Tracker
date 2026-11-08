@@ -12,6 +12,7 @@ from core.errors.repository import UserGoalRowError
 from data.queries import QUERIES
 from data.unit_of_work import PostgresUnitOfWork
 from dependencies.providers import get_unit_of_work, get_user_goals_service
+from repositories.set_entry_unit_of_work_repository import SetEntryUnitOfWorkRepository
 from repositories.user_goals_repository import UserGoalsRepository
 from repositories.user_goals_unit_of_work_repository import UserGoalsUnitOfWorkRepository
 from schemas.user_goals_schema import UserGoalCreate, UserGoalUpdate
@@ -33,8 +34,9 @@ class PostgresUnitOfWorkTests(TestCase):
     def assert_closed(self) -> None:
         self.cursor.close.assert_called_once_with()
         self.conn.close.assert_called_once_with()
-        with self.assertRaises(DatabaseError):
-            _ = self.uow.goals
+        for repository in ("goals", "set_entry"):
+            with self.assertRaises(DatabaseError):
+                getattr(self.uow, repository)
 
     def test_provider_constructs_unit_of_work_without_opening_a_connection(self) -> None:
         self.assertIsInstance(get_unit_of_work(), PostgresUnitOfWork)
@@ -44,6 +46,7 @@ class PostgresUnitOfWorkTests(TestCase):
         with self.uow as uow:
             self.assertIs(uow, self.uow)
             self.assertIsInstance(uow.goals, UserGoalsUnitOfWorkRepository)
+            self.assertIsInstance(uow.set_entry, SetEntryUnitOfWorkRepository)
             self.conn.commit.assert_not_called()
             uow.commit()
         self.connect.assert_called_once_with()
@@ -192,6 +195,33 @@ class PostgresUnitOfWorkTests(TestCase):
         self.assertIs(raised.exception.__cause__, failure)
         self.assert_closed()
 
+    def test_set_repository_setup_failure_closes_both_resources(self) -> None:
+        failure = RuntimeError("set repository setup failed")
+        with (
+            patch("data.unit_of_work.SetEntryUnitOfWorkRepository", side_effect=failure),
+            self.assertLogs("data.unit_of_work", level="ERROR"),
+            self.assertRaises(DatabaseError) as raised,
+        ):
+            self.uow.__enter__()
+        self.assertIs(raised.exception.__cause__, failure)
+        self.assert_closed()
+
+    def test_set_parent_lock_uses_the_active_cursor_and_reports_absence(self) -> None:
+        self.cursor.description = [SimpleNamespace(name="id")]
+        self.cursor.fetchone.side_effect = [(17,), None]
+        with self.uow as uow:
+            self.assertTrue(uow.set_entry.lock_for_workout_exercise(17))
+            self.assertFalse(uow.set_entry.lock_for_workout_exercise(99))
+        self.assertEqual(
+            self.cursor.execute.call_args_list,
+            [
+                call(QUERIES.set_entries.lock_for_workout_exercise, (17,)),
+                call(QUERIES.set_entries.lock_for_workout_exercise, (99,)),
+            ],
+        )
+        self.conn.rollback.assert_called_once_with()
+        self.assert_closed()
+
     def test_close_failures_are_logged_and_connection_close_is_still_attempted(self) -> None:
         self.cursor.close.side_effect = OperationalError("cursor close failed")
         self.conn.close.side_effect = OperationalError("connection close failed")
@@ -207,7 +237,12 @@ class PostgresUnitOfWorkTests(TestCase):
         self.assert_closed()
 
     def test_commit_rollback_and_repository_access_require_active_context(self) -> None:
-        for operation in (self.uow.commit, self.uow.rollback, lambda: self.uow.goals):
+        for operation in (
+            self.uow.commit,
+            self.uow.rollback,
+            lambda: self.uow.goals,
+            lambda: self.uow.set_entry,
+        ):
             with self.subTest(operation=operation), self.assertRaises(DatabaseError):
                 operation()
         self.connect.assert_not_called()
@@ -229,9 +264,11 @@ class PostgresUnitOfWorkTests(TestCase):
         self.connect.side_effect = (self.conn, second_conn)
         with self.uow as uow:
             first_repository = uow.goals
+            first_sets = uow.set_entry
             uow.commit()
         with self.uow as uow:
             self.assertIsNot(uow.goals, first_repository)
+            self.assertIsNot(uow.set_entry, first_sets)
         self.conn.rollback.assert_not_called()
         second_conn.rollback.assert_called_once_with()
         second_cursor.close.assert_called_once_with()
@@ -267,7 +304,11 @@ class AtomicGoalOperationTests(TestCase):
 
     def test_create_replacement_goal_uses_one_cursor_and_commits_after_readback(self) -> None:
         self.cursor.fetchone.side_effect = [
-            (USER_ID,), self.previous_row, self.inactive_row, (GOAL_ID,), self.row
+            (USER_ID,),
+            self.previous_row,
+            self.inactive_row,
+            (GOAL_ID,),
+            self.row,
         ]
         self.conn.commit.side_effect = lambda: self.assertEqual(self.cursor.fetchone.call_count, 5)
         self.assertEqual(self.service.create_goal(user(), self.data), self.goal)
@@ -290,9 +331,7 @@ class AtomicGoalOperationTests(TestCase):
         with self.assertLogs("data.unit_of_work", level="ERROR"), self.assertRaises(DatabaseError) as raised:
             self.service.create_goal(user(), self.data)
         self.assertIs(raised.exception.__cause__, failure)
-        self.assertEqual(
-            self.cursor.execute.call_args_list[2], call(QUERIES.user_goals.deactivate_goal, (99,))
-        )
+        self.assertEqual(self.cursor.execute.call_args_list[2], call(QUERIES.user_goals.deactivate_goal, (99,)))
         self.assert_rolled_back()
 
     def test_insert_without_id_or_missing_readback_rolls_back(self) -> None:
@@ -313,7 +352,11 @@ class AtomicGoalOperationTests(TestCase):
         invalid = self.goal.model_dump()
         invalid["target_body_weight"] = "invalid"
         self.cursor.fetchone.side_effect = [
-            (USER_ID,), self.previous_row, self.inactive_row, (GOAL_ID,), tuple(invalid.values())
+            (USER_ID,),
+            self.previous_row,
+            self.inactive_row,
+            (GOAL_ID,),
+            tuple(invalid.values()),
         ]
         with self.assertRaises(UserGoalRowError):
             self.service.create_goal(user(), self.data)
@@ -321,7 +364,11 @@ class AtomicGoalOperationTests(TestCase):
 
     def test_update_activation_commits_deactivation_and_update_together(self) -> None:
         self.cursor.fetchone.side_effect = [
-            (USER_ID,), self.row, self.previous_row, self.inactive_row, self.row
+            (USER_ID,),
+            self.row,
+            self.previous_row,
+            self.inactive_row,
+            self.row,
         ]
         self.assertEqual(self.service.update_goal(user(), GOAL_ID, UserGoalUpdate(is_active=True)), self.goal)
         self.conn.cursor.assert_called_once_with()
