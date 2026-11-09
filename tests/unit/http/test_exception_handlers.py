@@ -77,9 +77,12 @@ if TYPE_CHECKING:
 
 @dataclass
 class HttpResponse:
+    """Captured status, headers, decoded JSON, and exact ASGI response bytes."""
+
     status: int
     headers: dict[str, str]
     payload: object
+    body: bytes = b""
 
 
 async def request(
@@ -88,10 +91,16 @@ async def request(
     method: str = "GET",
     payload: dict[str, object] | None = None,
     headers: dict[str, str] | None = None,
+    *,
+    raw_body: bytes | None = None,
 ) -> HttpResponse:
-    """Exercise the ASGI stack without a network server or extra HTTP client dependency."""
+    """Exercise ASGI without a server or HTTP client; raw_body overrides JSON encoding.
+
+    Use raw_body for malformed JSON and non-object bodies. The returned body
+    preserves the exact bytes, including empty responses such as HTTP 204.
+    """
     url = urlsplit(path)
-    body = json.dumps(payload).encode() if payload is not None else b""
+    body = raw_body if raw_body is not None else json.dumps(payload).encode() if payload is not None else b""
     request_headers = {"content-type": "application/json", **(headers or {})}
     scope: Scope = {
         "type": "http",
@@ -131,6 +140,7 @@ async def request(
         # Starlette re-raises unexpected exceptions after sending the handled 500.
         if response.status != 500 or not chunks:
             raise
+    response.body = bytes(chunks)
     response.payload = json.loads(chunks) if chunks else None
     return response
 
