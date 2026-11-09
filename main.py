@@ -7,6 +7,7 @@ from core.exception_handlers import register_exception_handlers
 from core.logging_config import configure_logging
 from routers.api.exercise_router import exercise_router
 from routers.api.meal_router import meal_router
+from routers.api.set_entry_router import set_entry_router
 from routers.api.user_goals_router import user_goals_router
 from routers.api.users_router import users_router
 from routers.api.workout_exercise_router import workout_exercise_router
@@ -29,6 +30,7 @@ app.include_router(exercise_router)
 app.include_router(workout_router)
 app.include_router(workout_exercise_router)
 app.include_router(meal_router)
+app.include_router(set_entry_router)
 
 
 @app.get("/")
