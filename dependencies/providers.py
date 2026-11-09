@@ -10,6 +10,7 @@ from fastapi import Depends
 from data.unit_of_work import PostgresUnitOfWork
 from ports.repositories.exercise_repository import ExerciseRepositoryPort
 from ports.repositories.meal_repository import MealRepositoryPort
+from ports.repositories.set_entry_repository import SetEntryRepositoryPort
 from ports.repositories.user_goals_repository import UserGoalsRepositoryPort
 from ports.repositories.user_repository import UserRepositoryPort
 from ports.repositories.workout_exercise_repository import WorkoutExerciseRepositoryPort
@@ -17,12 +18,14 @@ from ports.repositories.workout_repository import WorkoutRepositoryPort
 from ports.unit_of_work import UnitOfWorkPort
 from repositories.exercise_repository import ExerciseRepository
 from repositories.meal_repository import MealRepository
+from repositories.set_entry_repository import SetEntryRepository
 from repositories.user_goals_repository import UserGoalsRepository
 from repositories.user_repository import UserRepository
 from repositories.workout_exercise_repository import WorkoutExerciseRepository
 from repositories.workout_repository import WorkoutRepository
 from services.exercise_service import ExerciseService
 from services.meal_service import MealService
+from services.set_entry_service import SetEntryService
 from services.user_goals_service import UserGoalsService
 from services.user_service import UserService
 from services.workout_exercise_service import WorkoutExerciseService
@@ -94,3 +97,16 @@ def get_workout_exercise_service(
     exercise_repo: ExerciseRepositoryPort = Depends(get_exercise_repository),
 ) -> WorkoutExerciseService:
     return WorkoutExerciseService(workout_exercise_repo, workout_repo, exercise_repo)
+
+
+def get_set_entry_repository() -> SetEntryRepositoryPort:
+    return SetEntryRepository()
+
+
+def get_set_entry_service(
+    set_entry_repo: SetEntryRepositoryPort = Depends(get_set_entry_repository),
+    workout_exercise_repo: WorkoutExerciseRepositoryPort = Depends(get_workout_exercise_repository),
+    workout_repo: WorkoutRepositoryPort = Depends(get_workout_repository),
+    unit_of_work: UnitOfWorkPort = Depends(get_unit_of_work),
+) -> SetEntryService:
+    return SetEntryService(set_entry_repo, workout_exercise_repo, workout_repo, unit_of_work)
