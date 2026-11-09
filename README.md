@@ -78,9 +78,11 @@ structure must use whitelisted columns. Include the SQL files when deploying and
 restart the process after editing cached queries.
 
 Row conversion belongs in `data/mappers/`, using the shared helpers in
-`data/validation.py`. Goal writes use the unit of work in `data/unit_of_work.py`
-with explicit commits, rollback on failure, and a user-row lock to serialize
-changes to active goals.
+`data/validation.py`. Goal and set-entry writes use the unit of work in
+`data/unit_of_work.py` with explicit commits and rollback on failure. Goal writes
+lock the user row; set writes lock the parent workout exercise.
+See the [set-entry service contract](docs/set-entry-service.md) for ownership,
+ordering rules, error responses, and test coverage. Set-entry API routes are not yet registered.
 
 List endpoints use `limit=100` and `offset=0` by default. Limits must be from 1
 to 1000; offsets must be nonnegative.
