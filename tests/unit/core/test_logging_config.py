@@ -210,9 +210,22 @@ class LoggingOutputTests(TestCase):
 
 class LoggingStartupTests(IsolatedAsyncioTestCase):
     async def test_api_lifespan_configures_logging_once_per_start(self) -> None:
-        with patch("main.configure_logging") as configure:
+        with patch("main.configure_logging") as configure, self.assertLogs("main", level="INFO") as logs:
             async with app.router.lifespan_context(app):
                 configure.assert_called_once_with()
+        self.assertEqual([record.getMessage() for record in logs.records], ["API started", "API stopped"])
+
+    async def test_api_shutdown_is_logged_when_lifespan_body_raises(self) -> None:
+        failure = RuntimeError("lifespan failure")
+        with (
+            patch("main.configure_logging"),
+            self.assertLogs("main", level="INFO") as logs,
+            self.assertRaises(RuntimeError) as raised,
+        ):
+            async with app.router.lifespan_context(app):
+                raise failure
+        self.assertIs(raised.exception, failure)
+        self.assertEqual([record.getMessage() for record in logs.records], ["API started", "API stopped"])
 
     async def test_invalid_config_prevents_api_startup(self) -> None:
         with (
@@ -245,6 +258,20 @@ class LoggingStartupTests(IsolatedAsyncioTestCase):
         ):
             init_db.main()
         bootstrap.assert_not_called()
+
+    def test_database_bootstrap_failure_is_logged_and_reraised(self) -> None:
+        failure = RuntimeError("bootstrap failure")
+        with (
+            patch("data.init_db.parse_args", return_value=argparse.Namespace(no_reset=True, no_seed=True)),
+            patch("data.init_db.configure_logging"),
+            patch("data.init_db.init_db", side_effect=failure),
+            self.assertLogs("data.init_db", level="ERROR") as logs,
+            self.assertRaises(RuntimeError) as raised,
+        ):
+            init_db.main()
+        self.assertIs(raised.exception, failure)
+        self.assertEqual(logs.records[0].getMessage(), "Database initialization failed")
+        self.assertIsNotNone(logs.records[0].exc_info)
 
 
 class DatabaseDebugLoggingTests(TestCase):

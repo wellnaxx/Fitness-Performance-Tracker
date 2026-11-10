@@ -78,11 +78,14 @@ def transaction_cursor() -> Generator[Cursor[Row]]:
     try:
         with get_connection() as conn, conn.cursor() as cursor:
             typed_cursor: Cursor[Row] = cursor
+            logger.debug("Database transaction opened")
             try:
                 yield typed_cursor
                 conn.commit()
+                logger.debug("Database transaction committed")
             except Exception:
                 conn.rollback()
+                logger.debug("Database transaction rolled back")
                 raise
     except DatabaseError:
         raise

@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -13,12 +14,18 @@ from routers.api.users_router import users_router
 from routers.api.workout_exercise_router import workout_exercise_router
 from routers.api.workout_router import workout_router
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     """Configure process logging when the API starts."""
     configure_logging()
-    yield
+    logger.info("API started")
+    try:
+        yield
+    finally:
+        logger.info("API stopped")
 
 
 app = FastAPI(lifespan=lifespan)

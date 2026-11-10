@@ -21,6 +21,7 @@ SEED_FILE = BASE_DIR / "seed.sql"
 
 logger = logging.getLogger(__name__)
 
+
 def run_sql_file(cursor: Cursor[Row], file_path: Path) -> None:
     with file_path.open("r", encoding="utf-8") as file:
         sql = file.read()
@@ -58,9 +59,7 @@ def init_db(reset: bool = True, seed: bool = True) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Initialize the fitness performance tracker database."
-    )
+    parser = argparse.ArgumentParser(description="Initialize the fitness performance tracker database.")
     parser.add_argument(
         "--no-reset",
         action="store_true",
@@ -78,10 +77,14 @@ def main() -> None:
     """Configure logging before running the requested database bootstrap."""
     args = parse_args()
     configure_logging()
-    init_db(
-        reset=not args.no_reset,
-        seed=not args.no_seed,
-    )
+    try:
+        init_db(
+            reset=not args.no_reset,
+            seed=not args.no_seed,
+        )
+    except Exception:
+        logger.exception("Database initialization failed")
+        raise
 
 
 if __name__ == "__main__":
