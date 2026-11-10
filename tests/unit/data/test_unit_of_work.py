@@ -62,6 +62,29 @@ class PostgresUnitOfWorkTests(TestCase):
         self.conn.rollback.assert_called_once_with()
         self.assert_closed()
 
+    def test_debug_lifecycle_distinguishes_commit_from_rollback(self) -> None:
+        for commit in (True, False):
+            with self.subTest(commit=commit):
+                with self.assertLogs("data.unit_of_work", level="DEBUG") as logs, self.uow as uow:
+                    if commit:
+                        uow.commit()
+                expected = "Database unit of work committed" if commit else "Database unit of work rolled back"
+                self.assertEqual(
+                    [record.getMessage() for record in logs.records], ["Database unit of work opened", expected]
+                )
+
+    def test_failed_commit_does_not_log_a_successful_commit(self) -> None:
+        self.conn.commit.side_effect = OperationalError("injected failure")
+        with (
+            self.assertLogs("data.unit_of_work", level="DEBUG") as logs,
+            self.assertRaises(DatabaseError),
+            self.uow as uow,
+        ):
+            uow.commit()
+        messages = [record.getMessage() for record in logs.records]
+        self.assertNotIn("Database unit of work committed", messages)
+        self.assertIn("Database unit of work rolled back", messages)
+
     def test_explicit_rollback_never_commits(self) -> None:
         with self.uow as uow:
             uow.rollback()

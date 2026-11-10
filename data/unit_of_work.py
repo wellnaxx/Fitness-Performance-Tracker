@@ -70,6 +70,7 @@ class PostgresUnitOfWork:
         self._goals = goals
         self._set_entry = set_entry
         self._committed = False
+        logger.debug("Database unit of work opened")
         return self
 
     def __exit__(
@@ -116,6 +117,7 @@ class PostgresUnitOfWork:
             logger.exception("Failed to commit database unit of work")
             raise DatabaseError.transaction_failed(exc) from exc
         self._committed = True
+        logger.debug("Database unit of work committed")
 
     def rollback(self) -> None:
         if self._conn is None:
@@ -128,6 +130,7 @@ class PostgresUnitOfWork:
             logger.exception("Failed to roll back database transaction")
             raise DatabaseError.transaction_failed(exc) from exc
         self._committed = False
+        logger.debug("Database unit of work rolled back")
 
     @staticmethod
     def _close_resources(cursor: Cursor[Row] | None, conn: Connection[Row] | None) -> None:
