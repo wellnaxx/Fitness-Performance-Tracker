@@ -7,6 +7,7 @@ It delegates database row validation and conversion to the dedicated mapper.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Final
 
 from core.errors.repository import ProgressPhotoRepositoryError
@@ -23,6 +24,9 @@ if TYPE_CHECKING:
         ProgressPhotoPublic,
         ProgressPhotoUpdate,
     )
+
+
+logger = logging.getLogger(__name__)
 
 
 class ProgressPhotoRepository:
@@ -66,6 +70,7 @@ class ProgressPhotoRepository:
 
         photo = self.get_by_id(photo_id)
         if photo is None:
+            logger.warning("Inserted row missing during readback | entity_id=%s", photo_id)
             raise ProgressPhotoRepositoryError.inserted_missing(photo_id)
         return photo
 
@@ -176,6 +181,7 @@ class ProgressPhotoRepository:
 
         unknown = set(fields) - self._PROGRESS_PHOTO_UPDATE_WHITELIST
         if unknown:
+            logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
             raise ProgressPhotoRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
