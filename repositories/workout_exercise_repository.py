@@ -7,6 +7,7 @@ It delegates database row validation and conversion to the dedicated mapper.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Final
 
 from core.errors.repository import WorkoutExerciseRepositoryError
@@ -27,6 +28,9 @@ if TYPE_CHECKING:
         WorkoutExercisePublic,
         WorkoutExerciseUpdate,
     )
+
+
+logger = logging.getLogger(__name__)
 
 
 class WorkoutExerciseRepository:
@@ -99,6 +103,7 @@ class WorkoutExerciseRepository:
             raise WorkoutExerciseRepositoryError.transaction_failed(exc) from exc
 
         if row is None:
+            logger.warning("Inserted row missing during readback | entity_id=%s", workout_exercise_id)
             raise WorkoutExerciseRepositoryError.inserted_missing(workout_exercise_id)
 
         return map_workout_exercise(row)
@@ -219,6 +224,7 @@ class WorkoutExerciseRepository:
             raise WorkoutExerciseRepositoryError.transaction_failed(exc) from exc
 
         if updated_row is None:
+            logger.warning("Updated row missing during readback | entity_id=%s", workout_exercise_id)
             raise WorkoutExerciseRepositoryError.updated_missing(workout_exercise_id)
 
         return map_workout_exercise(updated_row)
@@ -262,4 +268,5 @@ class WorkoutExerciseRepository:
         """Ensure that only allowed fields are being updated."""
         unknown = set(fields) - self._WORKOUT_EXERCISE_UPDATE_WHITELIST
         if unknown:
+            logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
             raise WorkoutExerciseRepositoryError.invalid_update_fields(unknown)
