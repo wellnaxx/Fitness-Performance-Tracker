@@ -7,6 +7,7 @@ It delegates database row validation and conversion to the dedicated mapper.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Final
 
 from core.errors.repository import SetEntryRepositoryError
@@ -17,6 +18,9 @@ from data.queries import QUERIES
 if TYPE_CHECKING:
     from data.executor import QueryExecutor
     from schemas.set_entry_schema import SetEntryCreate, SetEntryPublic, SetEntryUpdate
+
+
+logger = logging.getLogger(__name__)
 
 
 class SetEntryRepository:
@@ -75,6 +79,7 @@ class SetEntryRepository:
 
         set_entry = self.get_by_id(set_entry_id)
         if set_entry is None:
+            logger.warning("Inserted row missing during readback | entity_id=%s", set_entry_id)
             raise SetEntryRepositoryError.inserted_missing(set_entry_id)
         return set_entry
 
@@ -164,6 +169,7 @@ class SetEntryRepository:
 
         unknown = set(fields) - self._SET_ENTRY_UPDATE_WHITELIST
         if unknown:
+            logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
             raise SetEntryRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
