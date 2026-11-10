@@ -7,6 +7,7 @@ It delegates database row validation and conversion to the dedicated mapper.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Final
 
 from core.errors.repository import UserRepositoryError
@@ -17,6 +18,9 @@ from utils.pagination import DEFAULT_LIMIT, DEFAULT_OFFSET, normalize_pagination
 
 if TYPE_CHECKING:
     from schemas.user_schema import UserCreate, UserInternal
+
+
+logger = logging.getLogger(__name__)
 
 
 class UserRepository:
@@ -68,6 +72,7 @@ class UserRepository:
 
         user = self.get_by_id(user_id)
         if user is None:
+            logger.warning("Inserted row missing during readback | entity_id=%s", user_id)
             raise UserRepositoryError.inserted_missing(user_id)
         return user
 
@@ -182,6 +187,7 @@ class UserRepository:
 
         unknown = set(updates.keys()) - self._PROFILE_UPDATE_WHITELIST
         if unknown:
+            logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
             raise UserRepositoryError.invalid_update_fields(unknown)
 
         filtered: dict[str, object] = {key: value for key, value in updates.items() if value is not None}
@@ -194,6 +200,7 @@ class UserRepository:
 
         user = self.get_by_id(user_id)
         if user is None:
+            logger.warning("Updated row missing during readback | entity_id=%s", user_id)
             raise UserRepositoryError.updated_missing(user_id)
         return user
 
