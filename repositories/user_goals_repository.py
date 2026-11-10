@@ -7,6 +7,7 @@ It delegates database row validation and conversion to the dedicated mapper.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Final
 
 from core.errors.repository import UserGoalsRepositoryError
@@ -18,6 +19,9 @@ from utils.pagination import DEFAULT_LIMIT, DEFAULT_OFFSET, normalize_pagination
 if TYPE_CHECKING:
     from data.executor import QueryExecutor
     from schemas.user_goals_schema import UserGoalCreate, UserGoalPublic, UserGoalUpdate
+
+
+logger = logging.getLogger(__name__)
 
 
 class UserGoalsRepository:
@@ -82,6 +86,7 @@ class UserGoalsRepository:
         )
         goal = self.get_by_id(goal_id)
         if goal is None:
+            logger.warning("Inserted row missing during readback | entity_id=%s", goal_id)
             raise UserGoalsRepositoryError.inserted_missing(goal_id)
         return goal
 
@@ -187,6 +192,7 @@ class UserGoalsRepository:
             return self.get_by_id(goal_id)
         unknown = set(fields) - self._GOAL_UPDATE_WHITELIST
         if unknown:
+            logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
             raise UserGoalsRepositoryError.invalid_update_fields(unknown)
         set_clause = ", ".join(f"{k} = %s" for k in fields)
         sql = QUERIES.user_goals.update.format(set_clause=set_clause)
