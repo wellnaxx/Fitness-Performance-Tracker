@@ -7,6 +7,7 @@ It delegates database row validation and conversion to the dedicated mapper.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Final
 
 from core.errors.repository import BodyMeasurementRepositoryError
@@ -23,6 +24,9 @@ if TYPE_CHECKING:
         BodyMeasurementPublic,
         BodyMeasurementUpdate,
     )
+
+
+logger = logging.getLogger(__name__)
 
 
 class BodyMeasurementRepository:
@@ -95,6 +99,7 @@ class BodyMeasurementRepository:
 
         entry = self.get_by_id(entry_id)
         if entry is None:
+            logger.warning("Inserted row missing during readback | entity_id=%s", entry_id)
             raise BodyMeasurementRepositoryError.inserted_missing(entry_id)
         return entry
 
@@ -243,12 +248,11 @@ class BodyMeasurementRepository:
 
         unknown = set(fields) - self._BODY_MEASUREMENT_UPDATE_WHITELIST
         if unknown:
+            logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
             raise BodyMeasurementRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
-        sql = (
-            QUERIES.body_measurements.update_owned.format(set_clause=set_clause)
-        )
+        sql = QUERIES.body_measurements.update_owned.format(set_clause=set_clause)
         execute_write(sql, (*fields.values(), user_id, entry_id))
         return self.get_by_user_and_id(user_id, entry_id)
 
