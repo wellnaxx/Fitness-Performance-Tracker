@@ -7,6 +7,7 @@ It delegates database row validation and conversion to the dedicated mapper.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Final
 
 from core.errors.repository import ExerciseRepositoryError
@@ -17,6 +18,9 @@ from utils.pagination import DEFAULT_LIMIT, DEFAULT_OFFSET, normalize_pagination
 
 if TYPE_CHECKING:
     from schemas.exercise_schema import ExerciseCreate, ExercisePublic, ExerciseUpdate
+
+
+logger = logging.getLogger(__name__)
 
 
 class ExerciseRepository:
@@ -67,6 +71,7 @@ class ExerciseRepository:
 
         exercise = self.get_by_id(exercise_id)
         if exercise is None:
+            logger.warning("Inserted row missing during readback | entity_id=%s", exercise_id)
             raise ExerciseRepositoryError.inserted_missing(exercise_id)
         return exercise
 
@@ -186,6 +191,7 @@ class ExerciseRepository:
 
         unknown = set(fields) - self._EXERCISE_UPDATE_WHITELIST
         if unknown:
+            logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
             raise ExerciseRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
