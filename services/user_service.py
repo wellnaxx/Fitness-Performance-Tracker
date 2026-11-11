@@ -82,9 +82,11 @@ class UserService:
             UserNotFoundError: Database operation failed
         """
         if self.user_repo.username_exists(user_data.username):
+            self._log.warning("Registration rejected: username already registered")
             raise UsernameAlreadyExistsError.already_taken(username=user_data.username)
 
         if self.user_repo.email_exists(user_data.email):
+            self._log.warning("Registration rejected: email already registered")
             raise EmailAlreadyExistsError.already_registered(email=user_data.email)
 
         password_hash = hash_password(user_data.password)
@@ -92,6 +94,7 @@ class UserService:
         try:
             user_internal = self.user_repo.create(user_data, password_hash)
         except UserRepositoryError as exc:
+            self._log.exception("User registration failed")
             raise UserCreationError.create_failed(exc) from exc
 
         self._log.info(
@@ -122,6 +125,7 @@ class UserService:
         user = self.user_repo.get_by_email(data.email)
 
         if not user or not verify_password(data.password, user.password_hash):
+            self._log.warning("Login rejected: invalid credentials")
             raise InvalidCredentialsError.invalid_login()
 
         token_data: TokenInput = {
@@ -152,6 +156,7 @@ class UserService:
         Returns:
             UserProfile: User's profile data
         """
+        self._log.debug("Profile retrieved | user_id=%s", current_user.id)
         return UserProfile(**current_user.model_dump())
 
     def update_my_profile(self, current_user: UserInternal, updates: UserUpdate) -> UserProfile:
@@ -174,6 +179,7 @@ class UserService:
         """
 
         if updates.email and updates.email != current_user.email and self.user_repo.email_exists(updates.email):
+            self._log.warning("Profile update rejected: email already registered | user_id=%s", current_user.id)
             raise EmailAlreadyExistsError.already_in_use(email=updates.email)
 
         update_dict = updates.model_dump(exclude_none=True)
@@ -181,8 +187,10 @@ class UserService:
         updated_user = self.user_repo.update(current_user.id, **update_dict)
 
         if not updated_user:
+            self._log.warning("User missing during profile update | user_id=%s", current_user.id)
             raise UserNotFoundError.not_found(user_id=current_user.id)
 
+        self._log.info("Profile updated | user_id=%s", current_user.id)
         return UserProfile(**updated_user.model_dump())
 
     def change_password(self, current_user: UserInternal, data: ChangeUserPassword) -> None:
@@ -211,10 +219,15 @@ class UserService:
             # Idempotent behavior: if the user already has the requested new password,
             # treat this as success (useful for retries / reruns).
             if verify_password(data.new_password, current_user.password_hash):
+                self._log.debug("Password change already applied | user_id=%s", current_user.id)
                 return
+            self._log.warning(
+                "Password change rejected: incorrect current password | user_id=%s", current_user.id
+            )
             raise IncorrectOldPasswordError.incorrect()
 
         if data.new_password == data.old_password:
+            self._log.warning("Password change rejected: unchanged password | user_id=%s", current_user.id)
             raise IdenticalPasswordsError.must_differ()
 
         new_password_hash = hash_password(data.new_password)
@@ -222,8 +235,10 @@ class UserService:
         updated = self.user_repo.update_password(current_user.id, new_password_hash)
 
         if not updated:
+            self._log.warning("User missing during password change | user_id=%s", current_user.id)
             raise UserNotFoundError.not_found(user_id=current_user.id)
 
+        self._log.info("Password changed | user_id=%s", current_user.id)
         return
 
     def delete_my_account(self, current_user: UserInternal) -> None:
@@ -244,11 +259,14 @@ class UserService:
             UserNotFoundError: User not found (shouldn't happen)
         """
         if not self.user_repo.get_by_id(current_user.id):
+            self._log.warning("User missing during account deletion | user_id=%s", current_user.id)
             raise UserNotFoundError.not_found(user_id=current_user.id)
 
         deleted = self.user_repo.delete(current_user.id)
         if not deleted:
+            self._log.warning("Account deletion failed | user_id=%s", current_user.id)
             raise UserDeleteError.blocked_by_related_records()
+        self._log.info("Account deleted | user_id=%s", current_user.id)
 
     def update_profile_picture(
         self,
@@ -260,8 +278,10 @@ class UserService:
         url_value = str(profile_picture_url) if profile_picture_url is not None else None
         updated_user = self.user_repo.set_profile_picture_url(current_user.id, url_value)
         if not updated_user:
+            self._log.warning("User missing during profile picture update | user_id=%s", current_user.id)
             raise UserNotFoundError.not_found(user_id=current_user.id)
 
+        self._log.info("Profile picture updated | user_id=%s", current_user.id)
         return UserProfile(**updated_user.model_dump())
 
     def refresh_access_token(self, data: RefreshRequest) -> TokenPairResponse:
@@ -286,6 +306,7 @@ class UserService:
         """
         payload = decode_token(data.refresh_token, expected_type="refresh")
         if payload is None:
+            self._log.warning("Token refresh rejected: invalid or expired token")
             raise InvalidRefreshTokenError.invalid_or_expired()
 
         user_id_raw = payload.sub
@@ -294,13 +315,16 @@ class UserService:
         try:
             user_id = int(user_id_raw)
         except (TypeError, ValueError) as exc:
+            self._log.warning("Token refresh rejected: invalid subject")
             raise InvalidRefreshTokenError.invalid_payload() from exc
 
         user = self.user_repo.get_by_id(user_id)
         if not user:
+            self._log.warning("Token refresh rejected: user missing | user_id=%s", user_id)
             raise InvalidRefreshTokenError.user_not_found(user_id)
 
         if user.token_version != token_version:
+            self._log.warning("Token refresh rejected: revoked token | user_id=%s", user_id)
             raise InvalidRefreshTokenError.revoked()
 
         token_data: TokenInput = {
