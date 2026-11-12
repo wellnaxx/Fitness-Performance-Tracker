@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from core.errors.base import RepositoryError, RowValidationError
+
+if TYPE_CHECKING:
+    from datetime import date
 
 
 def _repo_error(name: str, entity: str) -> type[RepositoryError]:
@@ -39,6 +44,20 @@ BodyWeightEntryRowError = _row_error("BodyWeightEntryRowError", "body weight ent
 
 BodyMeasurementRepositoryError = _repo_error("BodyMeasurementRepositoryError", "Body measurement")
 BodyMeasurementRowError = _row_error("BodyMeasurementRowError", "body measurement")
+
+
+class BodyMeasurementDateConflictRepositoryError(RepositoryError):
+    """The database rejected a measurement date already used by the same user."""
+
+    def __init__(self, entry_date: date) -> None:
+        """Initialize a date conflict reported by the database.
+
+        Args:
+            entry_date: Requested measurement date, retained for service translation.
+        """
+        self.entry_date = entry_date
+        super().__init__(f"Body measurement date already exists: {entry_date.isoformat()}.")
+
 
 UserGoalsRepositoryError = _repo_error("UserGoalsRepositoryError", "Goal")
 UserGoalRowError = _row_error("UserGoalRowError", "user goal")

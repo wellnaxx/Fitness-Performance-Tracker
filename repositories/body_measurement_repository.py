@@ -10,7 +10,10 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Final
 
-from core.errors.repository import BodyMeasurementRepositoryError
+from psycopg.errors import UniqueViolation
+
+from core.errors.database import DatabaseError
+from core.errors.repository import BodyMeasurementDateConflictRepositoryError, BodyMeasurementRepositoryError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from data.mappers.body_measurement import map_body_measurement
 from data.queries import QUERIES
@@ -27,6 +30,23 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+def _is_date_conflict(error: DatabaseError) -> bool:
+    """Recognize only the PostgreSQL uniqueness constraint on user and entry date.
+
+    Args:
+        error: Database error whose explicit cause is the original driver error.
+
+    Returns:
+        True only for the named user/date constraint. Other unique constraints,
+        foreign keys, and message text do not identify a date conflict.
+    """
+    cause = error.__cause__
+    return (
+        isinstance(cause, UniqueViolation)
+        and cause.diag.constraint_name == "body_measurements_user_id_entry_date_key"
+    )
 
 
 class BodyMeasurementRepository:
@@ -74,28 +94,35 @@ class BodyMeasurementRepository:
 
         Raises:
             BodyMeasurementRepositoryError: If the inserted row cannot be retrieved afterwards.
+            BodyMeasurementDateConflictRepositoryError: If the user already has an entry for this date,
+                including a concurrent insertion after a service-level check.
         """
-        entry_id = execute_insert(
-            QUERIES.body_measurements.create,
-            (
-                user_id,
-                entry_data.entry_date,
-                entry_data.neck,
-                entry_data.shoulders,
-                entry_data.waist,
-                entry_data.chest,
-                entry_data.hips,
-                entry_data.left_bicep,
-                entry_data.right_bicep,
-                entry_data.left_forearm,
-                entry_data.right_forearm,
-                entry_data.left_thigh,
-                entry_data.right_thigh,
-                entry_data.left_calf,
-                entry_data.right_calf,
-                entry_data.notes,
-            ),
-        )
+        try:
+            entry_id = execute_insert(
+                QUERIES.body_measurements.create,
+                (
+                    user_id,
+                    entry_data.entry_date,
+                    entry_data.neck,
+                    entry_data.shoulders,
+                    entry_data.waist,
+                    entry_data.chest,
+                    entry_data.hips,
+                    entry_data.left_bicep,
+                    entry_data.right_bicep,
+                    entry_data.left_forearm,
+                    entry_data.right_forearm,
+                    entry_data.left_thigh,
+                    entry_data.right_thigh,
+                    entry_data.left_calf,
+                    entry_data.right_calf,
+                    entry_data.notes,
+                ),
+            )
+        except DatabaseError as exc:
+            if _is_date_conflict(exc):
+                raise BodyMeasurementDateConflictRepositoryError(entry_data.entry_date) from exc
+            raise
 
         entry = self.get_by_id(entry_id)
         if entry is None:
@@ -241,6 +268,8 @@ class BodyMeasurementRepository:
 
         Raises:
             BodyMeasurementRepositoryError: If any provided fields are not allowed to be updated.
+            BodyMeasurementDateConflictRepositoryError: If another entry for the user occupies
+                the requested date. Keeping the current date remains valid.
         """
         fields = update_data.model_dump(exclude_none=True)
         if not fields:
@@ -253,7 +282,12 @@ class BodyMeasurementRepository:
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
         sql = QUERIES.body_measurements.update_owned.format(set_clause=set_clause)
-        execute_write(sql, (*fields.values(), user_id, entry_id))
+        try:
+            execute_write(sql, (*fields.values(), user_id, entry_id))
+        except DatabaseError as exc:
+            if update_data.entry_date is not None and _is_date_conflict(exc):
+                raise BodyMeasurementDateConflictRepositoryError(update_data.entry_date) from exc
+            raise
         return self.get_by_user_and_id(user_id, entry_id)
 
     def delete_owned(self, user_id: int, entry_id: int) -> bool:
