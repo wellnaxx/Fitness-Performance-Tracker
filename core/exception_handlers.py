@@ -9,6 +9,12 @@ from fastapi import status
 from fastapi.responses import JSONResponse
 
 from core.errors.base import AppError, RepositoryError, RowValidationError
+from core.errors.body_measurement import (
+    BodyMeasurementCreationError,
+    BodyMeasurementDateConflictError,
+    BodyMeasurementNotFoundError,
+    BodyMeasurementUpdateError,
+)
 from core.errors.database import DatabaseError
 from core.errors.exercise import (
     ExerciseCreationError,
@@ -66,6 +72,7 @@ _ERROR_RESPONSES: dict[type[Exception], tuple[int, str | None]] = {
     UsernameAlreadyExistsError: (status.HTTP_409_CONFLICT, None),
     EmailAlreadyExistsError: (status.HTTP_409_CONFLICT, None),
     ExerciseNameAlreadyExistsError: (status.HTTP_409_CONFLICT, None),
+    BodyMeasurementDateConflictError: (status.HTTP_409_CONFLICT, None),
     UserNotFoundError: (status.HTTP_404_NOT_FOUND, None),
     UserGoalNotFoundError: (status.HTTP_404_NOT_FOUND, None),
     ExerciseNotFoundError: (status.HTTP_404_NOT_FOUND, None),
@@ -73,6 +80,7 @@ _ERROR_RESPONSES: dict[type[Exception], tuple[int, str | None]] = {
     WorkoutExerciseNotFoundError: (status.HTTP_404_NOT_FOUND, None),
     MealNotFoundError: (status.HTTP_404_NOT_FOUND, None),
     SetEntryNotFoundError: (status.HTTP_404_NOT_FOUND, None),
+    BodyMeasurementNotFoundError: (status.HTTP_404_NOT_FOUND, None),
     IncorrectOldPasswordError: (status.HTTP_400_BAD_REQUEST, None),
     IdenticalPasswordsError: (status.HTTP_400_BAD_REQUEST, None),
     UserDeleteError: (status.HTTP_400_BAD_REQUEST, None),
@@ -96,6 +104,8 @@ _ERROR_RESPONSES: dict[type[Exception], tuple[int, str | None]] = {
     MealDeleteError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
     SetEntryCreationError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
     SetEntryDeleteError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
+    BodyMeasurementCreationError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
+    BodyMeasurementUpdateError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
     DatabaseError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "Database operation failed."),
     RepositoryError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "Database operation failed."),
     RowValidationError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "Database operation failed."),

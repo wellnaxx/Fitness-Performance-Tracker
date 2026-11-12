@@ -3,6 +3,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
+from schemas.body_measurement_schema import BodyMeasurementPublic
 from schemas.exercise_schema import ExercisePublic
 from schemas.meal_schema import MealPublic
 from schemas.set_entry_schema import SetEntryPublic
@@ -20,6 +21,19 @@ ENTRY_ID = 17
 GOAL_ID = 19
 MEAL_ID = 23
 SET_ENTRY_ID = 31
+MEASUREMENT_ID = 37
+
+
+def measurement() -> BodyMeasurementPublic:
+    """Return a fresh owned entry with a positive measurement and nullable fields."""
+    return BodyMeasurementPublic(
+        id=MEASUREMENT_ID,
+        user_id=USER_ID,
+        entry_date=TODAY,
+        waist=Decimal("80.5"),
+        created_at=NOW,
+        updated_at=NOW,
+    )
 
 
 def user() -> UserInternal:

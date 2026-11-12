@@ -4,6 +4,12 @@ from core.errors.base import (
     RowValidationError,
     ServiceError,
 )
+from core.errors.body_measurement import (
+    BodyMeasurementCreationError,
+    BodyMeasurementDateConflictError,
+    BodyMeasurementNotFoundError,
+    BodyMeasurementUpdateError,
+)
 from core.errors.database import DatabaseError
 from core.errors.exercise import (
     ExerciseCreationError,
@@ -20,6 +26,7 @@ from core.errors.goals import (
     UserGoalValidationError,
 )
 from core.errors.repository import (
+    BodyMeasurementDateConflictRepositoryError,
     BodyMeasurementRepositoryError,
     BodyMeasurementRowError,
     BodyWeightEntryRepositoryError,
@@ -43,6 +50,12 @@ from core.errors.repository import (
     WorkoutRepositoryError,
     WorkoutRowError,
 )
+from core.errors.set_entry import (
+    SetEntryCreationError,
+    SetEntryDeleteError,
+    SetEntryNotFoundError,
+    SetEntryValidationError,
+)
 from core.errors.user import (
     EmailAlreadyExistsError,
     IdenticalPasswordsError,
@@ -60,8 +73,13 @@ from core.errors.workout import WorkoutCreationError
 
 __all__ = [
     "AppError",
+    "BodyMeasurementCreationError",
+    "BodyMeasurementDateConflictError",
+    "BodyMeasurementDateConflictRepositoryError",
+    "BodyMeasurementNotFoundError",
     "BodyMeasurementRepositoryError",
     "BodyMeasurementRowError",
+    "BodyMeasurementUpdateError",
     "BodyWeightEntryRepositoryError",
     "BodyWeightEntryRowError",
     "DatabaseError",
@@ -88,8 +106,12 @@ __all__ = [
     "RepositoryError",
     "RowValidationError",
     "ServiceError",
+    "SetEntryCreationError",
+    "SetEntryDeleteError",
+    "SetEntryNotFoundError",
     "SetEntryRepositoryError",
     "SetEntryRowError",
+    "SetEntryValidationError",
     "UserCreationError",
     "UserDeleteError",
     "UserGoalCreationError",

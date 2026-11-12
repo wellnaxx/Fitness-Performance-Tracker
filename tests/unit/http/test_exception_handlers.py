@@ -13,6 +13,12 @@ from fastapi import FastAPI, HTTPException
 
 from auth.jwt_handler import TokenPayload
 from core.errors.base import AppError, RepositoryError, RowValidationError
+from core.errors.body_measurement import (
+    BodyMeasurementCreationError,
+    BodyMeasurementDateConflictError,
+    BodyMeasurementNotFoundError,
+    BodyMeasurementUpdateError,
+)
 from core.errors.database import DatabaseError
 from core.errors.exercise import (
     ExerciseCreationError,
@@ -70,6 +76,7 @@ from main import app
 from ports.repositories.user_repository import UserRepositoryPort
 from schemas.user_schema import UserInternal
 from services.user_service import UserService
+from tests.fixtures import MEASUREMENT_ID, TODAY, USER_ID
 
 if TYPE_CHECKING:
     from starlette.types import Message, Scope
@@ -164,6 +171,11 @@ class ExceptionHandlerTests(IsolatedAsyncioTestCase):
             (UsernameAlreadyExistsError.already_taken("tester"), 409),
             (EmailAlreadyExistsError.already_registered("test@example.com"), 409),
             (ExerciseNameAlreadyExistsError.already_exists("Squat"), 409),
+            (BodyMeasurementDateConflictError.already_exists(TODAY), 409),
+            (BodyMeasurementNotFoundError.not_found(MEASUREMENT_ID), 404),
+            (BodyMeasurementNotFoundError.not_found_by_date(TODAY), 404),
+            (BodyMeasurementNotFoundError.no_entries(USER_ID), 404),
+            (BodyMeasurementNotFoundError.not_accessible(MEASUREMENT_ID), 404),
             (UserNotFoundError.not_found(7), 404),
             (UserGoalNotFoundError.not_found(7), 404),
             (ExerciseNotFoundError.not_found(7), 404),
@@ -196,6 +208,8 @@ class ExceptionHandlerTests(IsolatedAsyncioTestCase):
             (MealDeleteError.delete_failed(7), 500),
             (SetEntryCreationError.create_failed(), 500),
             (SetEntryDeleteError.delete_failed(31), 500),
+            (BodyMeasurementCreationError.create_failed(), 500),
+            (BodyMeasurementUpdateError.update_failed(MEASUREMENT_ID), 500),
         )
         for error, expected_status in cases:
             with self.subTest(error=type(error).__name__), patch("core.exception_handlers.logger") as logger:
@@ -238,6 +252,24 @@ class ExceptionHandlerTests(IsolatedAsyncioTestCase):
         self.assertNotIn("private", str(response.payload))
         logger.error.assert_called_once()
         self.assertIs(logger.error.call_args.kwargs["exc_info"][1].__cause__, error.__cause__)
+
+    async def test_body_measurement_failures_hide_causes_and_log_only_server_errors(self) -> None:
+        for error, expected_status in (
+            (BodyMeasurementCreationError.create_failed(), 500),
+            (BodyMeasurementUpdateError.update_failed(MEASUREMENT_ID), 500),
+            (BodyMeasurementDateConflictError.already_exists(TODAY), 409),
+        ):
+            error.__cause__ = RepositoryError("private SQL and measurements")
+            self.error = error
+            with self.subTest(error=type(error).__name__), patch("core.exception_handlers.logger") as logger:
+                response = await request(self.app, "/error")
+                self.assertEqual(response.status, expected_status)
+                self.assertEqual(response.payload, {"detail": str(error)})
+                self.assertNotIn("private", str(response.payload))
+                self.assertNotIn("www-authenticate", response.headers)
+                self.assertEqual(logger.error.call_count, int(expected_status == 500))
+                if expected_status == 500:
+                    self.assertIs(logger.error.call_args.kwargs["exc_info"][1], error)
 
     async def test_subclasses_use_the_nearest_registered_parent(self) -> None:
         class SpecificMealNotFoundError(MealNotFoundError):
