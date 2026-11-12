@@ -25,31 +25,65 @@ class BodyMeasurementRepositoryPort(Protocol):
     """
 
     def create(self, user_id: int, entry_data: BodyMeasurementCreate) -> BodyMeasurementPublic:
-        """Create an entry for the specified user and return the persisted values.
+        """Create an entry for the specified user.
 
-        Raise BodyMeasurementRepositoryError if the inserted entry cannot be
-        retrieved afterwards.
+        Args:
+            user_id: Owner user ID.
+            entry_data: Validated creation values including the measurement date.
+
+        Returns:
+            The persisted entry with its assigned ID and timestamps.
+
+        Raises:
+            BodyMeasurementRepositoryError: If the inserted entry cannot be retrieved afterwards.
+            BodyMeasurementDateConflictRepositoryError: If the database rejects an occupied user/date.
         """
         ...
 
     def get_by_id(self, entry_id: int) -> BodyMeasurementPublic | None:
-        """Return an entry by ID, or None if it does not exist.
+        """Retrieve an entry without checking ownership.
 
-        This lookup does not check ownership. Callers must verify access before
-        exposing the entry or use get_by_user_and_id instead.
+        Args:
+            entry_id: Entry ID. Callers must separately verify access before exposing the result.
+
+        Returns:
+            The matching entry, or None if absent. Use get_by_user_and_id for an owned lookup.
         """
         ...
 
     def get_by_user_and_id(self, user_id: int, entry_id: int) -> BodyMeasurementPublic | None:
-        """Return the entry only if owned by the user; otherwise return None."""
+        """Retrieve an entry within a user's history.
+
+        Args:
+            user_id: Owner user ID.
+            entry_id: Entry ID.
+
+        Returns:
+            The owned entry, or None if missing or owned by another user.
+        """
         ...
 
     def get_by_user_and_date(self, user_id: int, entry_date: date) -> BodyMeasurementPublic | None:
-        """Return the user's entry for the exact date, or None if absent."""
+        """Retrieve the user's entry for an exact date.
+
+        Args:
+            user_id: Owner user ID.
+            entry_date: Exact measurement date.
+
+        Returns:
+            The matching entry, or None if the user has no entry on that date.
+        """
         ...
 
     def get_latest_for_user(self, user_id: int) -> BodyMeasurementPublic | None:
-        """Return the user's latest entry by entry date, then ID, or None if empty."""
+        """Retrieve the user's most recent entry.
+
+        Args:
+            user_id: Owner user ID.
+
+        Returns:
+            The latest entry by entry date, then ID, or None for an empty history.
+        """
         ...
 
     def list_by_user(
@@ -62,8 +96,15 @@ class BodyMeasurementRepositoryPort(Protocol):
     ) -> list[BodyMeasurementPublic]:
         """List the user's entries in descending entry-date and ID order.
 
-        Date bounds are optional and inclusive. Use shared pagination defaults
-        and normalization; return an empty list when no entries match.
+        Args:
+            user_id: Owner user ID.
+            limit: Maximum entries, normalized to the shared pagination bounds.
+            offset: Entries to skip, normalized to the shared pagination bounds.
+            date_from: Optional inclusive lower date bound.
+            date_to: Optional inclusive upper date bound.
+
+        Returns:
+            Matching entries, or an empty list when none match.
         """
         ...
 
@@ -73,15 +114,32 @@ class BodyMeasurementRepositoryPort(Protocol):
         entry_id: int,
         update_data: BodyMeasurementUpdate,
     ) -> BodyMeasurementPublic | None:
-        """Partially update an entry owned by the user and return the result.
+        """Partially update an entry owned by the user.
 
-        Omitted and None-valued fields retain their stored values, so nullable
-        measurements and notes cannot be cleared through this operation. An
-        empty update returns the current entry. Return None for a missing or
-        unowned entry. Unsupported fields raise BodyMeasurementRepositoryError.
+        Args:
+            user_id: Owner user ID.
+            entry_id: Entry ID.
+            update_data: Fields to change. Omitted and None fields preserve stored values;
+                nullable measurements and notes cannot be cleared through this operation.
+
+        Returns:
+            The updated entry, current values for an empty update, or None if missing or unowned.
+
+        Raises:
+            BodyMeasurementRepositoryError: If unsupported fields are supplied.
+            BodyMeasurementDateConflictRepositoryError: If another entry for this user occupies
+                the requested date, including a concurrent write after an availability check.
         """
         ...
 
     def delete_owned(self, user_id: int, entry_id: int) -> bool:
-        """Delete an owned entry; return False if missing or owned by another user."""
+        """Delete an entry within the specified user's history.
+
+        Args:
+            user_id: Owner user ID.
+            entry_id: Entry ID.
+
+        Returns:
+            True if deleted; False if missing or owned by another user.
+        """
         ...
