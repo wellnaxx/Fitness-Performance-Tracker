@@ -8,6 +8,7 @@ provider function it needs — no service is ever instantiated manually in a rou
 from fastapi import Depends
 
 from data.unit_of_work import PostgresUnitOfWork
+from ports.repositories.body_measurement_repository import BodyMeasurementRepositoryPort
 from ports.repositories.exercise_repository import ExerciseRepositoryPort
 from ports.repositories.meal_repository import MealRepositoryPort
 from ports.repositories.set_entry_repository import SetEntryRepositoryPort
@@ -16,6 +17,7 @@ from ports.repositories.user_repository import UserRepositoryPort
 from ports.repositories.workout_exercise_repository import WorkoutExerciseRepositoryPort
 from ports.repositories.workout_repository import WorkoutRepositoryPort
 from ports.unit_of_work import UnitOfWorkPort
+from repositories.body_measurement_repository import BodyMeasurementRepository
 from repositories.exercise_repository import ExerciseRepository
 from repositories.meal_repository import MealRepository
 from repositories.set_entry_repository import SetEntryRepository
@@ -23,6 +25,7 @@ from repositories.user_goals_repository import UserGoalsRepository
 from repositories.user_repository import UserRepository
 from repositories.workout_exercise_repository import WorkoutExerciseRepository
 from repositories.workout_repository import WorkoutRepository
+from services.body_measurement_service import BodyMeasurementService
 from services.exercise_service import ExerciseService
 from services.meal_service import MealService
 from services.set_entry_service import SetEntryService
@@ -110,3 +113,26 @@ def get_set_entry_service(
     unit_of_work: UnitOfWorkPort = Depends(get_unit_of_work),
 ) -> SetEntryService:
     return SetEntryService(set_entry_repo, workout_exercise_repo, workout_repo, unit_of_work)
+
+
+def get_body_measurement_repository() -> BodyMeasurementRepositoryPort:
+    """Provide body measurement persistence without opening a database connection.
+
+    Returns:
+        A repository implementing the body measurement port.
+    """
+    return BodyMeasurementRepository()
+
+
+def get_body_measurement_service(
+    body_measurement_repo: BodyMeasurementRepositoryPort = Depends(get_body_measurement_repository),
+) -> BodyMeasurementService:
+    """Construct the body measurement service with its repository dependency.
+
+    Args:
+        body_measurement_repo: Injected body measurement repository port.
+
+    Returns:
+        The service used by body measurement routes.
+    """
+    return BodyMeasurementService(body_measurement_repo)
