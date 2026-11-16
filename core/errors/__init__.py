@@ -10,6 +10,12 @@ from core.errors.body_measurement import (
     BodyMeasurementNotFoundError,
     BodyMeasurementUpdateError,
 )
+from core.errors.body_weight_entry import (
+    BodyWeightEntryCreationError,
+    BodyWeightEntryDateConflictError,
+    BodyWeightEntryNotFoundError,
+    BodyWeightEntryUpdateError,
+)
 from core.errors.database import DatabaseError
 from core.errors.exercise import (
     ExerciseCreationError,
@@ -29,6 +35,7 @@ from core.errors.repository import (
     BodyMeasurementDateConflictRepositoryError,
     BodyMeasurementRepositoryError,
     BodyMeasurementRowError,
+    BodyWeightEntryDateConflictRepositoryError,
     BodyWeightEntryRepositoryError,
     BodyWeightEntryRowError,
     ExerciseRepositoryError,
@@ -80,8 +87,13 @@ __all__ = [
     "BodyMeasurementRepositoryError",
     "BodyMeasurementRowError",
     "BodyMeasurementUpdateError",
+    "BodyWeightEntryCreationError",
+    "BodyWeightEntryDateConflictError",
+    "BodyWeightEntryDateConflictRepositoryError",
+    "BodyWeightEntryNotFoundError",
     "BodyWeightEntryRepositoryError",
     "BodyWeightEntryRowError",
+    "BodyWeightEntryUpdateError",
     "DatabaseError",
     "EmailAlreadyExistsError",
     "ExerciseCreationError",

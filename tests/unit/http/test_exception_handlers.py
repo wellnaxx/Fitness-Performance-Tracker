@@ -19,6 +19,12 @@ from core.errors.body_measurement import (
     BodyMeasurementNotFoundError,
     BodyMeasurementUpdateError,
 )
+from core.errors.body_weight_entry import (
+    BodyWeightEntryCreationError,
+    BodyWeightEntryDateConflictError,
+    BodyWeightEntryNotFoundError,
+    BodyWeightEntryUpdateError,
+)
 from core.errors.database import DatabaseError
 from core.errors.exercise import (
     ExerciseCreationError,
@@ -29,6 +35,7 @@ from core.errors.exercise import (
 )
 from core.errors.goals import UserGoalCreationError, UserGoalNotFoundError, UserGoalValidationError
 from core.errors.meal import MealCreationError, MealDeleteError, MealNotFoundError, MealUpdateError
+from core.errors.repository import BodyWeightEntryDateConflictRepositoryError
 from core.errors.set_entry import (
     SetEntryCreationError,
     SetEntryDeleteError,
@@ -267,6 +274,79 @@ class ExceptionHandlerTests(IsolatedAsyncioTestCase):
                 self.assertEqual(response.payload, {"detail": str(error)})
                 self.assertNotIn("private", str(response.payload))
                 self.assertNotIn("www-authenticate", response.headers)
+                self.assertEqual(logger.error.call_count, int(expected_status == 500))
+                if expected_status == 500:
+                    self.assertIs(logger.error.call_args.kwargs["exc_info"][1], error)
+
+    async def test_body_weight_entry_errors_have_expected_statuses_and_public_messages(self) -> None:
+        cases: tuple[tuple[Exception, int, str], ...] = (
+            (BodyWeightEntryCreationError.create_failed(), 500, "Failed to create body weight entry."),
+            (
+                BodyWeightEntryUpdateError.update_failed(41),
+                500,
+                "Failed to update body weight entry with ID 41.",
+            ),
+            (
+                BodyWeightEntryDateConflictError.already_exists(TODAY),
+                409,
+                f"A body weight entry already exists for {TODAY.isoformat()}.",
+            ),
+            (BodyWeightEntryNotFoundError.not_found(41), 404, "Body weight entry with ID 41 not found."),
+            (
+                BodyWeightEntryNotFoundError.not_found_by_date(TODAY),
+                404,
+                f"Body weight entry for {TODAY.isoformat()} not found.",
+            ),
+            (
+                BodyWeightEntryNotFoundError.no_entries(USER_ID),
+                404,
+                f"User with ID {USER_ID} has no body weight entries.",
+            ),
+            (
+                BodyWeightEntryNotFoundError.not_accessible(41),
+                404,
+                "Body weight entry with ID 41 not found or does not belong to the user.",
+            ),
+        )
+        for error, expected_status, message in cases:
+            self.error = error
+            with (
+                self.subTest(error=type(error).__name__, message=message),
+                patch("core.exception_handlers.logger") as logger,
+            ):
+                response = await request(self.app, "/error")
+                self.assertEqual(response.status, expected_status)
+                self.assertEqual(response.payload, {"detail": message})
+                self.assertNotIn("www-authenticate", response.headers)
+                self.assertEqual(logger.error.call_count, int(expected_status == 500))
+
+    async def test_body_weight_entry_error_causes_stay_private(self) -> None:
+        conflict = BodyWeightEntryDateConflictRepositoryError(TODAY)
+        self.assertEqual(conflict.entry_date, TODAY)
+        conflict.__cause__ = RuntimeError("private SQL parameters and body weight")
+        cases: tuple[tuple[Exception, int, str], ...] = (
+            (BodyWeightEntryCreationError.create_failed(), 500, "Failed to create body weight entry."),
+            (
+                BodyWeightEntryUpdateError.update_failed(41),
+                500,
+                "Failed to update body weight entry with ID 41.",
+            ),
+            (
+                BodyWeightEntryDateConflictError.already_exists(TODAY),
+                409,
+                f"A body weight entry already exists for {TODAY.isoformat()}.",
+            ),
+            (conflict, 500, "Database operation failed."),
+        )
+        for error, expected_status, message in cases:
+            if error is not conflict:
+                error.__cause__ = conflict
+            self.error = error
+            with self.subTest(error=type(error).__name__), patch("core.exception_handlers.logger") as logger:
+                response = await request(self.app, "/error")
+                self.assertEqual(response.status, expected_status)
+                self.assertEqual(response.payload, {"detail": message})
+                self.assertNotIn("private", str(response.payload))
                 self.assertEqual(logger.error.call_count, int(expected_status == 500))
                 if expected_status == 500:
                     self.assertIs(logger.error.call_args.kwargs["exc_info"][1], error)

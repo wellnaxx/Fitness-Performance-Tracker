@@ -36,6 +36,7 @@ class BodyWeightEntryRepositoryPort(Protocol):
 
         Raises:
             BodyWeightEntryRepositoryError: If the inserted entry cannot be retrieved afterwards.
+            BodyWeightEntryDateConflictRepositoryError: If the database rejects an occupied user/date.
         """
         ...
 
@@ -125,6 +126,8 @@ class BodyWeightEntryRepositoryPort(Protocol):
 
         Raises:
             BodyWeightEntryRepositoryError: If unsupported fields are supplied.
+            BodyWeightEntryDateConflictRepositoryError: If another entry for this user occupies
+                the requested date, including a concurrent write after an availability check.
         """
         ...
 

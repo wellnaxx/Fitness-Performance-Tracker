@@ -4,6 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from schemas.body_measurement_schema import BodyMeasurementPublic
+from schemas.body_weight_entry_schema import BodyWeightEntryPublic
 from schemas.exercise_schema import ExercisePublic
 from schemas.meal_schema import MealPublic
 from schemas.set_entry_schema import SetEntryPublic
@@ -22,6 +23,18 @@ GOAL_ID = 19
 MEAL_ID = 23
 SET_ENTRY_ID = 31
 MEASUREMENT_ID = 37
+WEIGHT_ENTRY_ID = 41
+
+
+def weight_entry() -> BodyWeightEntryPublic:
+    """Return a fresh owned body weight entry with a positive decimal weight."""
+    return BodyWeightEntryPublic(
+        id=WEIGHT_ENTRY_ID,
+        user_id=USER_ID,
+        weight=Decimal("75.5"),
+        entry_date=TODAY,
+        created_at=NOW,
+    )
 
 
 def measurement() -> BodyMeasurementPublic:

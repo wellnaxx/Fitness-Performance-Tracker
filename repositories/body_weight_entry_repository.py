@@ -10,7 +10,10 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Final
 
-from core.errors.repository import BodyWeightEntryRepositoryError
+from psycopg.errors import UniqueViolation
+
+from core.errors.database import DatabaseError
+from core.errors.repository import BodyWeightEntryDateConflictRepositoryError, BodyWeightEntryRepositoryError
 from data.executor import execute_insert, execute_write, fetch_all, fetch_one
 from data.mappers.body_weight_entry import map_body_weight_entry
 from data.queries import QUERIES
@@ -27,6 +30,23 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+def _is_date_conflict(error: DatabaseError) -> bool:
+    """Recognize only the PostgreSQL uniqueness constraint on user and measurement date.
+
+    Args:
+        error: Database error whose explicit cause is the original driver error.
+
+    Returns:
+        True only for the body-weight user/date constraint. Other constraints
+        and message text do not identify a date conflict.
+    """
+    cause = error.__cause__
+    return (
+        isinstance(cause, UniqueViolation)
+        and cause.diag.constraint_name == "body_weight_entries_user_id_entry_date_key"
+    )
 
 
 class BodyWeightEntryRepository:
@@ -61,11 +81,18 @@ class BodyWeightEntryRepository:
 
         Raises:
             BodyWeightEntryRepositoryError: If the inserted row cannot be retrieved afterwards.
+            BodyWeightEntryDateConflictRepositoryError: If the user already has an entry on the date,
+                including a concurrent insertion after a service-level availability check.
         """
-        entry_id = execute_insert(
-            QUERIES.body_weight_entries.create,
-            (user_id, entry_data.weight, entry_data.entry_date),
-        )
+        try:
+            entry_id = execute_insert(
+                QUERIES.body_weight_entries.create,
+                (user_id, entry_data.weight, entry_data.entry_date),
+            )
+        except DatabaseError as exc:
+            if _is_date_conflict(exc):
+                raise BodyWeightEntryDateConflictRepositoryError(entry_data.entry_date) from exc
+            raise
 
         entry = self.get_by_id(entry_id)
         if entry is None:
@@ -211,6 +238,8 @@ class BodyWeightEntryRepository:
 
         Raises:
             BodyWeightEntryRepositoryError: If any provided fields are not allowed to be updated.
+            BodyWeightEntryDateConflictRepositoryError: If another entry for this user occupies
+                the requested date. Keeping the current date is valid.
         """
         fields = update_data.model_dump(exclude_none=True)
         if not fields:
@@ -223,7 +252,12 @@ class BodyWeightEntryRepository:
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
         sql = QUERIES.body_weight_entries.update_owned.format(set_clause=set_clause)
-        execute_write(sql, (*fields.values(), user_id, entry_id))
+        try:
+            execute_write(sql, (*fields.values(), user_id, entry_id))
+        except DatabaseError as exc:
+            if update_data.entry_date is not None and _is_date_conflict(exc):
+                raise BodyWeightEntryDateConflictRepositoryError(update_data.entry_date) from exc
+            raise
         return self.get_by_user_and_id(user_id, entry_id)
 
     def delete_owned(self, user_id: int, entry_id: int) -> bool:
