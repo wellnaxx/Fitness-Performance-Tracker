@@ -7,25 +7,27 @@ from pydantic import BaseModel, Field
 
 
 class BodyWeightEntryBase(BaseModel):
-    """Base schema for body weight entries."""
+    """A positive kilogram weight fitting DECIMAL(5,2), recorded on a measurement date."""
 
-    weight: Decimal = Field(..., gt=0, description="Body weight in kilograms")
+    weight: Decimal = Field(..., gt=0, max_digits=5, decimal_places=2, description="Body weight in kilograms")
     entry_date: date = Field(..., description="Date of the body weight entry")
 
 
 class BodyWeightEntryCreate(BodyWeightEntryBase):
-    """Schema for creating a new body weight entry. All fields are required."""
+    """Required weight/date values; the service enforces one entry per user and date."""
 
 
 class BodyWeightEntryUpdate(BaseModel):
-    """Schema for updating an existing body weight entry. All fields are optional."""
+    """Partial weight/date changes; omitted and None-valued fields keep their stored values."""
 
-    weight: Decimal | None = Field(default=None, gt=0, description="Body weight in kilograms")
+    weight: Decimal | None = Field(
+        default=None, gt=0, max_digits=5, decimal_places=2, description="Body weight in kilograms"
+    )
     entry_date: date | None = Field(default=None, description="Date of the body weight entry")
 
 
 class BodyWeightEntryPublic(BodyWeightEntryBase):
-    """Schema for returning body weight entry data to clients. Includes all fields from BodyWeightEntryBase plus id, user_id, created_at, and updated_at."""  # noqa: E501
+    """Persisted weight/date values with their assigned ID, owner ID, and creation timestamp."""
 
     id: int
     user_id: int

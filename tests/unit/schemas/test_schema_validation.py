@@ -43,6 +43,32 @@ def create_cases() -> tuple[tuple[type[BaseModel], dict[str, object]], ...]:
 
 
 class SchemaValidationTests(unittest.TestCase):
+    def test_body_weight_accepts_storable_positive_decimal_boundaries(self) -> None:
+        for schema in (BodyWeightEntryCreate, BodyWeightEntryUpdate):
+            for weight in ("0.01", Decimal("75.50"), 75.5, 1, "999.99", "75.5000"):
+                with self.subTest(schema=schema.__name__, weight=weight):
+                    result = schema.model_validate({"entry_date": TODAY, "weight": weight})
+                    self.assertEqual(result.weight, Decimal(str(weight)))
+
+    def test_body_weight_rejects_nonfinite_nonpositive_and_unstorable_values(self) -> None:
+        for schema in (BodyWeightEntryCreate, BodyWeightEntryUpdate):
+            for weight in (
+                0,
+                -1,
+                "bad",
+                "NaN",
+                "Infinity",
+                "-Infinity",
+                "1000",
+                "999.999",
+                "75.125",
+                "0.001",
+                True,
+                False,
+            ):
+                with self.subTest(schema=schema.__name__, weight=weight), self.assertRaises(ValidationError):
+                    schema.model_validate({"entry_date": TODAY, "weight": weight})
+
     def test_each_entity_accepts_valid_creation_data(self) -> None:
         for schema, data in create_cases():
             with self.subTest(schema=schema.__name__):
@@ -87,7 +113,7 @@ class SchemaValidationTests(unittest.TestCase):
                 self.assertEqual(schema.model_validate(nulls).model_dump(exclude_none=True), {})
 
     def test_names_and_optional_text_enforce_length_limits(self) -> None:
-        cases = (
+        cases: tuple[tuple[type[BaseModel], type[BaseModel], dict[str, object], dict[str, int]], ...] = (
             (
                 ExerciseCreate,
                 ExerciseUpdate,
@@ -121,7 +147,11 @@ class SchemaValidationTests(unittest.TestCase):
             ),
         )
         for create_schema, update_schema, data, limits in cases:
-            for schema, base in ((create_schema, data), (update_schema, {})):
+            schemas_and_data: tuple[tuple[type[BaseModel], dict[str, object]], ...] = (
+                (create_schema, data),
+                (update_schema, {}),
+            )
+            for schema, base in schemas_and_data:
                 for field, maximum in limits.items():
                     with self.subTest(schema=schema.__name__, field=field):
                         schema.model_validate({**base, field: "x" * maximum})
@@ -133,7 +163,7 @@ class SchemaValidationTests(unittest.TestCase):
                                 schema.model_validate({**base, field: ""})
 
     def test_registration_username_password_and_name_boundaries(self) -> None:
-        data = {**user().model_dump(), "password": "Strong123!"}
+        data: dict[str, object] = {**user().model_dump(), "password": "Strong123!"}
         for field, minimum, maximum in (
             ("username", 2, 16),
             ("first_name", 2, 32),
@@ -143,7 +173,7 @@ class SchemaValidationTests(unittest.TestCase):
             for length, valid in ((minimum - 1, False), (minimum, True), (maximum, True), (maximum + 1, False)):
                 with self.subTest(field=field, length=length):
                     value = "Aa1!" + "x" * (length - 4) if field == "password" else "x" * length
-                    payload = {**data, field: value}
+                    payload: dict[str, object] = {**data, field: value}
                     if valid:
                         UserCreate.model_validate(payload)
                     else:
@@ -152,10 +182,11 @@ class SchemaValidationTests(unittest.TestCase):
 
     def test_registration_and_password_change_reject_each_missing_strength_requirement(self) -> None:
         for password in ("lowercase1!", "UPPERCASE1!", "NoDigitsHere!", "NoSpecial123", ""):
-            for schema, base in (
+            cases: tuple[tuple[type[BaseModel], dict[str, object]], ...] = (
                 (UserCreate, {**user().model_dump()}),
                 (ChangeUserPassword, {"old_password": "Original123!"}),
-            ):
+            )
+            for schema, base in cases:
                 field = "password" if schema is UserCreate else "new_password"
                 with (
                     self.subTest(schema=schema.__name__, password=password),
@@ -165,10 +196,11 @@ class SchemaValidationTests(unittest.TestCase):
 
     def test_email_validation_applies_to_registration_and_profile_updates(self) -> None:
         for invalid in ("not-an-email", "user@", "@example.com"):
-            for schema, base in (
+            cases: tuple[tuple[type[BaseModel], dict[str, object]], ...] = (
                 (UserCreate, {**user().model_dump(), "password": "Strong123!"}),
                 (UserUpdate, {}),
-            ):
+            )
+            for schema, base in cases:
                 with self.subTest(schema=schema.__name__, email=invalid), self.assertRaises(ValidationError):
                     schema.model_validate({**base, "email": invalid})
 
@@ -181,7 +213,7 @@ class SchemaValidationTests(unittest.TestCase):
                 (TODAY - timedelta(days=1), False),
             ):
                 with self.subTest(schema=schema.__name__, end=end):
-                    data = {**goal().model_dump(), "start_date": TODAY, "end_date": end}
+                    data: dict[str, object] = {**goal().model_dump(), "start_date": TODAY, "end_date": end}
                     if valid:
                         schema.model_validate(data)
                     else:
@@ -199,7 +231,11 @@ class SchemaValidationTests(unittest.TestCase):
                 (NOW, NOW - timedelta(seconds=1), False),
             ):
                 with self.subTest(schema=schema.__name__, start=start, end=end):
-                    data = {**workout().model_dump(), "started_at": start, "completed_at": end}
+                    data: dict[str, object] = {
+                        **workout().model_dump(),
+                        "started_at": start,
+                        "completed_at": end,
+                    }
                     if valid:
                         schema.model_validate(data)
                     else:
@@ -260,10 +296,11 @@ class SchemaValidationTests(unittest.TestCase):
                         schema.model_validate({**base, field: invalid})
 
     def test_rpe_accepts_one_through_ten_and_optional_none(self) -> None:
-        for schema, base in (
+        cases: tuple[tuple[type[BaseModel], dict[str, object]], ...] = (
             (SetEntryCreate, {"workout_exercise_id": 17, "set_number": 1, "reps": 0, "weight": 0}),
             (SetEntryUpdate, {}),
-        ):
+        )
+        for schema, base in cases:
             for value in (None, 1, 10, 0, 11):
                 with self.subTest(schema=schema.__name__, rpe=value):
                     if value in (0, 11):
@@ -290,11 +327,12 @@ class SchemaValidationTests(unittest.TestCase):
             "left_calf",
             "right_calf",
         )
-        for data in (
+        invalid_cases: tuple[dict[str, object], ...] = (
             {"entry_date": TODAY},
             {"entry_date": TODAY, "notes": "No measurements"},
             {"entry_date": TODAY, **dict.fromkeys(fields)},
-        ):
+        )
+        for data in invalid_cases:
             with self.subTest(data=data), self.assertRaises(ValidationError):
                 BodyMeasurementCreate.model_validate(data)
         for field in fields:
@@ -307,11 +345,12 @@ class SchemaValidationTests(unittest.TestCase):
                             schema.model_validate({"entry_date": TODAY, field: invalid})
 
     def test_photo_urls_require_http_or_https(self) -> None:
-        for schema, field, base in (
+        cases: tuple[tuple[type[BaseModel], str, dict[str, object]], ...] = (
             (ProfilePictureUpdate, "profile_picture_url", {}),
             (ProgressPhotoCreate, "photo_url", {"entry_date": TODAY}),
             (ProgressPhotoUpdate, "photo_url", {}),
-        ):
+        )
+        for schema, field, base in cases:
             for url in (
                 "http://example.com/a.jpg",
                 "https://example.com/a.jpg",
@@ -341,7 +380,11 @@ class SchemaValidationTests(unittest.TestCase):
                     UserPreferencesUpdate.model_validate({field: invalid})
 
     def test_meal_types_normalize_in_create_and_update_requests(self) -> None:
-        for schema, base in ((MealCreate, meal().model_dump()), (MealUpdate, {})):
+        cases: tuple[tuple[type[BaseModel], dict[str, object]], ...] = (
+            (MealCreate, meal().model_dump()),
+            (MealUpdate, {}),
+        )
+        for schema, base in cases:
             for meal_type in ("breakfast", "lunch", "dinner", "snack"):
                 with self.subTest(schema=schema.__name__, meal_type=meal_type):
                     result = schema.model_validate({**base, "meal_type": f" {meal_type.upper()} "})
