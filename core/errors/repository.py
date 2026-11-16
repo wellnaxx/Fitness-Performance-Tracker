@@ -42,6 +42,20 @@ UserRowError = _row_error("UserRowError", "user")
 BodyWeightEntryRepositoryError = _repo_error("BodyWeightEntryRepositoryError", "Body weight entry")
 BodyWeightEntryRowError = _row_error("BodyWeightEntryRowError", "body weight entry")
 
+
+class BodyWeightEntryDateConflictRepositoryError(RepositoryError):
+    """The database rejected a body weight entry date already used by the same user."""
+
+    def __init__(self, entry_date: date) -> None:
+        """Initialize a date conflict reported by the database.
+
+        Args:
+            entry_date: Requested body weight entry date, retained for service translation.
+        """
+        self.entry_date = entry_date
+        super().__init__(f"Body weight entry date already exists: {entry_date.isoformat()}.")
+
+
 BodyMeasurementRepositoryError = _repo_error("BodyMeasurementRepositoryError", "Body measurement")
 BodyMeasurementRowError = _row_error("BodyMeasurementRowError", "body measurement")
 
