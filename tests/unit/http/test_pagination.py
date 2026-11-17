@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from dependencies.auth import get_current_user
 from dependencies.providers import (
     get_body_measurement_service,
+    get_body_weight_entry_service,
     get_exercise_service,
     get_meal_service,
     get_user_goals_service,
@@ -25,11 +26,12 @@ from repositories.user_goals_repository import UserGoalsRepository
 from repositories.user_repository import UserRepository
 from repositories.workout_repository import WorkoutRepository
 from routers.api.body_measurement_router import body_measurement_router
+from routers.api.body_weight_entry_router import body_weight_entry_router
 from routers.api.exercise_router import exercise_router
 from routers.api.meal_router import meal_router
 from routers.api.user_goals_router import user_goals_router
 from routers.api.workout_router import workout_router
-from tests.fixtures import TODAY, USER_ID, exercise, goal, meal, measurement, user, workout
+from tests.fixtures import TODAY, USER_ID, exercise, goal, meal, measurement, user, weight_entry, workout
 from tests.unit.http.test_exception_handlers import request
 from utils.pagination import PaginationParams, normalize_pagination
 
@@ -110,6 +112,7 @@ class HttpPaginationTests(IsolatedAsyncioTestCase):
             user_goals_router,
             workout_router,
             body_measurement_router,
+            body_weight_entry_router,
         ):
             self.app.include_router(router)
         self.user = user()
@@ -119,22 +122,26 @@ class HttpPaginationTests(IsolatedAsyncioTestCase):
         self.goals = Mock()
         self.workouts = Mock()
         self.measurements = Mock()
+        self.weights = Mock()
         self.exercises.list_visible_by_user.return_value = []
         self.meals.list_visible_by_user.return_value = []
         self.goals.get_goal_history.return_value = []
         self.workouts.list_visible_by_user.return_value = []
         self.measurements.list_by_user.return_value = []
+        self.weights.list_by_user.return_value = []
         self.app.dependency_overrides[get_exercise_service] = lambda: self.exercises
         self.app.dependency_overrides[get_meal_service] = lambda: self.meals
         self.app.dependency_overrides[get_user_goals_service] = lambda: self.goals
         self.app.dependency_overrides[get_workout_service] = lambda: self.workouts
         self.app.dependency_overrides[get_body_measurement_service] = lambda: self.measurements
+        self.app.dependency_overrides[get_body_weight_entry_service] = lambda: self.weights
         self.routes: tuple[tuple[str, Mock], ...] = (
             ("/exercises/", self.exercises.list_visible_by_user),
             ("/meals/", self.meals.list_visible_by_user),
             ("/goals/history", self.goals.get_goal_history),
             ("/workouts/", self.workouts.list_visible_by_user),
             ("/body_measurements/", self.measurements.list_by_user),
+            ("/body_weight_entries/", self.weights.list_by_user),
         )
 
     def assert_page_forwarded(self, path: str, method: Mock, limit: int, offset: int) -> None:
@@ -196,7 +203,7 @@ class HttpPaginationTests(IsolatedAsyncioTestCase):
 
     async def test_nonempty_pages_keep_existing_array_response_shape(self) -> None:
         for (path, method), item in zip(
-            self.routes, (exercise(), meal(), goal(), workout(), measurement()), strict=True
+            self.routes, (exercise(), meal(), goal(), workout(), measurement(), weight_entry()), strict=True
         ):
             with self.subTest(path=path):
                 method.return_value = [item]
@@ -206,6 +213,11 @@ class HttpPaginationTests(IsolatedAsyncioTestCase):
 
     async def test_pagination_does_not_discard_resource_filters(self) -> None:
         cases: tuple[tuple[str, Mock, dict[str, object]], ...] = (
+            (
+                "/body_weight_entries/?limit=3&offset=2&date_from=2026-10-01&date_to=2026-10-01",
+                self.weights.list_by_user,
+                {"date_from": TODAY, "date_to": TODAY},
+            ),
             (
                 "/body_measurements/?limit=3&offset=2&date_from=2026-10-01&date_to=2026-10-01",
                 self.measurements.list_by_user,

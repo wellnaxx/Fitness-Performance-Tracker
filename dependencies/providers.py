@@ -9,6 +9,7 @@ from fastapi import Depends
 
 from data.unit_of_work import PostgresUnitOfWork
 from ports.repositories.body_measurement_repository import BodyMeasurementRepositoryPort
+from ports.repositories.body_weight_entry_repository import BodyWeightEntryRepositoryPort
 from ports.repositories.exercise_repository import ExerciseRepositoryPort
 from ports.repositories.meal_repository import MealRepositoryPort
 from ports.repositories.set_entry_repository import SetEntryRepositoryPort
@@ -18,6 +19,7 @@ from ports.repositories.workout_exercise_repository import WorkoutExerciseReposi
 from ports.repositories.workout_repository import WorkoutRepositoryPort
 from ports.unit_of_work import UnitOfWorkPort
 from repositories.body_measurement_repository import BodyMeasurementRepository
+from repositories.body_weight_entry_repository import BodyWeightEntryRepository
 from repositories.exercise_repository import ExerciseRepository
 from repositories.meal_repository import MealRepository
 from repositories.set_entry_repository import SetEntryRepository
@@ -26,6 +28,7 @@ from repositories.user_repository import UserRepository
 from repositories.workout_exercise_repository import WorkoutExerciseRepository
 from repositories.workout_repository import WorkoutRepository
 from services.body_measurement_service import BodyMeasurementService
+from services.body_weight_entry_service import BodyWeightEntryService
 from services.exercise_service import ExerciseService
 from services.meal_service import MealService
 from services.set_entry_service import SetEntryService
@@ -136,3 +139,26 @@ def get_body_measurement_service(
         The service used by body measurement routes.
     """
     return BodyMeasurementService(body_measurement_repo)
+
+
+def get_body_weight_entry_repository() -> BodyWeightEntryRepositoryPort:
+    """Provide body weight persistence without opening a database connection.
+
+    Returns:
+        A repository implementing the body weight entry port.
+    """
+    return BodyWeightEntryRepository()
+
+
+def get_body_weight_entry_service(
+    body_weight_entry_repo: BodyWeightEntryRepositoryPort = Depends(get_body_weight_entry_repository),
+) -> BodyWeightEntryService:
+    """Construct the body weight entry service with its repository dependency.
+
+    Args:
+        body_weight_entry_repo: Injected body weight entry repository port.
+
+    Returns:
+        The service used by body weight entry routes.
+    """
+    return BodyWeightEntryService(body_weight_entry_repo)

@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from core.exception_handlers import register_exception_handlers
 from core.logging_config import configure_logging
 from routers.api.body_measurement_router import body_measurement_router
+from routers.api.body_weight_entry_router import body_weight_entry_router
 from routers.api.exercise_router import exercise_router
 from routers.api.meal_router import meal_router
 from routers.api.set_entry_router import set_entry_router
@@ -40,6 +41,7 @@ app.include_router(workout_exercise_router)
 app.include_router(meal_router)
 app.include_router(set_entry_router)
 app.include_router(body_measurement_router)
+app.include_router(body_weight_entry_router)
 
 
 @app.get("/")
