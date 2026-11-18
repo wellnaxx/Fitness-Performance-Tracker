@@ -3,7 +3,7 @@
 A Python 3.13+ backend built with FastAPI and PostgreSQL for tracking fitness and nutrition.
 
 The API supports authentication and profiles, goals, exercises, workouts, workout
-exercises, and meals. Set entries, meal items, body measurements, body-weight entries,
+exercises, set entries, meals, body measurements, and body-weight entries. Meal items
 and progress photos have database support but are not yet exposed through the API.
 The frontend is a placeholder.
 
@@ -81,11 +81,10 @@ Row conversion belongs in `data/mappers/`, using the shared helpers in
 `data/validation.py`. Goal and set-entry writes use the unit of work in
 `data/unit_of_work.py` with explicit commits and rollback on failure. Goal writes
 lock the user row; set writes lock the parent workout exercise.
-See the [set-entry service contract](docs/set-entry-service.md) for ownership,
-ordering rules, error responses, and test coverage. Set-entry API routes are not yet registered.
 
-List endpoints use `limit=100` and `offset=0` by default. Limits must be from 1
-to 1000; offsets must be nonnegative.
+Paginated list endpoints use `limit=100` and `offset=0` by default. Limits must be
+from 1 to 1000; offsets must be nonnegative. Set-entry and workout-exercise lists
+return all matching entries without pagination.
 
 ## Tests
 
@@ -101,8 +100,9 @@ Run one module:
 python -m unittest tests.unit.services.test_user_goals_service -v
 ```
 
-Shared model fixtures live in `tests/fixtures.py`. Database execution is mocked;
-PostgreSQL constraints, locking, and concurrent writes require integration tests.
+Shared model fixtures live in `tests/fixtures.py`. Tests use mocks and SQLite-backed
+SQL flow tests without requiring a running PostgreSQL server. PostgreSQL constraints,
+locking, and concurrent writes require integration tests against PostgreSQL.
 
 Optional development tools:
 
