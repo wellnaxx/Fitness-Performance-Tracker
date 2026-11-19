@@ -31,6 +31,12 @@ from core.errors.goals import (
     UserGoalsError,
     UserGoalValidationError,
 )
+from core.errors.meal_item import (
+    MealItemCreationError,
+    MealItemDeleteError,
+    MealItemNotFoundError,
+    MealItemUpdateError,
+)
 from core.errors.repository import (
     BodyMeasurementDateConflictRepositoryError,
     BodyMeasurementRepositoryError,
@@ -109,8 +115,12 @@ __all__ = [
     "InvalidAccessTokenError",
     "InvalidCredentialsError",
     "InvalidRefreshTokenError",
+    "MealItemCreationError",
+    "MealItemDeleteError",
+    "MealItemNotFoundError",
     "MealItemRepositoryError",
     "MealItemRowError",
+    "MealItemUpdateError",
     "MealRepositoryError",
     "MealRowError",
     "ProgressPhotoRepositoryError",

@@ -31,6 +31,12 @@ from core.errors.exercise import (
 )
 from core.errors.goals import UserGoalCreationError, UserGoalNotFoundError, UserGoalValidationError
 from core.errors.meal import MealCreationError, MealDeleteError, MealNotFoundError, MealUpdateError
+from core.errors.meal_item import (
+    MealItemCreationError,
+    MealItemDeleteError,
+    MealItemNotFoundError,
+    MealItemUpdateError,
+)
 from core.errors.set_entry import (
     SetEntryCreationError,
     SetEntryDeleteError,
@@ -86,6 +92,7 @@ _ERROR_RESPONSES: dict[type[Exception], tuple[int, str | None]] = {
     WorkoutNotFoundError: (status.HTTP_404_NOT_FOUND, None),
     WorkoutExerciseNotFoundError: (status.HTTP_404_NOT_FOUND, None),
     MealNotFoundError: (status.HTTP_404_NOT_FOUND, None),
+    MealItemNotFoundError: (status.HTTP_404_NOT_FOUND, None),
     SetEntryNotFoundError: (status.HTTP_404_NOT_FOUND, None),
     BodyMeasurementNotFoundError: (status.HTTP_404_NOT_FOUND, None),
     BodyWeightEntryNotFoundError: (status.HTTP_404_NOT_FOUND, None),
@@ -110,6 +117,9 @@ _ERROR_RESPONSES: dict[type[Exception], tuple[int, str | None]] = {
     MealCreationError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
     MealUpdateError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
     MealDeleteError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
+    MealItemCreationError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
+    MealItemUpdateError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
+    MealItemDeleteError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
     SetEntryCreationError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
     SetEntryDeleteError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
     BodyMeasurementCreationError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),

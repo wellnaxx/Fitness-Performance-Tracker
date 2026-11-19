@@ -35,6 +35,12 @@ from core.errors.exercise import (
 )
 from core.errors.goals import UserGoalCreationError, UserGoalNotFoundError, UserGoalValidationError
 from core.errors.meal import MealCreationError, MealDeleteError, MealNotFoundError, MealUpdateError
+from core.errors.meal_item import (
+    MealItemCreationError,
+    MealItemDeleteError,
+    MealItemNotFoundError,
+    MealItemUpdateError,
+)
 from core.errors.repository import BodyWeightEntryDateConflictRepositoryError
 from core.errors.set_entry import (
     SetEntryCreationError,
@@ -227,6 +233,38 @@ class ExceptionHandlerTests(IsolatedAsyncioTestCase):
                 self.assertEqual(
                     response.headers.get("www-authenticate"), "Bearer" if expected_status == 401 else None
                 )
+                self.assertEqual(logger.error.call_count, int(expected_status == 500))
+
+    async def test_meal_item_errors_have_expected_messages_and_http_statuses(self) -> None:
+        cases: tuple[tuple[Exception, int, str], ...] = (
+            (MealItemCreationError.create_failed(), 500, "Failed to create meal item."),
+            (
+                MealItemNotFoundError.not_found(17),
+                404,
+                "Meal item with ID 17 not found or does not belong to the user.",
+            ),
+            (
+                MealItemNotFoundError.not_accessible(17),
+                404,
+                "Meal item with ID 17 not accessible or does not belong to the user.",
+            ),
+            (
+                MealItemNotFoundError.not_in_meal(17, 11),
+                404,
+                "Meal item with ID 17 was not found in meal 11.",
+            ),
+            (MealItemUpdateError.update_failed(17), 500, "Failed to update meal item with ID 17."),
+            (MealItemDeleteError.delete_failed(17), 500, "Failed to delete meal item with ID 17."),
+        )
+        for error, expected_status, expected_detail in cases:
+            with (
+                self.subTest(error=type(error).__name__, detail=expected_detail),
+                patch("core.exception_handlers.logger") as logger,
+            ):
+                self.error = error
+                response = await request(self.app, "/error")
+                self.assertEqual(response.status, expected_status)
+                self.assertEqual(response.payload, {"detail": expected_detail})
                 self.assertEqual(logger.error.call_count, int(expected_status == 500))
 
     async def test_internal_errors_are_sanitized_and_logged_with_exception_info(self) -> None:
