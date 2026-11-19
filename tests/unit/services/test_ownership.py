@@ -1,19 +1,57 @@
-"""Shared workout ownership checks and rejection before set-entry writes."""
+"""Shared meal and workout ownership checks before accessing child records."""
 
 from unittest import TestCase
-from unittest.mock import create_autospec
+from unittest.mock import create_autospec, patch
 
-from core.errors.repository import WorkoutRepositoryError
+from core.errors.database import DatabaseError
+from core.errors.meal import MealNotFoundError
+from core.errors.repository import MealRepositoryError, MealRowError, WorkoutRepositoryError
 from core.errors.workout import WorkoutNotFoundError
 from core.errors.workout_exercise import WorkoutExerciseNotFoundError
+from ports.repositories.meal_repository import MealRepositoryPort
 from ports.repositories.set_entry_repository import SetEntryRepositoryPort
 from ports.repositories.workout_exercise_repository import WorkoutExerciseRepositoryPort
 from ports.repositories.workout_repository import WorkoutRepositoryPort
 from ports.unit_of_work import UnitOfWorkPort
 from schemas.set_entry_schema import SetEntryCreate
-from services.ownership import require_owned_workout
+from services.ownership import require_owned_meal, require_owned_workout
 from services.set_entry_service import SetEntryService
-from tests.fixtures import ENTRY_ID, USER_ID, WORKOUT_ID, entry, workout
+from tests.fixtures import ENTRY_ID, MEAL_ID, USER_ID, WORKOUT_ID, entry, meal, workout
+
+
+class MealOwnershipTests(TestCase):
+    def setUp(self) -> None:
+        self.repo = create_autospec(MealRepositoryPort, instance=True, spec_set=True)
+
+    def test_owned_meal_is_returned_from_exact_user_scoped_lookup(self) -> None:
+        owned = meal()
+        self.repo.get_by_user_and_id.return_value = owned
+        self.assertIs(require_owned_meal(self.repo, USER_ID, MEAL_ID), owned)
+        self.repo.get_by_user_and_id.assert_called_once_with(USER_ID, MEAL_ID)
+
+    def test_missing_or_foreign_meal_is_not_found_with_correct_ids_in_warning(self) -> None:
+        self.repo.get_by_user_and_id.return_value = None
+        for user_id in (USER_ID, USER_ID + 1):
+            with self.subTest(user_id=user_id), patch("services.ownership.logger") as logger:
+                with self.assertRaises(MealNotFoundError) as raised:
+                    require_owned_meal(self.repo, user_id, MEAL_ID)
+                self.assertEqual(str(raised.exception), str(MealNotFoundError.not_accessible(MEAL_ID)))
+                self.repo.get_by_user_and_id.assert_called_with(user_id, MEAL_ID)
+                logger.warning.assert_called_once_with(
+                    "Meal with ID %s not found or not visible to user %s.", MEAL_ID, user_id
+                )
+
+    def test_persistence_failures_propagate_without_becoming_not_found(self) -> None:
+        for failure in (
+            DatabaseError("database error"),
+            MealRepositoryError("repository error"),
+            MealRowError("row error"),
+        ):
+            with self.subTest(error=type(failure).__name__):
+                self.repo.get_by_user_and_id.side_effect = failure
+                with self.assertRaises(type(failure)) as raised:
+                    require_owned_meal(self.repo, USER_ID, MEAL_ID)
+                self.assertIs(raised.exception, failure)
 
 
 class WorkoutOwnershipTests(TestCase):

@@ -6,6 +6,7 @@ from decimal import Decimal
 from schemas.body_measurement_schema import BodyMeasurementPublic
 from schemas.body_weight_entry_schema import BodyWeightEntryPublic
 from schemas.exercise_schema import ExercisePublic
+from schemas.meal_item_schema import MealItemPublic
 from schemas.meal_schema import MealPublic
 from schemas.set_entry_schema import SetEntryPublic
 from schemas.user_goals_schema import UserGoalPublic
@@ -24,6 +25,22 @@ MEAL_ID = 23
 SET_ENTRY_ID = 31
 MEASUREMENT_ID = 37
 WEIGHT_ENTRY_ID = 41
+MEAL_ITEM_ID = 43
+
+
+def meal_item() -> MealItemPublic:
+    """Return a fresh item with Decimal nutrition values and a distinct parent meal ID."""
+    return MealItemPublic(
+        id=MEAL_ITEM_ID,
+        meal_id=MEAL_ID,
+        name="Oats",
+        serving_size=Decimal("50.25"),
+        calories=Decimal("190.75"),
+        protein=Decimal("6.50"),
+        carbs=Decimal("33.25"),
+        fats=Decimal("3.75"),
+        created_at=NOW,
+    )
 
 
 def weight_entry() -> BodyWeightEntryPublic:
