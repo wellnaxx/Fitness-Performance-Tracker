@@ -3,8 +3,8 @@
 A Python 3.13+ backend built with FastAPI and PostgreSQL for tracking fitness and nutrition.
 
 The API supports authentication and profiles, goals, exercises, workouts, workout
-exercises, set entries, meals, body measurements, and body-weight entries. Meal items
-and progress photos have database support but are not yet exposed through the API.
+exercises, set entries, meals, meal items, body measurements, and body-weight entries.
+Progress photos have database support but are not yet exposed through the API.
 The frontend is a placeholder.
 
 ## Setup
@@ -83,8 +83,8 @@ Row conversion belongs in `data/mappers/`, using the shared helpers in
 lock the user row; set writes lock the parent workout exercise.
 
 Paginated list endpoints use `limit=100` and `offset=0` by default. Limits must be
-from 1 to 1000; offsets must be nonnegative. Set-entry and workout-exercise lists
-return all matching entries without pagination.
+from 1 to 1000; offsets must be nonnegative. Set-entry, workout-exercise, and
+meal-item lists return all matching entries without pagination.
 
 ## Tests
 

@@ -11,6 +11,7 @@ from data.unit_of_work import PostgresUnitOfWork
 from ports.repositories.body_measurement_repository import BodyMeasurementRepositoryPort
 from ports.repositories.body_weight_entry_repository import BodyWeightEntryRepositoryPort
 from ports.repositories.exercise_repository import ExerciseRepositoryPort
+from ports.repositories.meal_item_repository import MealItemRepositoryPort
 from ports.repositories.meal_repository import MealRepositoryPort
 from ports.repositories.set_entry_repository import SetEntryRepositoryPort
 from ports.repositories.user_goals_repository import UserGoalsRepositoryPort
@@ -21,6 +22,7 @@ from ports.unit_of_work import UnitOfWorkPort
 from repositories.body_measurement_repository import BodyMeasurementRepository
 from repositories.body_weight_entry_repository import BodyWeightEntryRepository
 from repositories.exercise_repository import ExerciseRepository
+from repositories.meal_item_repository import MealItemRepository
 from repositories.meal_repository import MealRepository
 from repositories.set_entry_repository import SetEntryRepository
 from repositories.user_goals_repository import UserGoalsRepository
@@ -30,6 +32,7 @@ from repositories.workout_repository import WorkoutRepository
 from services.body_measurement_service import BodyMeasurementService
 from services.body_weight_entry_service import BodyWeightEntryService
 from services.exercise_service import ExerciseService
+from services.meal_item_service import MealItemService
 from services.meal_service import MealService
 from services.set_entry_service import SetEntryService
 from services.user_goals_service import UserGoalsService
@@ -162,3 +165,28 @@ def get_body_weight_entry_service(
         The service used by body weight entry routes.
     """
     return BodyWeightEntryService(body_weight_entry_repo)
+
+
+def get_meal_item_repository() -> MealItemRepositoryPort:
+    """Provide meal-item persistence without opening a database connection.
+
+    Returns:
+        A repository implementing the meal-item port.
+    """
+    return MealItemRepository()
+
+
+def get_meal_item_service(
+    meal_repo: MealRepositoryPort = Depends(get_meal_repository),
+    meal_item_repo: MealItemRepositoryPort = Depends(get_meal_item_repository),
+) -> MealItemService:
+    """Construct the meal-item service with parent and item repository dependencies.
+
+    Args:
+        meal_repo: Injected repository used to verify parent meal ownership.
+        meal_item_repo: Injected repository for meal-scoped item operations.
+
+    Returns:
+        The service used by meal-item routes.
+    """
+    return MealItemService(meal_repo, meal_item_repo)
