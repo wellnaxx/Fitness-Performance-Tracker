@@ -28,7 +28,7 @@ class MealItemBase(BaseModel):
 
 
 class MealItemCreate(MealItemBase):
-    meal_id: int = Field(description="ID of the parent meal")
+    meal_id: int = Field(gt=0, description="ID of the parent meal; must match the meal ID in the request path")
 
 
 class MealItemUpdate(BaseModel):
