@@ -117,6 +117,8 @@ The coverage command measures only the listed modules.
 
 For manual API testing, import the
 [Postman collection](postman/Fitness-Performance-Tracker.postman_collection.json).
+It does not yet include sets, meal items, body measurements, or body-weight entries;
+use Swagger UI for those routes.
 
 ## Logging
 
@@ -126,7 +128,7 @@ API startup and the database bootstrap configure logging through
 `core/logging_config.py`.
 
 Services log completed writes at INFO and rejected operations at WARNING;
-read summaries and transaction lifecycle events use DEBUG. Repositories warn
+read summaries use INFO or DEBUG, and transaction lifecycle events use DEBUG. Repositories warn
 about missing write readbacks and unsupported update fields. SQL traces contain
 parameter counts. Use IDs and counts in messages; omit credentials and payloads.
 Routers share Uvicorn access logs and the global exception handlers.
