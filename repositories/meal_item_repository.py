@@ -75,14 +75,15 @@ class MealItemRepository:
         return meal_item
 
     def get_by_id(self, meal_item_id: int) -> MealItemPublic | None:
-        """
-        Retrieve a meal item by its database ID.
+        """Retrieve a meal item by its database ID.
 
         Args:
             meal_item_id: Meal item ID.
 
         Returns:
             The meal item if found, otherwise None.
+
+        This lookup does not authorize access; services must verify ownership or visibility.
         """
         row = fetch_one(QUERIES.meal_items.get_by_id, (meal_item_id,))
         if row is None:
