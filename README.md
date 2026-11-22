@@ -71,6 +71,9 @@ API documentation: [Swagger UI](http://127.0.0.1:8000/docs) or
 
 Services depend on repository protocols; `dependencies/providers.py` supplies
 implementations. HTTP error mappings live in `core/exception_handlers.py`.
+CRUD service methods use `create`, `get_by_id`, `update`, and `delete`, with the
+authenticated user ID first. Repository lookups and updates return `None` for
+missing records; deletes return `False`. Services decide when to raise domain errors.
 
 Queries live in `data/sql/<entity>/<operation>.sql` and are registered in
 `data/queries.py`. Bind runtime values through `%s` parameters; dynamic SQL
@@ -81,6 +84,8 @@ Row conversion belongs in `data/mappers/`, using the shared helpers in
 `data/validation.py`. Goal and set-entry writes use the unit of work in
 `data/unit_of_work.py` with explicit commits and rollback on failure. Goal writes
 lock the user row; set writes lock the parent workout exercise.
+Workout-exercise ordering writes use a repository transaction that validates the
+readback before committing and rolls back reordering if the target disappears.
 
 Paginated list endpoints use `limit=100` and `offset=0` by default. Limits must be
 from 1 to 1000; offsets must be nonnegative. Set-entry, workout-exercise, and
@@ -128,7 +133,7 @@ API startup and the database bootstrap configure logging through
 `core/logging_config.py`.
 
 Services log completed writes at INFO and rejected operations at WARNING;
-read summaries use INFO or DEBUG, and transaction lifecycle events use DEBUG. Repositories warn
+read summaries and transaction lifecycle events use DEBUG. Repositories warn
 about missing write readbacks and unsupported update fields. SQL traces contain
 parameter counts. Use IDs and counts in messages; omit credentials and payloads.
 Routers share Uvicorn access logs and the global exception handlers.
