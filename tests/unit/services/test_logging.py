@@ -85,16 +85,14 @@ class TransactionOutcomeLoggingTests(TestCase):
             ("services.set_entry_service", lambda: self.sets.delete(USER_ID, ENTRY_ID, SET_ENTRY_ID)),
             (
                 "services.user_goals_service",
-                lambda: self.goals.create_goal(
-                    self.user, UserGoalCreate.model_validate(self.goal.model_dump())
-                ),
+                lambda: self.goals.create(self.user.id, UserGoalCreate.model_validate(self.goal.model_dump())),
             ),
             (
                 "services.user_goals_service",
-                lambda: self.goals.update_goal(self.user, GOAL_ID, UserGoalUpdate()),
+                lambda: self.goals.update(self.user.id, GOAL_ID, UserGoalUpdate()),
             ),
-            ("services.user_goals_service", lambda: self.goals.activate_goal(self.user, GOAL_ID)),
-            ("services.user_goals_service", lambda: self.goals.deactivate_goal(self.user, GOAL_ID)),
+            ("services.user_goals_service", lambda: self.goals.activate_goal(self.user.id, GOAL_ID)),
+            ("services.user_goals_service", lambda: self.goals.deactivate_goal(self.user.id, GOAL_ID)),
         )
 
     def test_success_is_logged_only_after_commit_and_context_exit(self) -> None:
@@ -131,11 +129,11 @@ class TransactionOutcomeLoggingTests(TestCase):
         exercise_service = ExerciseService(exercises)
         operations: tuple[tuple[str, Callable[[], object]], ...] = (
             ("services.set_entry_service", lambda: self.sets.list_by_workout_exercise(USER_ID, ENTRY_ID)),
-            ("services.user_goals_service", lambda: self.goals.get_current_goal(self.user)),
-            ("services.user_goals_service", lambda: self.goals.get_goal_history(self.user)),
+            ("services.user_goals_service", lambda: self.goals.get_current(self.user.id)),
+            ("services.user_goals_service", lambda: self.goals.list_by_user(self.user.id)),
             (
                 "services.exercise_service",
-                lambda: exercise_service.list_visible_by_user(USER_ID, search="private search"),
+                lambda: exercise_service.list_by_user(USER_ID, search="private search"),
             ),
         )
         for module, operation in operations:
