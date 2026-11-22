@@ -77,34 +77,34 @@ class RepositoryProtocolTests(TestCase):
         self.service = get_meal_service(self.repository)
 
     def test_service_can_create_read_update_and_delete_using_a_typed_fake(self) -> None:
-        meal = self.service.create_meal(7, MealCreate(name="Lunch", eaten_at=NOW, meal_type="lunch"))
-        self.assertEqual(self.service.get_visible_by_user(meal.id, 7), meal)
-        updated = self.service.update_meal(meal.id, 7, MealUpdate(name="Updated lunch"))
+        meal = self.service.create(7, MealCreate(name="Lunch", eaten_at=NOW, meal_type="lunch"))
+        self.assertEqual(self.service.get_by_id(7, meal.id), meal)
+        updated = self.service.update(7, meal.id, MealUpdate(name="Updated lunch"))
         self.assertEqual(updated.name, "Updated lunch")
-        self.assertEqual(self.service.list_visible_by_user(7), [updated])
-        self.service.delete_meal(meal.id, 7)
-        self.assertEqual(self.service.list_visible_by_user(7), [])
+        self.assertEqual(self.service.list_by_user(7), [updated])
+        self.service.delete(7, meal.id)
+        self.assertEqual(self.service.list_by_user(7), [])
 
     def test_service_preserves_ownership_checks_with_a_typed_fake(self) -> None:
-        meal = self.service.create_meal(7, MealCreate(name="Lunch", eaten_at=NOW, meal_type="lunch"))
+        meal = self.service.create(7, MealCreate(name="Lunch", eaten_at=NOW, meal_type="lunch"))
         with self.assertLogs("services.meal_service", level="WARNING"):
             with self.assertRaises(MealNotFoundError):
-                self.service.get_visible_by_user(meal.id, 8)
+                self.service.get_by_id(8, meal.id)
             with self.assertRaises(MealNotFoundError):
-                self.service.update_meal(meal.id, 8, MealUpdate(name="Other user's meal"))
+                self.service.update(8, meal.id, MealUpdate(name="Other user's meal"))
             with self.assertRaises(MealNotFoundError):
-                self.service.delete_meal(meal.id, 8)
-        self.assertEqual(self.service.get_visible_by_user(meal.id, 7), meal)
-        self.assertEqual(self.service.list_visible_by_user(8), [])
+                self.service.delete(8, meal.id)
+        self.assertEqual(self.service.get_by_id(7, meal.id), meal)
+        self.assertEqual(self.service.list_by_user(8), [])
 
     def test_service_forwards_filters_and_pagination_to_the_port(self) -> None:
-        self.service.create_meal(7, MealCreate(name="Older", eaten_at=NOW.replace(day=1), meal_type="lunch"))
-        middle = self.service.create_meal(
+        self.service.create(7, MealCreate(name="Older", eaten_at=NOW.replace(day=1), meal_type="lunch"))
+        middle = self.service.create(
             7, MealCreate(name="Middle", eaten_at=NOW.replace(day=2), meal_type="lunch")
         )
-        self.service.create_meal(7, MealCreate(name="Newest", eaten_at=NOW.replace(day=3), meal_type="lunch"))
-        self.service.create_meal(7, MealCreate(name="Dinner", eaten_at=NOW.replace(day=3), meal_type="dinner"))
-        result = self.service.list_visible_by_user(
+        self.service.create(7, MealCreate(name="Newest", eaten_at=NOW.replace(day=3), meal_type="lunch"))
+        self.service.create(7, MealCreate(name="Dinner", eaten_at=NOW.replace(day=3), meal_type="dinner"))
+        result = self.service.list_by_user(
             7,
             date_from=date(2026, 10, 2),
             date_to=date(2026, 10, 3),
