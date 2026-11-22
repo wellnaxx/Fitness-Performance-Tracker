@@ -75,14 +75,15 @@ class ProgressPhotoRepository:
         return photo
 
     def get_by_id(self, photo_id: int) -> ProgressPhotoPublic | None:
-        """
-        Retrieve a progress photo by its database ID.
+        """Retrieve a progress photo by its database ID.
 
         Args:
             photo_id: Photo ID.
 
         Returns:
             The progress photo if found, otherwise None.
+
+        This lookup does not authorize access; services must verify ownership or visibility.
         """
         row = fetch_one(QUERIES.progress_photos.get_by_id, (photo_id,))
         if row is None:
