@@ -47,7 +47,11 @@ class SetEntryRepository:
     }
 
     def __init__(self, executor: QueryExecutor = default_executor) -> None:
-        """Select standalone execution or the unit of work's shared transaction executor."""
+        """Select standalone execution or the unit of work's shared transaction executor.
+
+        Args:
+            executor: Query executor; use the unit-of-work executor to share a transaction.
+        """
         self._executor = executor
 
     def create(self, set_entry_data: SetEntryCreate) -> SetEntryPublic:
@@ -84,14 +88,15 @@ class SetEntryRepository:
         return set_entry
 
     def get_by_id(self, set_entry_id: int) -> SetEntryPublic | None:
-        """
-        Retrieve a set entry by its database ID.
+        """Retrieve a set entry by its database ID.
 
         Args:
             set_entry_id: Set entry ID.
 
         Returns:
             The set entry if found, otherwise None.
+
+        This lookup does not authorize access; services must verify ownership or visibility.
         """
         row = self._executor.fetch_one(QUERIES.set_entries.get_by_id, (set_entry_id,))
         if row is None:
@@ -206,13 +211,15 @@ class SetEntryRepository:
         from_set_number: int,
         delta: int,
     ) -> None:
-        """
-        Shift set numbers at or after a given position for one workout exercise.
+        """Shift set numbers at or after a given position for one workout exercise.
 
         Args:
             workout_exercise_id: Parent workout exercise ID.
             from_set_number: Inclusive set number to start shifting from.
             delta: Signed amount to add to each matching set number.
+
+        Returns:
+            None after successful completion.
         """
         self._executor.execute_write(
             QUERIES.set_entries.shift_set_numbers,
@@ -238,6 +245,9 @@ class SetEntryRepository:
 
         No matching entries or start greater than end is a no-op. Coordinate
         this shift and the target entry's update within the same unit of work.
+
+        Returns:
+            None after successful completion.
         """
         self._executor.execute_write(
             QUERIES.set_entries.shift_set_numbers_in_range,
@@ -245,11 +255,13 @@ class SetEntryRepository:
         )
 
     def normalize_set_numbers(self, workout_exercise_id: int) -> None:
-        """
-        Renumber set entries sequentially starting at 1 for a workout exercise.
+        """Renumber set entries sequentially starting at 1 for a workout exercise.
 
         Args:
             workout_exercise_id: Parent workout exercise ID.
+
+        Returns:
+            None after successful completion.
         """
         self._executor.execute_write(
             QUERIES.set_entries.normalize_set_numbers,

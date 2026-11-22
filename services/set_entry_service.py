@@ -41,7 +41,14 @@ class SetEntryService:
         workout_repo: WorkoutRepositoryPort,
         unit_of_work: UnitOfWorkPort,
     ) -> None:
-        """Inject read repositories and an explicit transaction boundary for writes."""
+        """Inject read repositories and an explicit transaction boundary for writes.
+
+        Args:
+            set_entry_repo: Repository contract for set-entry reads.
+            workout_exercise_repo: Repository contract for resolving workout exercises.
+            workout_repo: Repository contract for verifying parent workout ownership.
+            unit_of_work: Transaction contract for related writes and locking.
+        """
         self.set_entry_repo = set_entry_repo
         self.workout_exercise_repo = workout_exercise_repo
         self.workout_repo = workout_repo
@@ -319,6 +326,9 @@ class SetEntryService:
 
         Normalize remaining sets to 1..count, including deleting the final set.
         Repository or database failures roll back deletion and normalization.
+
+        Returns:
+            None after successful completion.
         """
         set_entry = self.set_entry_repo.get_by_id(set_entry_id)
         if set_entry is None:
