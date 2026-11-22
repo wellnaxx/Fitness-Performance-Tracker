@@ -24,7 +24,7 @@ def create_workout(
     """
     Create a new workout for the authenticated user.
     """
-    return service.create_workout(current_user.id, workout_data)
+    return service.create(current_user.id, workout_data)
 
 
 @workout_router.get("/{workout_id}", status_code=status.HTTP_200_OK)
@@ -36,7 +36,7 @@ def get_workout_by_id(
     """
     Retrieve a workout by ID, ensuring it's visible to the user.
     """
-    return service.get_visible_by_user(workout_id, current_user.id)
+    return service.get_by_id(current_user.id, workout_id)
 
 
 @workout_router.get("/", status_code=status.HTTP_200_OK)
@@ -51,7 +51,7 @@ def list_workouts(
     """
     List workouts visible to the authenticated user with pagination.
     """
-    return service.list_visible_by_user(
+    return service.list_by_user(
         current_user.id,
         search=search,
         limit=pagination.limit,
@@ -71,7 +71,7 @@ def update_workout(
     """
     Update a workout by ID, ensuring it's visible to the user.
     """
-    return service.update_workout(workout_id, current_user.id, workout_data)
+    return service.update(current_user.id, workout_id, workout_data)
 
 
 @workout_router.delete("/{workout_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -83,4 +83,4 @@ def delete_workout(
     """
     Delete a workout by ID, ensuring it's visible to the user.
     """
-    service.delete_workout(workout_id, current_user.id)
+    service.delete(current_user.id, workout_id)

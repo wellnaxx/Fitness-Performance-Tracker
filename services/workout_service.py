@@ -38,7 +38,7 @@ class WorkoutService:
         self.workout_repository = workout_repository
         self.logger = logging.getLogger(__name__)
 
-    def create_workout(self, user_id: int, workout_data: WorkoutCreate) -> WorkoutPublic:
+    def create(self, user_id: int, workout_data: WorkoutCreate) -> WorkoutPublic:
         """
         Create a new workout for the user.
 
@@ -55,13 +55,13 @@ class WorkoutService:
         try:
             workout = self.workout_repository.create(user_id, workout_data)
         except WorkoutRepositoryError as exc:
-            self.logger.exception(f"Failed to create workout for user {user_id}!")
+            self.logger.exception("Failed to create workout for user %s!", user_id)
             raise WorkoutCreationError.create_failed() from exc
 
-        self.logger.info(f"Workout created successfully for user {user_id} with workout ID {workout.id}")
+        self.logger.info("Workout created successfully for user %s with workout ID %s", user_id, workout.id)
         return workout
 
-    def get_visible_by_user(self, workout_id: int, user_id: int) -> WorkoutPublic:
+    def get_by_id(self, user_id: int, workout_id: int) -> WorkoutPublic:
         """
         Retrieve a workout by ID that is visible to the user.
 
@@ -76,20 +76,20 @@ class WorkoutService:
             WorkoutNotFoundError: If the workout is not found or not visible to the user
         """
 
-        workout = self.workout_repository.get_visible_by_id(workout_id, user_id)
+        workout = self.workout_repository.get_visible_by_id(user_id, workout_id)
         if workout is None:
-            self.logger.warning(f"Workout with ID {workout_id} not found or not visible to user {user_id}.")
+            self.logger.warning("Workout with ID %s not found or not visible to user %s.", workout_id, user_id)
             raise WorkoutNotFoundError.not_found(workout_id=workout_id)
 
-        self.logger.info(f"Workout with ID {workout_id} retrieved successfully for user {user_id}.")
+        self.logger.debug("Workout with ID %s retrieved successfully for user %s.", workout_id, user_id)
         return workout
 
-    def list_visible_by_user(
+    def list_by_user(
         self,
         user_id: int,
-        search: str | None = None,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
+        search: str | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
     ) -> list[WorkoutPublic]:
@@ -110,12 +110,12 @@ class WorkoutService:
         workouts = self.workout_repository.get_all_visible_for_user(
             user_id, search, limit, offset, date_from, date_to
         )
-        self.logger.info(
-            f"Listed {len(workouts)} workouts for user {user_id} with limit {limit} and offset {offset}."
+        self.logger.debug(
+            "Listed %s workouts for user %s with limit %s and offset %s.", len(workouts), user_id, limit, offset
         )
         return workouts
 
-    def update_workout(self, workout_id: int, user_id: int, workout_data: WorkoutUpdate) -> WorkoutPublic:
+    def update(self, user_id: int, workout_id: int, workout_data: WorkoutUpdate) -> WorkoutPublic:
         """
         Update a workout by ID if it belongs to the user.
 
@@ -135,29 +135,28 @@ class WorkoutService:
         existing_workout = self.workout_repository.get_by_user_and_id(user_id, workout_id)
         if existing_workout is None:
             self.logger.warning(
-                f"Workout with ID {workout_id} not found or not visible to user {user_id} for update."
+                "Workout with ID %s not found or not visible to user %s for update.", workout_id, user_id
             )
             raise WorkoutNotFoundError.not_found(workout_id=workout_id)
 
         try:
             updated_workout = self.workout_repository.update_owned(user_id, workout_id, workout_data)
         except WorkoutRepositoryError as exc:
-            self.logger.exception(f"Failed to update workout with ID {workout_id} for user {user_id}.")
+            self.logger.exception("Failed to update workout with ID %s for user %s.", workout_id, user_id)
             raise WorkoutUpdateError.update_failed(workout_id=workout_id) from exc
 
         if updated_workout is None:
             self.logger.warning(
-                f"Workout with ID {workout_id} not found after update attempt for user {user_id}."
+                "Workout with ID %s not found after update attempt for user %s.", workout_id, user_id
             )
             raise WorkoutNotFoundError.not_accessible(workout_id=workout_id)
 
-        self.logger.info(f"Workout with ID {workout_id} updated successfully for user {user_id}.")
+        self.logger.info("Workout with ID %s updated successfully for user %s.", workout_id, user_id)
 
         return updated_workout
 
-    def delete_workout(self, workout_id: int, user_id: int) -> None:
-        """
-        Delete a workout by ID if it belongs to the user.
+    def delete(self, user_id: int, workout_id: int) -> None:
+        """Delete a workout by ID if it belongs to the user.
 
         Args:
             workout_id: ID of the workout to delete
@@ -166,24 +165,27 @@ class WorkoutService:
         Raises:
             WorkoutNotFoundError: If the workout is not found or not visible to the user
             WorkoutDeleteError: If the delete operation fails
+
+        Returns:
+            None after successful completion.
         """
         existing_workout = self.workout_repository.get_by_user_and_id(user_id, workout_id)
         if existing_workout is None:
             self.logger.warning(
-                f"Workout with ID {workout_id} not found or not visible to user {user_id} for deletion."
+                "Workout with ID %s not found or not visible to user %s for deletion.", workout_id, user_id
             )
             raise WorkoutNotFoundError.not_found(workout_id=workout_id)
 
         try:
             deleted = self.workout_repository.delete_owned(user_id, workout_id)
         except WorkoutRepositoryError as exc:
-            self.logger.exception(f"Failed to delete workout with ID {workout_id} for user {user_id}.")
+            self.logger.exception("Failed to delete workout with ID %s for user %s.", workout_id, user_id)
             raise WorkoutDeleteError.delete_failed(workout_id=workout_id) from exc
 
         if not deleted:
             self.logger.warning(
-                f"Workout with ID {workout_id} not found after delete attempt for user {user_id}."
+                "Workout with ID %s not found after delete attempt for user %s.", workout_id, user_id
             )
             raise WorkoutNotFoundError.not_accessible(workout_id=workout_id)
 
-        self.logger.info(f"Workout with ID {workout_id} deleted successfully for user {user_id}.")
+        self.logger.info("Workout with ID %s deleted successfully for user %s.", workout_id, user_id)

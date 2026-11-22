@@ -79,14 +79,15 @@ class WorkoutRepository:
         return workout
 
     def get_by_id(self, workout_id: int) -> WorkoutPublic | None:
-        """
-        Retrieve a workout by its database ID.
+        """Retrieve a workout by its database ID.
 
         Args:
             workout_id: Workout ID.
 
         Returns:
             The workout if found, otherwise None.
+
+        This lookup does not authorize access; services must verify ownership or visibility.
         """
         row = fetch_one(QUERIES.workouts.get_by_id, (workout_id,))
         if row is None:
@@ -205,7 +206,7 @@ class WorkoutRepository:
             > 0
         )
 
-    def get_visible_by_id(self, workout_id: int, user_id: int) -> WorkoutPublic | None:
+    def get_visible_by_id(self, user_id: int, workout_id: int) -> WorkoutPublic | None:
         """
         Retrieve a workout by ID if it is globally visible or owned by the user.
 
