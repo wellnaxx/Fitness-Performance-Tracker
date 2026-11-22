@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Protocol, cast
 
 from psycopg.abc import QueryNoTemplate
 
+from core.errors.base import RepositoryError
 from core.errors.database import DatabaseError
 from data.connection import get_connection
 
@@ -74,7 +75,16 @@ def _cursor_to_dict(cursor: Cursor[Row], row: Row | None) -> RowDict | None:
 
 @contextmanager
 def transaction_cursor() -> Generator[Cursor[Row]]:
-    """Yield a cursor bound to a single transaction with automatic commit/rollback."""
+    """Provide a cursor with commit on success and rollback on any exception.
+
+    Returns:
+        A context manager yielding the transaction's cursor.
+
+    Raises:
+        RepositoryError: Propagated unchanged after rollback so callers can handle
+            known persistence conditions without losing their exception type.
+        DatabaseError: If connection, query, commit, or another transaction operation fails.
+    """
     try:
         with get_connection() as conn, conn.cursor() as cursor:
             typed_cursor: Cursor[Row] = cursor
@@ -87,7 +97,7 @@ def transaction_cursor() -> Generator[Cursor[Row]]:
                 conn.rollback()
                 logger.debug("Database transaction rolled back")
                 raise
-    except DatabaseError:
+    except (DatabaseError, RepositoryError):
         raise
     except Exception as exc:
         logger.exception("Transactional database operation failed")
