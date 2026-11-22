@@ -16,37 +16,115 @@ class UserRepositoryPort(Protocol):
     """
 
     def create(self, user_data: UserCreate, password_hash: str) -> UserInternal:
-        """Create a new user account."""
+        """Create a new user account.
+
+        Args:
+            user_data: User creation payload.
+            password_hash: Pre-hashed password to persist.
+
+        Returns:
+            The newly created internal user model.
+
+        Raises:
+            UserRepositoryError: If the inserted user cannot be retrieved afterwards.
+        """
         ...
 
     def username_exists(self, username: str) -> bool:
-        """Check whether a username already exists."""
+        """Check whether a username already exists.
+
+        Args:
+            username: Username to look up.
+
+        Returns:
+            True if a matching user exists, otherwise False.
+        """
         ...
 
     def email_exists(self, email: str) -> bool:
-        """Check whether an email address already exists."""
+        """Check whether an email address already exists.
+
+        Args:
+            email: Email address to look up.
+
+        Returns:
+            True if a matching user exists, otherwise False.
+        """
         ...
 
     def get_by_id(self, user_id: int) -> UserInternal | None:
-        """Retrieve a user by database ID."""
+        """Retrieve a user by database ID.
+
+        Args:
+            user_id: User ID.
+
+        Returns:
+            The user if found, otherwise None.
+
+        This lookup does not authorize access; services must verify ownership or visibility.
+        """
         ...
 
     def get_by_email(self, email: str) -> UserInternal | None:
-        """Retrieve a user by email address."""
+        """Retrieve a user by email address.
+
+        Args:
+            email: Email value.
+
+        Returns:
+            The user if found, otherwise None.
+        """
         ...
 
     def update(self, user_id: int, **updates: object) -> UserInternal | None:
-        """Patch-update allowed profile fields (whitelist-enforced)."""
+        """Patch-update allowed profile fields (whitelist-enforced).
+
+        Unknown fields raise UserRepositoryError. None values are skipped.
+
+        Args:
+            user_id: User ID whose profile is being changed; caller must verify access.
+            updates: Allowed changes; omitted and None-valued fields preserve stored values.
+
+        Returns:
+            The updated user, current values for an empty or all-None update, or None
+            if the user is missing or disappears before readback.
+
+        Raises:
+            UserRepositoryError: If unsupported profile fields are supplied.
+        """
         ...
 
     def set_profile_picture_url(self, user_id: int, profile_picture_url: str | None) -> UserInternal | None:
-        """Set or clear the profile picture URL for a user."""
+        """Set or clear the profile picture URL for a user.
+
+        Args:
+            user_id: User ID.
+            profile_picture_url: New URL value, or None to clear it.
+
+        Returns:
+            The updated user if found, otherwise None.
+        """
         ...
 
     def update_password(self, user_id: int, new_password_hash: str) -> bool:
-        """Update the stored password hash and revoke existing tokens."""
+        """Update the stored password hash and revoke existing tokens.
+
+        Args:
+            user_id: User ID.
+            new_password_hash: New password hash.
+
+        Returns:
+            True if a row was updated, otherwise False.
+        """
         ...
 
     def delete(self, user_id: int) -> bool:
-        """Delete a user by ID."""
+        """Delete a user by ID.
+
+        Args:
+            user_id: User ID.
+
+        Returns:
+            True if a row was deleted, otherwise False.
+        """
         ...

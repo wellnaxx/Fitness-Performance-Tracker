@@ -113,14 +113,15 @@ class UserRepository:
         )
 
     def get_by_id(self, user_id: int) -> UserInternal | None:
-        """
-        Retrieve a user by database ID.
+        """Retrieve a user by database ID.
 
         Args:
             user_id: User ID.
 
         Returns:
             The user if found, otherwise None.
+
+        This lookup does not authorize access; services must verify ownership or visibility.
         """
         row = fetch_one(QUERIES.users.get_by_id, (user_id,))
         if row is None:
@@ -177,10 +178,20 @@ class UserRepository:
         return [map_user(row) for row in rows]
 
     def update(self, user_id: int, **updates: object) -> UserInternal | None:
-        """
-        Patch-update allowed profile fields (whitelist-enforced).
+        """Patch-update allowed profile fields (whitelist-enforced).
 
         Unknown fields raise UserRepositoryError. None values are skipped.
+
+        Args:
+            user_id: User ID whose profile is being changed; caller must verify access.
+            updates: Allowed changes; omitted and None-valued fields preserve stored values.
+
+        Returns:
+            The updated user, current values for an empty or all-None update, or None
+            if the user is missing or disappears before readback.
+
+        Raises:
+            UserRepositoryError: If unsupported profile fields are supplied.
         """
         if not updates:
             return self.get_by_id(user_id)
@@ -198,11 +209,7 @@ class UserRepository:
         sql = QUERIES.users.update.format(set_clause=set_clause)
         execute_write(sql, (*filtered.values(), user_id))
 
-        user = self.get_by_id(user_id)
-        if user is None:
-            logger.warning("Updated row missing during readback | entity_id=%s", user_id)
-            raise UserRepositoryError.updated_missing(user_id)
-        return user
+        return self.get_by_id(user_id)
 
     def set_profile_picture_url(
         self,

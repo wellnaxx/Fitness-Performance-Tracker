@@ -194,14 +194,14 @@ class UserService:
         return UserProfile(**updated_user.model_dump())
 
     def change_password(self, current_user: UserInternal, data: ChangeUserPassword) -> None:
-        """
-        Change user's password.
+        """Change user's password.
 
         Business Rules:
         - Must provide correct old password
         - New password must meet complexity requirements
 
         Args:
+            data: Validated request payload for this operation.
             current_user: Currently authenticated user
             old_password: Current password (for verification)
             new_password: New password to set
@@ -242,8 +242,7 @@ class UserService:
         return
 
     def delete_my_account(self, current_user: UserInternal) -> None:
-        """
-        Delete authenticated user's own account.
+        """Delete authenticated user's own account.
 
         WARNING: This is irreversible. All user data will be deleted.
 
@@ -257,6 +256,9 @@ class UserService:
         Raises:
             UserDeleteError: User has content that prevents deletion
             UserNotFoundError: User not found (shouldn't happen)
+
+        Returns:
+            None after successful completion.
         """
         if not self.user_repo.get_by_id(current_user.id):
             self._log.warning("User missing during account deletion | user_id=%s", current_user.id)
@@ -273,7 +275,20 @@ class UserService:
         current_user: UserInternal,
         profile_picture_url: str | None,
     ) -> UserProfile:
-        """Set or clear the authenticated user's profile picture URL."""
+        """Set or clear the authenticated user's profile picture URL.
+
+        Args:
+            current_user: Authenticated user, including the account state required by this operation.
+            profile_picture_url: New profile picture URL, or None to clear it.
+
+        Returns:
+            The authenticated user's updated profile.
+
+        Raises:
+            UserNotFoundError: If the account disappears before the update readback.
+            DatabaseError: If persistence fails.
+            RowValidationError: If a stored user row cannot be mapped.
+        """
 
         url_value = str(profile_picture_url) if profile_picture_url is not None else None
         updated_user = self.user_repo.set_profile_picture_url(current_user.id, url_value)
