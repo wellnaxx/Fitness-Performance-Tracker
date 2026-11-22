@@ -101,14 +101,15 @@ class BodyWeightEntryRepository:
         return entry
 
     def get_by_id(self, entry_id: int) -> BodyWeightEntryPublic | None:
-        """
-        Retrieve a body weight entry by its database ID.
+        """Retrieve a body weight entry by its database ID.
 
         Args:
             entry_id: Entry ID.
 
         Returns:
             The entry if found, otherwise None.
+
+        This lookup does not authorize access; services must verify ownership or visibility.
         """
         row = fetch_one(QUERIES.body_weight_entries.get_by_id, (entry_id,))
         if row is None:

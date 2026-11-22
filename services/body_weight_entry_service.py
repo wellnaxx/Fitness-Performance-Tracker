@@ -64,10 +64,12 @@ class BodyWeightEntryService:
         except BodyWeightEntryDateConflictRepositoryError as exc:
             raise BodyWeightEntryDateConflictError.already_exists(exc.entry_date) from exc
         except BodyWeightEntryRepositoryError as exc:
-            self.logger.exception(f"Failed to create body weight entry for user {user_id}!")
+            self.logger.exception("Failed to create body weight entry for user %s!", user_id)
             raise BodyWeightEntryCreationError.create_failed() from exc
 
-        self.logger.info(f"Body weight entry created successfully for user {user_id} with entry ID {entry.id}")
+        self.logger.info(
+            "Body weight entry created successfully for user %s with entry ID %s", user_id, entry.id
+        )
         return entry
 
     def get_by_id(self, user_id: int, entry_id: int) -> BodyWeightEntryPublic:
@@ -232,7 +234,9 @@ class BodyWeightEntryService:
         except BodyWeightEntryDateConflictRepositoryError as exc:
             raise BodyWeightEntryDateConflictError.already_exists(exc.entry_date) from exc
         except BodyWeightEntryRepositoryError as exc:
-            self.logger.exception(f"Failed to update body weight entry with ID {entry_id} for user {user_id}.")
+            self.logger.exception(
+                "Failed to update body weight entry with ID %s for user %s.", entry_id, user_id
+            )
             raise BodyWeightEntryUpdateError.update_failed(entry_id) from exc
 
         if updated_entry is None:
