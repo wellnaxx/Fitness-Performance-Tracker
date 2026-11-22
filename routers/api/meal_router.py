@@ -24,7 +24,7 @@ def create_meal(
     """
     Create a new meal for the authenticated user.
     """
-    return service.create_meal(current_user.id, meal_data)
+    return service.create(current_user.id, meal_data)
 
 
 @meal_router.get("/{meal_id}", status_code=status.HTTP_200_OK)
@@ -36,7 +36,7 @@ def get_meal_by_id(
     """
     Retrieve a meal by ID, ensuring it belongs to the user.
     """
-    return service.get_visible_by_user(meal_id, current_user.id)
+    return service.get_by_id(current_user.id, meal_id)
 
 
 @meal_router.get("/", status_code=status.HTTP_200_OK)
@@ -52,7 +52,7 @@ def list_meals(
     List meals belonging to the authenticated user with optional filtering and pagination.
     """
     normalized_meal_type = _normalize_meal_type(meal_type)
-    return service.list_visible_by_user(
+    return service.list_by_user(
         user_id=current_user.id,
         limit=pagination.limit,
         offset=pagination.offset,
@@ -72,7 +72,7 @@ def update_meal(
     """
     Update a meal by ID, ensuring it belongs to the user.
     """
-    return service.update_meal(meal_id, current_user.id, meal_data)
+    return service.update(current_user.id, meal_id, meal_data)
 
 
 @meal_router.delete("/{meal_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -84,7 +84,7 @@ def delete_meal(
     """
     Delete a meal by ID, ensuring it belongs to the user.
     """
-    service.delete_meal(meal_id, current_user.id)
+    service.delete(current_user.id, meal_id)
 
 
 def _normalize_meal_type(meal_type: str | None) -> str | None:

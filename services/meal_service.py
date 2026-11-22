@@ -33,7 +33,7 @@ class MealService:
         self.meal_repository = meal_repository
         self.logger = logging.getLogger(__name__)
 
-    def create_meal(self, user_id: int, meal_data: MealCreate) -> MealPublic:
+    def create(self, user_id: int, meal_data: MealCreate) -> MealPublic:
         """
         Create a new meal for the user.
 
@@ -50,13 +50,13 @@ class MealService:
         try:
             meal = self.meal_repository.create(user_id, meal_data)
         except MealRepositoryError as exc:
-            self.logger.exception(f"Failed to create meal for user {user_id}!")
+            self.logger.exception("Failed to create meal for user %s!", user_id)
             raise MealCreationError.create_failed() from exc
 
-        self.logger.info(f"Meal created successfully for user {user_id} with meal ID {meal.id}")
+        self.logger.info("Meal created successfully for user %s with meal ID %s", user_id, meal.id)
         return meal
 
-    def get_visible_by_user(self, meal_id: int, user_id: int) -> MealPublic:
+    def get_by_id(self, user_id: int, meal_id: int) -> MealPublic:
         """
         Retrieve a meal by ID if it belongs to the user.
 
@@ -72,13 +72,13 @@ class MealService:
         """
         meal = self.meal_repository.get_by_user_and_id(user_id, meal_id)
         if meal is None:
-            self.logger.warning(f"Meal with ID {meal_id} not found or not visible to user {user_id}.")
+            self.logger.warning("Meal with ID %s not found or not visible to user %s.", meal_id, user_id)
             raise MealNotFoundError.not_found(meal_id=meal_id)
 
-        self.logger.info(f"Meal with ID {meal_id} retrieved successfully for user {user_id}.")
+        self.logger.debug("Meal with ID %s retrieved successfully for user %s.", meal_id, user_id)
         return meal
 
-    def list_visible_by_user(
+    def list_by_user(
         self,
         user_id: int,
         limit: int = DEFAULT_LIMIT,
@@ -109,12 +109,12 @@ class MealService:
             date_to=date_to,
             meal_type=meal_type,
         )
-        self.logger.info(
-            f"Listed {len(meals)} meals for user {user_id} with limit {limit} and offset {offset}."
+        self.logger.debug(
+            "Listed %s meals for user %s with limit %s and offset %s.", len(meals), user_id, limit, offset
         )
         return meals
 
-    def update_meal(self, meal_id: int, user_id: int, meal_data: MealUpdate) -> MealPublic:
+    def update(self, user_id: int, meal_id: int, meal_data: MealUpdate) -> MealPublic:
         """
         Update a meal by ID if it belongs to the user.
 
@@ -133,26 +133,25 @@ class MealService:
         existing_meal = self.meal_repository.get_by_user_and_id(user_id, meal_id)
         if existing_meal is None:
             self.logger.warning(
-                f"Meal with ID {meal_id} not found or not visible to user {user_id} for update."
+                "Meal with ID %s not found or not visible to user %s for update.", meal_id, user_id
             )
             raise MealNotFoundError.not_found(meal_id=meal_id)
 
         try:
             updated_meal = self.meal_repository.update_owned(user_id, meal_id, meal_data)
         except MealRepositoryError as exc:
-            self.logger.exception(f"Failed to update meal with ID {meal_id} for user {user_id}.")
+            self.logger.exception("Failed to update meal with ID %s for user %s.", meal_id, user_id)
             raise MealUpdateError.update_failed(meal_id=meal_id) from exc
 
         if updated_meal is None:
-            self.logger.warning(f"Meal with ID {meal_id} not found after update attempt for user {user_id}.")
+            self.logger.warning("Meal with ID %s not found after update attempt for user %s.", meal_id, user_id)
             raise MealNotFoundError.not_accessible(meal_id=meal_id)
 
-        self.logger.info(f"Meal with ID {meal_id} updated successfully for user {user_id}.")
+        self.logger.info("Meal with ID %s updated successfully for user %s.", meal_id, user_id)
         return updated_meal
 
-    def delete_meal(self, meal_id: int, user_id: int) -> None:
-        """
-        Delete a meal by ID if it belongs to the user.
+    def delete(self, user_id: int, meal_id: int) -> None:
+        """Delete a meal by ID if it belongs to the user.
 
         Args:
             meal_id: ID of the meal to delete
@@ -161,22 +160,25 @@ class MealService:
         Raises:
             MealNotFoundError: If the meal is not found or not visible to the user
             MealDeleteError: If the delete operation fails
+
+        Returns:
+            None after successful completion.
         """
         existing_meal = self.meal_repository.get_by_user_and_id(user_id, meal_id)
         if existing_meal is None:
             self.logger.warning(
-                f"Meal with ID {meal_id} not found or not visible to user {user_id} for deletion."
+                "Meal with ID %s not found or not visible to user %s for deletion.", meal_id, user_id
             )
             raise MealNotFoundError.not_found(meal_id=meal_id)
 
         try:
             deleted = self.meal_repository.delete_owned(user_id, meal_id)
         except MealRepositoryError as exc:
-            self.logger.exception(f"Failed to delete meal with ID {meal_id} for user {user_id}.")
+            self.logger.exception("Failed to delete meal with ID %s for user %s.", meal_id, user_id)
             raise MealDeleteError.delete_failed(meal_id=meal_id) from exc
 
         if not deleted:
-            self.logger.warning(f"Meal with ID {meal_id} not found after delete attempt for user {user_id}.")
+            self.logger.warning("Meal with ID %s not found after delete attempt for user %s.", meal_id, user_id)
             raise MealNotFoundError.not_accessible(meal_id=meal_id)
 
-        self.logger.info(f"Meal with ID {meal_id} deleted successfully for user {user_id}.")
+        self.logger.info("Meal with ID %s deleted successfully for user %s.", meal_id, user_id)
