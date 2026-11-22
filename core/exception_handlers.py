@@ -28,6 +28,7 @@ from core.errors.exercise import (
     ExerciseNameAlreadyExistsError,
     ExerciseNotFoundError,
     ExerciseUpdateError,
+    ExerciseValidationError,
 )
 from core.errors.goals import UserGoalCreationError, UserGoalNotFoundError, UserGoalValidationError
 from core.errors.meal import MealCreationError, MealDeleteError, MealNotFoundError, MealUpdateError
@@ -100,14 +101,15 @@ _ERROR_RESPONSES: dict[type[Exception], tuple[int, str | None]] = {
     IdenticalPasswordsError: (status.HTTP_400_BAD_REQUEST, None),
     UserDeleteError: (status.HTTP_400_BAD_REQUEST, None),
     UserGoalValidationError: (status.HTTP_400_BAD_REQUEST, None),
-    ExerciseUpdateError: (status.HTTP_400_BAD_REQUEST, None),
-    ExerciseDeleteError: (status.HTTP_400_BAD_REQUEST, None),
+    ExerciseValidationError: (status.HTTP_400_BAD_REQUEST, None),
     WorkoutExerciseValidationError: (status.HTTP_400_BAD_REQUEST, None),
     SetEntryValidationError: (status.HTTP_400_BAD_REQUEST, None),
     InputValidationError: (status.HTTP_422_UNPROCESSABLE_ENTITY, None),
     UserCreationError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "Failed to create user."),
     UserGoalCreationError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
     ExerciseCreationError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
+    ExerciseUpdateError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
+    ExerciseDeleteError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
     WorkoutCreationError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
     WorkoutUpdateError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
     WorkoutDeleteError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),

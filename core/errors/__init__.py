@@ -24,6 +24,7 @@ from core.errors.exercise import (
     ExerciseNotFoundError,
     ExerciseServiceError,
     ExerciseUpdateError,
+    ExerciseValidationError,
 )
 from core.errors.goals import (
     UserGoalCreationError,
@@ -110,6 +111,7 @@ __all__ = [
     "ExerciseRowError",
     "ExerciseServiceError",
     "ExerciseUpdateError",
+    "ExerciseValidationError",
     "IdenticalPasswordsError",
     "IncorrectOldPasswordError",
     "InvalidAccessTokenError",

@@ -23,7 +23,7 @@ def create_exercise(
     """
     Create a new exercise for the authenticated user.
     """
-    return service.create_exercise(exercise_data, current_user.id)
+    return service.create(current_user.id, exercise_data)
 
 
 @exercise_router.get("/{exercise_id}", status_code=status.HTTP_200_OK)
@@ -35,7 +35,7 @@ def get_exercise_by_id(
     """
     Retrieve an exercise by ID, ensuring it's visible to the user.
     """
-    return service.get_visible_by_user(exercise_id, current_user.id)
+    return service.get_by_id(current_user.id, exercise_id)
 
 
 @exercise_router.get("/", status_code=status.HTTP_200_OK)
@@ -52,7 +52,7 @@ def list_exercises(
     """
     List exercises visible to the user with optional filtering and pagination.
     """
-    return service.list_visible_by_user(
+    return service.list_by_user(
         user_id=current_user.id,
         limit=pagination.limit,
         offset=pagination.offset,
@@ -74,7 +74,7 @@ def update_exercise(
     """
     Update an existing exercise if it belongs to the user.
     """
-    return service.update_exercise(current_user.id, exercise_id, update_data)
+    return service.update(current_user.id, exercise_id, update_data)
 
 
 @exercise_router.delete("/{exercise_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -86,4 +86,4 @@ def delete_exercise(
     """
     Delete an existing exercise if it belongs to the user.
     """
-    service.delete_exercise(current_user.id, exercise_id)
+    service.delete(current_user.id, exercise_id)

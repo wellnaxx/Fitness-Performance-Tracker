@@ -32,6 +32,7 @@ from core.errors.exercise import (
     ExerciseNameAlreadyExistsError,
     ExerciseNotFoundError,
     ExerciseUpdateError,
+    ExerciseValidationError,
 )
 from core.errors.goals import UserGoalCreationError, UserGoalNotFoundError, UserGoalValidationError
 from core.errors.meal import MealCreationError, MealDeleteError, MealNotFoundError, MealUpdateError
@@ -200,8 +201,7 @@ class ExceptionHandlerTests(IsolatedAsyncioTestCase):
             (IdenticalPasswordsError.must_differ(), 400),
             (UserDeleteError.blocked_by_related_records(), 400),
             (UserGoalValidationError.end_date_before_start_date(), 400),
-            (ExerciseUpdateError.duplicate_name("Squat"), 400),
-            (ExerciseDeleteError.custom_only(), 400),
+            (ExerciseValidationError.custom_only(), 400),
             (WorkoutExerciseValidationError.invalid_create_order_index(9), 400),
             (WorkoutExerciseValidationError.mismatched_ids(17, 99), 400),
             (SetEntryValidationError.invalid_set_number(7, 5), 400),
@@ -210,6 +210,8 @@ class ExceptionHandlerTests(IsolatedAsyncioTestCase):
             (UserCreationError.create_failed(), 500),
             (UserGoalCreationError.create_failed(), 500),
             (ExerciseCreationError.create_failed(), 500),
+            (ExerciseUpdateError.update_failed(), 500),
+            (ExerciseDeleteError.delete_failed(13), 500),
             (WorkoutCreationError.create_failed(), 500),
             (WorkoutUpdateError.update_failed(7), 500),
             (WorkoutDeleteError.delete_failed(7), 500),
@@ -428,11 +430,11 @@ class ApplicationErrorTests(IsolatedAsyncioTestCase):
 
     async def test_each_router_uses_global_not_found_handling(self) -> None:
         cases: tuple[tuple[str, str, Exception], ...] = (
-            ("/goals/17", "get_goal_by_id", UserGoalNotFoundError.not_found(17)),
-            ("/exercises/17", "get_visible_by_user", ExerciseNotFoundError.not_found(17)),
-            ("/workouts/17", "get_visible_by_user", WorkoutNotFoundError.not_found(17)),
-            ("/workouts/11/exercises/17", "get_workout_exercise", WorkoutExerciseNotFoundError.not_found(17)),
-            ("/meals/17", "get_visible_by_user", MealNotFoundError.not_found(17)),
+            ("/goals/17", "get_by_id", UserGoalNotFoundError.not_found(17)),
+            ("/exercises/17", "get_by_id", ExerciseNotFoundError.not_found(17)),
+            ("/workouts/17", "get_by_id", WorkoutNotFoundError.not_found(17)),
+            ("/workouts/11/exercises/17", "get_by_id", WorkoutExerciseNotFoundError.not_found(17)),
+            ("/meals/17", "get_by_id", MealNotFoundError.not_found(17)),
         )
         for path, method, error in cases:
             with self.subTest(path=path):
@@ -462,7 +464,7 @@ class ApplicationErrorTests(IsolatedAsyncioTestCase):
         self.assertEqual(response.headers["www-authenticate"], "Bearer")
 
     async def test_missing_current_goal_uses_existing_message(self) -> None:
-        self.service.get_current_goal.return_value = None
+        self.service.get_current.return_value = None
         response = await request(app, "/goals/current")
         self.assertEqual(response.status, 404)
         self.assertEqual(response.payload, {"detail": "No active goal found for the user."})
@@ -478,7 +480,7 @@ class ApplicationErrorTests(IsolatedAsyncioTestCase):
     async def test_invalid_meal_filter_is_422_and_does_not_call_service(self) -> None:
         response = await request(app, "/meals/?meal_type=invalid")
         self.assertEqual(response.status, 422)
-        self.service.list_visible_by_user.assert_not_called()
+        self.service.list_by_user.assert_not_called()
 
     async def test_request_validation_still_uses_fastapi_response_shape(self) -> None:
         response = await request(app, "/users/login", "POST", {})

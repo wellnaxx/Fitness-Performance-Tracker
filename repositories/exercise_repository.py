@@ -41,7 +41,7 @@ class ExerciseRepository:
         "is_compound",
     }
 
-    def create(self, exercise_data: ExerciseCreate, user_id: int) -> ExercisePublic:
+    def create(self, user_id: int, exercise_data: ExerciseCreate) -> ExercisePublic:
         """
         Create a new custom exercise in the database.
 
@@ -76,14 +76,15 @@ class ExerciseRepository:
         return exercise
 
     def get_by_id(self, exercise_id: int) -> ExercisePublic | None:
-        """
-        Retrieve an exercise by its ID.
+        """Retrieve an exercise by its ID.
 
         Args:
             exercise_id (int): The unique identifier of the exercise to retrieve.
 
         Returns:
             ExercisePublic: The exercise data if found, otherwise None.
+
+        This lookup does not authorize access; services must verify ownership or visibility.
         """
         sql = QUERIES.exercises.get_by_id
         row = fetch_one(sql, (exercise_id,))
@@ -91,7 +92,7 @@ class ExerciseRepository:
             return None
         return map_exercise(row)
 
-    def get_visible_by_id(self, exercise_id: int, user_id: int) -> ExercisePublic | None:
+    def get_visible_by_id(self, user_id: int, exercise_id: int) -> ExercisePublic | None:
         """
         Retrieve an exercise by its ID if it is visible to the specified user.
 
@@ -187,7 +188,7 @@ class ExerciseRepository:
 
         fields = updates.model_dump(exclude_none=True)
         if not fields:
-            return self.get_visible_by_id(exercise_id, user_id)
+            return self.get_visible_by_id(user_id, exercise_id)
 
         unknown = set(fields) - self._EXERCISE_UPDATE_WHITELIST
         if unknown:
@@ -202,7 +203,7 @@ class ExerciseRepository:
         if rows_affected == 0:
             return None
 
-        return self.get_visible_by_id(exercise_id, user_id)
+        return self.get_visible_by_id(user_id, exercise_id)
 
     def delete_owned(self, user_id: int, exercise_id: int) -> bool:
         """
@@ -221,8 +222,8 @@ class ExerciseRepository:
 
     def name_exists_visible(
         self,
-        name: str,
         user_id: int,
+        name: str,
         exclude_exercise_id: int | None = None,
     ) -> bool:
         """
