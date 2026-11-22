@@ -51,6 +51,11 @@ class UserGoalsRepository:
     }
 
     def __init__(self, executor: QueryExecutor = default_executor) -> None:
+        """Initialize the operation's persistence dependencies.
+
+        Args:
+            executor: Query executor; use the unit-of-work executor to share a transaction.
+        """
         self._executor = executor
 
     def create(self, user_id: int, goal_data: UserGoalCreate) -> UserGoalPublic:
@@ -91,14 +96,15 @@ class UserGoalsRepository:
         return goal
 
     def get_by_id(self, goal_id: int) -> UserGoalPublic | None:
-        """
-        Retrieve a goal by its database ID.
+        """Retrieve a goal by its database ID.
 
         Args:
             goal_id: Goal ID.
 
         Returns:
             UserGoalPublic if found, otherwise None.
+
+        This lookup does not authorize access; services must verify ownership or visibility.
         """
 
         sql = QUERIES.user_goals.get_by_id

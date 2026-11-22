@@ -24,7 +24,7 @@ def create_goal(
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
 ) -> UserGoalPublic:
-    return service.create_goal(current_user, goal_data)
+    return service.create(current_user.id, goal_data)
 
 
 @user_goals_router.get(
@@ -35,7 +35,7 @@ def get_current_goal(
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
 ) -> UserGoalPublic:
-    goal = service.get_current_goal(current_user)
+    goal = service.get_current(current_user.id)
     if goal is None:
         raise UserGoalNotFoundError.no_active_goal()
     return goal
@@ -50,7 +50,7 @@ def get_goal_history(
     service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
     pagination: Annotated[PaginationParams, Depends(get_pagination)],
 ) -> list[UserGoalPublic]:
-    return service.get_goal_history(current_user, pagination.limit, pagination.offset)
+    return service.list_by_user(current_user.id, pagination.limit, pagination.offset)
 
 
 @user_goals_router.get(
@@ -62,7 +62,7 @@ def get_goal_by_id(
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
 ) -> UserGoalPublic:
-    return service.get_goal_by_id(current_user, goal_id)
+    return service.get_by_id(current_user.id, goal_id)
 
 
 @user_goals_router.patch(
@@ -75,7 +75,7 @@ def update_goal(
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
 ) -> UserGoalPublic:
-    return service.update_goal(current_user, goal_id, update_data)
+    return service.update(current_user.id, goal_id, update_data)
 
 
 @user_goals_router.post(
@@ -87,7 +87,7 @@ def deactivate_goal(
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
 ) -> UserGoalPublic:
-    return service.deactivate_goal(current_user, goal_id)
+    return service.deactivate_goal(current_user.id, goal_id)
 
 
 @user_goals_router.post(
@@ -99,4 +99,4 @@ def activate_goal(
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[UserGoalsService, Depends(get_user_goals_service)],
 ) -> UserGoalPublic:
-    return service.activate_goal(current_user, goal_id)
+    return service.activate_goal(current_user.id, goal_id)

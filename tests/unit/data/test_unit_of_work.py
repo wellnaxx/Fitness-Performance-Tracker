@@ -334,7 +334,7 @@ class AtomicGoalOperationTests(TestCase):
             self.row,
         ]
         self.conn.commit.side_effect = lambda: self.assertEqual(self.cursor.fetchone.call_count, 5)
-        self.assertEqual(self.service.create_goal(user(), self.data), self.goal)
+        self.assertEqual(self.service.create(user().id, self.data), self.goal)
         self.connect.assert_called_once_with()
         self.conn.cursor.assert_called_once_with()
         self.conn.commit.assert_called_once_with()
@@ -352,7 +352,7 @@ class AtomicGoalOperationTests(TestCase):
         failure = OperationalError("insert failed")
         self.cursor.execute.side_effect = [None, None, None, None, failure]
         with self.assertLogs("data.unit_of_work", level="ERROR"), self.assertRaises(DatabaseError) as raised:
-            self.service.create_goal(user(), self.data)
+            self.service.create(user().id, self.data)
         self.assertIs(raised.exception.__cause__, failure)
         self.assertEqual(self.cursor.execute.call_args_list[2], call(QUERIES.user_goals.deactivate_goal, (99,)))
         self.assert_rolled_back()
@@ -368,7 +368,7 @@ class AtomicGoalOperationTests(TestCase):
                 self.cursor.reset_mock()
                 self.cursor.fetchone.side_effect = returned_rows
                 with self.assertRaises(expected):
-                    self.service.create_goal(user(), self.data)
+                    self.service.create(user().id, self.data)
                 self.assert_rolled_back()
 
     def test_invalid_result_mapping_rolls_back_insert_and_deactivation(self) -> None:
@@ -382,7 +382,7 @@ class AtomicGoalOperationTests(TestCase):
             tuple(invalid.values()),
         ]
         with self.assertRaises(UserGoalRowError):
-            self.service.create_goal(user(), self.data)
+            self.service.create(user().id, self.data)
         self.assert_rolled_back()
 
     def test_update_activation_commits_deactivation_and_update_together(self) -> None:
@@ -393,7 +393,7 @@ class AtomicGoalOperationTests(TestCase):
             self.inactive_row,
             self.row,
         ]
-        self.assertEqual(self.service.update_goal(user(), GOAL_ID, UserGoalUpdate(is_active=True)), self.goal)
+        self.assertEqual(self.service.update(user().id, GOAL_ID, UserGoalUpdate(is_active=True)), self.goal)
         self.conn.cursor.assert_called_once_with()
         self.conn.commit.assert_called_once_with()
         self.conn.rollback.assert_not_called()
@@ -405,7 +405,7 @@ class AtomicGoalOperationTests(TestCase):
     def test_missing_updated_goal_rolls_back_deactivation(self) -> None:
         self.cursor.fetchone.side_effect = [(USER_ID,), self.row, self.previous_row, self.inactive_row, None]
         with self.assertRaises(UserGoalNotFoundError):
-            self.service.update_goal(user(), GOAL_ID, UserGoalUpdate(is_active=True))
+            self.service.update(user().id, GOAL_ID, UserGoalUpdate(is_active=True))
         self.assert_rolled_back()
 
     def test_activate_and_deactivate_read_back_inside_the_transaction(self) -> None:

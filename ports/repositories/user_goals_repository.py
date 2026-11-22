@@ -18,15 +18,44 @@ class UserGoalsRepositoryPort(Protocol):
     """
 
     def create(self, user_id: int, goal_data: UserGoalCreate) -> UserGoalPublic:
-        """Create a new goal for a specific user."""
+        """Create a new goal for a specific user.
+
+        Args:
+            user_id: ID of the user who owns the goal.
+            goal_data: Goal creation payload.
+
+        Returns:
+            UserGoalPublic: The newly created goal.
+
+        Raises:
+            UserGoalsRepositoryError: If the goal is inserted but cannot be retrieved afterwards.
+        """
         ...
 
     def get_by_user_and_id(self, user_id: int, goal_id: int) -> UserGoalPublic | None:
-        """Retrieve a goal by its ID, but only if it belongs to the specified user."""
+        """Retrieve a goal by its ID, but only if it belongs to the specified user.
+
+        Args:
+            user_id: Owner user ID.
+            goal_id: Goal ID.
+
+        Returns:
+            UserGoalPublic if found and belongs to user, otherwise None.
+        """
         ...
 
     def get_active_goal(self, user_id: int) -> UserGoalPublic | None:
-        """Retrieve the currently active goal for a user."""
+        """Retrieve the currently active goal for a user.
+
+        If multiple active goals exist unexpectedly, the most recent one by
+        start_date is returned.
+
+        Args:
+            user_id: Owner user ID.
+
+        Returns:
+            UserGoalPublic if an active goal exists, otherwise None.
+        """
         ...
 
     def get_all(
@@ -35,17 +64,59 @@ class UserGoalsRepositoryPort(Protocol):
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
     ) -> list[UserGoalPublic]:
-        """Retrieve all goals for a specific user with pagination."""
+        """Retrieve all goals for a specific user with pagination.
+
+        Args:
+            user_id: Owner user ID.
+            limit: Maximum number of results to return.
+            offset: Number of rows to skip.
+
+        Returns:
+            A list of the user's goals ordered from newest to oldest.
+        """
         ...
 
     def update(self, goal_id: int, update_data: UserGoalUpdate) -> UserGoalPublic | None:
-        """Partially update a goal by ID."""
+        """Partially update a goal by ID.
+
+        Only fields in the repository whitelist are applied. Fields with value None
+        are ignored.
+
+        Args:
+            goal_id: Goal ID to update.
+            update_data: Partial update payload.
+
+        Returns:
+            The updated goal if it exists, otherwise None.
+
+        Raises:
+            UserGoalsRepositoryError: If any provided fields are not in the update whitelist.
+        """
         ...
 
     def deactivate_goal(self, goal_id: int) -> UserGoalPublic | None:
-        """Mark a goal as inactive."""
+        """Mark a goal as inactive.
+
+        Args:
+            goal_id: Goal ID.
+
+        Returns:
+            The updated goal if it exists, otherwise None.
+        """
         ...
 
     def activate_goal(self, user_id: int, goal_id: int) -> UserGoalPublic | None:
-        """Mark a goal as active."""
+        """Mark a goal as active.
+
+        Args:
+            user_id: User ID.
+            goal_id: Goal ID.
+
+        Returns:
+            The updated goal if it exists, otherwise None.
+
+        Notes:
+            Atomically set one goal as active and deactivate all others for the user.
+            Ensures that at most one goal is active per user.
+        """
         ...

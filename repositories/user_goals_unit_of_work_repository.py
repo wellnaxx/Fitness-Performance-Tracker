@@ -18,8 +18,21 @@ class UserGoalsUnitOfWorkRepository(UserGoalsRepository):
     """All inherited reads and writes use one cursor and never commit."""
 
     def __init__(self, cursor: Cursor[Row]) -> None:
+        """Bind inherited goal operations to the active transaction's cursor.
+
+        Args:
+            cursor: Cursor owned by the active transaction.
+        """
         super().__init__(TransactionExecutor(cursor))
 
     def lock_for_user(self, user_id: int) -> bool:
-        """Lock the owner, including when they have no goals yet."""
+        """Lock the owner, including when they have no goals yet.
+
+        Args:
+            user_id: Owner user ID to lock.
+
+        Returns:
+            True if the owner exists and is locked until transaction completion;
+            False if the owner does not exist.
+        """
         return self._executor.fetch_one(QUERIES.user_goals.lock_for_user, (user_id,)) is not None
