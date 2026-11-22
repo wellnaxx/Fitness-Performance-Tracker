@@ -60,11 +60,11 @@ class BodyMeasurementService:
         except BodyMeasurementDateConflictRepositoryError as exc:
             raise BodyMeasurementDateConflictError.already_exists(exc.entry_date) from exc
         except BodyMeasurementRepositoryError as exc:
-            self.logger.exception(f"Failed to create body measurement entry for user {user_id}!")
+            self.logger.exception("Failed to create body measurement entry for user %s!", user_id)
             raise BodyMeasurementCreationError.create_failed() from exc
 
         self.logger.info(
-            f"Body measurement entry created successfully for user {user_id} with entry ID {entry.id}"
+            "Body measurement entry created successfully for user %s with entry ID %s", user_id, entry.id
         )
         return entry
 
@@ -231,7 +231,7 @@ class BodyMeasurementService:
             raise BodyMeasurementDateConflictError.already_exists(exc.entry_date) from exc
         except BodyMeasurementRepositoryError as exc:
             self.logger.exception(
-                f"Failed to update body measurement entry with ID {entry_id} for user {user_id}."
+                "Failed to update body measurement entry with ID %s for user %s.", entry_id, user_id
             )
             raise BodyMeasurementUpdateError.update_failed(entry_id) from exc
 
