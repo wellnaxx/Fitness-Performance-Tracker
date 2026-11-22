@@ -123,10 +123,10 @@ class HttpPaginationTests(IsolatedAsyncioTestCase):
         self.workouts = Mock()
         self.measurements = Mock()
         self.weights = Mock()
-        self.exercises.list_visible_by_user.return_value = []
-        self.meals.list_visible_by_user.return_value = []
-        self.goals.get_goal_history.return_value = []
-        self.workouts.list_visible_by_user.return_value = []
+        self.exercises.list_by_user.return_value = []
+        self.meals.list_by_user.return_value = []
+        self.goals.list_by_user.return_value = []
+        self.workouts.list_by_user.return_value = []
         self.measurements.list_by_user.return_value = []
         self.weights.list_by_user.return_value = []
         self.app.dependency_overrides[get_exercise_service] = lambda: self.exercises
@@ -136,10 +136,10 @@ class HttpPaginationTests(IsolatedAsyncioTestCase):
         self.app.dependency_overrides[get_body_measurement_service] = lambda: self.measurements
         self.app.dependency_overrides[get_body_weight_entry_service] = lambda: self.weights
         self.routes: tuple[tuple[str, Mock], ...] = (
-            ("/exercises/", self.exercises.list_visible_by_user),
-            ("/meals/", self.meals.list_visible_by_user),
-            ("/goals/history", self.goals.get_goal_history),
-            ("/workouts/", self.workouts.list_visible_by_user),
+            ("/exercises/", self.exercises.list_by_user),
+            ("/meals/", self.meals.list_by_user),
+            ("/goals/history", self.goals.list_by_user),
+            ("/workouts/", self.workouts.list_by_user),
             ("/body_measurements/", self.measurements.list_by_user),
             ("/body_weight_entries/", self.weights.list_by_user),
         )
@@ -147,7 +147,7 @@ class HttpPaginationTests(IsolatedAsyncioTestCase):
     def assert_page_forwarded(self, path: str, method: Mock, limit: int, offset: int) -> None:
         method.assert_called_once()
         if path == "/goals/history":
-            method.assert_called_once_with(self.user, limit, offset)
+            method.assert_called_once_with(self.user.id, limit, offset)
         else:
             self.assertEqual(method.call_args.kwargs["limit"], limit)
             self.assertEqual(method.call_args.kwargs["offset"], offset)
@@ -226,7 +226,7 @@ class HttpPaginationTests(IsolatedAsyncioTestCase):
             (
                 "/exercises/?limit=3&offset=2&search=squat&muscle_group=Legs&equipment=Barbell"
                 "&is_compound=false&is_custom=false",
-                self.exercises.list_visible_by_user,
+                self.exercises.list_by_user,
                 {
                     "search": "squat",
                     "muscle_group": "Legs",
@@ -237,12 +237,12 @@ class HttpPaginationTests(IsolatedAsyncioTestCase):
             ),
             (
                 "/meals/?limit=3&offset=2&date_from=2026-10-01&date_to=2026-10-01&meal_type=LUNCH",
-                self.meals.list_visible_by_user,
+                self.meals.list_by_user,
                 {"date_from": TODAY, "date_to": TODAY, "meal_type": "lunch"},
             ),
             (
                 "/workouts/?limit=3&offset=2&search=Strength&date_from=2026-10-01&date_to=2026-10-01",
-                self.workouts.list_visible_by_user,
+                self.workouts.list_by_user,
                 {"search": "Strength", "date_from": TODAY, "date_to": TODAY},
             ),
         )
