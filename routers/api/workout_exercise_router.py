@@ -24,7 +24,7 @@ def create_workout_exercise(
 ) -> WorkoutExercisePublic:
     """
     Add a new exercise to a workout."""
-    return service.create_workout_exercise(current_user.id, workout_id, workout_exercise_data)
+    return service.create(current_user.id, workout_id, workout_exercise_data)
 
 
 @workout_exercise_router.get("/{workout_exercise_id}", status_code=status.HTTP_200_OK)
@@ -37,7 +37,7 @@ def get_workout_exercise_by_id(
     """
     Retrieve a workout exercise by ID, ensuring it's visible to the user.
     """
-    return service.get_workout_exercise(current_user.id, workout_id, workout_exercise_id)
+    return service.get_by_id(current_user.id, workout_id, workout_exercise_id)
 
 
 @workout_exercise_router.get("/", status_code=status.HTTP_200_OK)
@@ -49,7 +49,7 @@ def list_workout_exercises(
     """
     List exercises in a workout that are visible to the user.
     """
-    return service.list_workout_exercises(current_user.id, workout_id)
+    return service.list_by_workout(current_user.id, workout_id)
 
 
 @workout_exercise_router.patch("/{workout_exercise_id}", status_code=status.HTTP_200_OK)
@@ -63,7 +63,7 @@ def update_workout_exercise(
     """
     Update a workout exercise, ensuring it's visible to the user.
     """
-    return service.update_workout_exercise(current_user.id, workout_id, workout_exercise_id, update_data)
+    return service.update(current_user.id, workout_id, workout_exercise_id, update_data)
 
 
 @workout_exercise_router.delete("/{workout_exercise_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -76,4 +76,4 @@ def delete_workout_exercise(
     """
     Delete a workout exercise, ensuring it's visible to the user.
     """
-    service.delete_workout_exercise(current_user.id, workout_id, workout_exercise_id)
+    service.delete(current_user.id, workout_id, workout_exercise_id)

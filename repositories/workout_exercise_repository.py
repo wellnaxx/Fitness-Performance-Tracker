@@ -33,6 +33,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class _WorkoutExerciseDisappearedError(WorkoutExerciseRepositoryError):
+    """Abort and roll back reordering when the target disappears during an update."""
+
+
 class WorkoutExerciseRepository:
     """
     Repository for WorkoutExercise database operations.
@@ -97,26 +101,27 @@ class WorkoutExerciseRepository:
                     QUERIES.workout_exercises.get_by_id,
                     (workout_exercise_id,),
                 )
+                if row is None:
+                    logger.warning("Inserted row missing during readback | entity_id=%s", workout_exercise_id)
+                    raise WorkoutExerciseRepositoryError.inserted_missing(workout_exercise_id)  # noqa: TRY301
+                created = map_workout_exercise(row)
         except WorkoutExerciseRepositoryError:
             raise
         except Exception as exc:
             raise WorkoutExerciseRepositoryError.transaction_failed(exc) from exc
 
-        if row is None:
-            logger.warning("Inserted row missing during readback | entity_id=%s", workout_exercise_id)
-            raise WorkoutExerciseRepositoryError.inserted_missing(workout_exercise_id)
-
-        return map_workout_exercise(row)
+        return created
 
     def get_by_id(self, workout_exercise_id: int) -> WorkoutExercisePublic | None:
-        """
-        Retrieve a workout exercise by its database ID.
+        """Retrieve a workout exercise by its database ID.
 
         Args:
             workout_exercise_id: Workout exercise ID.
 
         Returns:
             The workout exercise if found, otherwise None.
+
+        This lookup does not authorize access; services must verify ownership or visibility.
         """
         row = fetch_one(QUERIES.workout_exercises.get_by_id, (workout_exercise_id,))
         if row is None:
@@ -168,6 +173,20 @@ class WorkoutExerciseRepository:
         workout_exercise_id: int,
         update_data: WorkoutExerciseUpdate,
     ) -> WorkoutExercisePublic | None:
+        """Update an item and reorder its siblings in one transaction.
+
+        Args:
+            workout_id: Parent workout ID; caller must verify ownership.
+            workout_exercise_id: Target workout exercise ID.
+            update_data: Partial changes; omitted and None values preserve stored values.
+
+        Returns:
+            The updated item, current values for an empty update, or None if absent
+            from the workout. A target disappearing during the write rolls back all shifts.
+
+        Raises:
+            WorkoutExerciseRepositoryError: If validation, mapping, or the transaction fails.
+        """
         try:
             with transaction_cursor() as cursor:
                 existing = fetch_one_tx(
@@ -218,16 +237,17 @@ class WorkoutExerciseRepository:
                     QUERIES.workout_exercises.get_by_workout_and_id,
                     (workout_id, workout_exercise_id),
                 )
+                if updated_row is None:
+                    raise _WorkoutExerciseDisappearedError  # noqa: TRY301 - abort before ordering changes commit
+                updated = map_workout_exercise(updated_row)
+        except _WorkoutExerciseDisappearedError:
+            return None
         except WorkoutExerciseRepositoryError:
             raise
         except Exception as exc:
             raise WorkoutExerciseRepositoryError.transaction_failed(exc) from exc
 
-        if updated_row is None:
-            logger.warning("Updated row missing during readback | entity_id=%s", workout_exercise_id)
-            raise WorkoutExerciseRepositoryError.updated_missing(workout_exercise_id)
-
-        return map_workout_exercise(updated_row)
+        return updated
 
     def delete(self, workout_id: int, workout_exercise_id: int) -> bool:
         """

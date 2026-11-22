@@ -40,11 +40,11 @@ class WorkoutExerciseServiceTests(unittest.TestCase):
 
     def test_missing_or_foreign_workout_blocks_all_entry_operations(self) -> None:
         operations = {
-            "create": lambda: self.service.create_workout_exercise(USER_ID, WORKOUT_ID, self.data),
-            "get": lambda: self.service.get_workout_exercise(USER_ID, WORKOUT_ID, ENTRY_ID),
-            "list": lambda: self.service.list_workout_exercises(USER_ID, WORKOUT_ID),
-            "update": lambda: self.service.update_workout_exercise(USER_ID, WORKOUT_ID, ENTRY_ID, self.updates),
-            "delete": lambda: self.service.delete_workout_exercise(USER_ID, WORKOUT_ID, ENTRY_ID),
+            "create": lambda: self.service.create(USER_ID, WORKOUT_ID, self.data),
+            "get": lambda: self.service.get_by_id(USER_ID, WORKOUT_ID, ENTRY_ID),
+            "list": lambda: self.service.list_by_workout(USER_ID, WORKOUT_ID),
+            "update": lambda: self.service.update(USER_ID, WORKOUT_ID, ENTRY_ID, self.updates),
+            "delete": lambda: self.service.delete(USER_ID, WORKOUT_ID, ENTRY_ID),
         }
         self.workouts.get_by_user_and_id.return_value = None
         for name, operation in operations.items():
@@ -67,8 +67,8 @@ class WorkoutExerciseServiceTests(unittest.TestCase):
                         for i in range(count)
                     ]
                     data = WorkoutExerciseCreate(exercise_id=EXERCISE_ID, order_index=index)
-                    self.assertIs(self.service.create_workout_exercise(USER_ID, WORKOUT_ID, data), self.entry)
-                    self.exercises.get_visible_by_id.assert_called_once_with(EXERCISE_ID, USER_ID)
+                    self.assertIs(self.service.create(USER_ID, WORKOUT_ID, data), self.entry)
+                    self.exercises.get_visible_by_id.assert_called_once_with(USER_ID, EXERCISE_ID)
                     self.repo.list_by_workout.assert_called_once_with(WORKOUT_ID)
                     self.repo.create.assert_called_once_with(WORKOUT_ID, data)
 
@@ -78,18 +78,18 @@ class WorkoutExerciseServiceTests(unittest.TestCase):
                 self.repo.list_by_workout.return_value = [self.entry] * count
                 data = WorkoutExerciseCreate(exercise_id=EXERCISE_ID, order_index=count + 1)
                 with self.assertRaises(WorkoutExerciseValidationError):
-                    self.service.create_workout_exercise(USER_ID, WORKOUT_ID, data)
+                    self.service.create(USER_ID, WORKOUT_ID, data)
                 self.repo.create.assert_not_called()
 
     def test_invisible_exercise_cannot_be_added(self) -> None:
         self.exercises.get_visible_by_id.return_value = None
         with self.assertRaises(ExerciseNotFoundError):
-            self.service.create_workout_exercise(USER_ID, WORKOUT_ID, self.data)
+            self.service.create(USER_ID, WORKOUT_ID, self.data)
         self.repo.list_by_workout.assert_not_called()
         self.repo.create.assert_not_called()
 
     def test_get_entry_checks_both_workout_and_entry_scope(self) -> None:
-        self.assertIs(self.service.get_workout_exercise(USER_ID, WORKOUT_ID, ENTRY_ID), self.entry)
+        self.assertIs(self.service.get_by_id(USER_ID, WORKOUT_ID, ENTRY_ID), self.entry)
         self.workouts.get_by_user_and_id.assert_called_once_with(USER_ID, WORKOUT_ID)
         self.repo.get_by_workout_and_id.assert_called_once_with(WORKOUT_ID, ENTRY_ID)
 
@@ -98,15 +98,15 @@ class WorkoutExerciseServiceTests(unittest.TestCase):
             with self.subTest(entries=entries):
                 self.repo.reset_mock()
                 self.repo.list_by_workout.return_value = entries
-                self.assertEqual(self.service.list_workout_exercises(USER_ID, WORKOUT_ID), entries)
+                self.assertEqual(self.service.list_by_workout(USER_ID, WORKOUT_ID), entries)
                 self.repo.list_by_workout.assert_called_once_with(WORKOUT_ID)
 
     def test_missing_or_wrong_workout_entry_blocks_read_update_and_delete(self) -> None:
         self.repo.get_by_workout_and_id.return_value = None
         operations = {
-            "get": lambda: self.service.get_workout_exercise(USER_ID, WORKOUT_ID, ENTRY_ID),
-            "update": lambda: self.service.update_workout_exercise(USER_ID, WORKOUT_ID, ENTRY_ID, self.updates),
-            "delete": lambda: self.service.delete_workout_exercise(USER_ID, WORKOUT_ID, ENTRY_ID),
+            "get": lambda: self.service.get_by_id(USER_ID, WORKOUT_ID, ENTRY_ID),
+            "update": lambda: self.service.update(USER_ID, WORKOUT_ID, ENTRY_ID, self.updates),
+            "delete": lambda: self.service.delete(USER_ID, WORKOUT_ID, ENTRY_ID),
         }
         for name, operation in operations.items():
             with self.subTest(operation=name):
@@ -123,7 +123,7 @@ class WorkoutExerciseServiceTests(unittest.TestCase):
                 self.repo.update.reset_mock()
                 data = WorkoutExerciseUpdate(order_index=index)
                 self.assertIs(
-                    self.service.update_workout_exercise(USER_ID, WORKOUT_ID, ENTRY_ID, data),
+                    self.service.update(USER_ID, WORKOUT_ID, ENTRY_ID, data),
                     self.entry,
                 )
                 self.repo.update.assert_called_once_with(WORKOUT_ID, ENTRY_ID, data)
@@ -134,7 +134,7 @@ class WorkoutExerciseServiceTests(unittest.TestCase):
             with self.subTest(count=count):
                 self.repo.list_by_workout.return_value = [self.entry] * count
                 with self.assertRaises(WorkoutExerciseValidationError):
-                    self.service.update_workout_exercise(
+                    self.service.update(
                         USER_ID,
                         WORKOUT_ID,
                         ENTRY_ID,
@@ -146,20 +146,20 @@ class WorkoutExerciseServiceTests(unittest.TestCase):
         for updates in (self.updates, WorkoutExerciseUpdate(notes="Slow tempo"), WorkoutExerciseUpdate()):
             with self.subTest(updates=updates):
                 self.repo.update.reset_mock()
-                self.service.update_workout_exercise(USER_ID, WORKOUT_ID, ENTRY_ID, updates)
+                self.service.update(USER_ID, WORKOUT_ID, ENTRY_ID, updates)
                 self.repo.update.assert_called_once_with(WORKOUT_ID, ENTRY_ID, updates)
                 self.exercises.get_visible_by_id.assert_not_called()
 
     def test_replacement_exercise_must_be_visible(self) -> None:
         updates = WorkoutExerciseUpdate(exercise_id=29)
-        self.service.update_workout_exercise(USER_ID, WORKOUT_ID, ENTRY_ID, updates)
-        self.exercises.get_visible_by_id.assert_called_once_with(29, USER_ID)
+        self.service.update(USER_ID, WORKOUT_ID, ENTRY_ID, updates)
+        self.exercises.get_visible_by_id.assert_called_once_with(USER_ID, 29)
         self.repo.update.assert_called_once_with(WORKOUT_ID, ENTRY_ID, updates)
 
     def test_invisible_replacement_prevents_update(self) -> None:
         self.exercises.get_visible_by_id.return_value = None
         with self.assertRaises(ExerciseNotFoundError):
-            self.service.update_workout_exercise(
+            self.service.update(
                 USER_ID,
                 WORKOUT_ID,
                 ENTRY_ID,
@@ -168,16 +168,16 @@ class WorkoutExerciseServiceTests(unittest.TestCase):
         self.repo.update.assert_not_called()
 
     def test_delete_owned_entry(self) -> None:
-        self.service.delete_workout_exercise(USER_ID, WORKOUT_ID, ENTRY_ID)
+        self.service.delete(USER_ID, WORKOUT_ID, ENTRY_ID)
         self.repo.delete.assert_called_once_with(WORKOUT_ID, ENTRY_ID)
 
     def test_entry_disappearing_during_write_raises_not_found(self) -> None:
         self.repo.update.return_value = None
         self.repo.delete.return_value = False
         with self.assertRaises(WorkoutExerciseNotFoundError):
-            self.service.update_workout_exercise(USER_ID, WORKOUT_ID, ENTRY_ID, self.updates)
+            self.service.update(USER_ID, WORKOUT_ID, ENTRY_ID, self.updates)
         with self.assertRaises(WorkoutExerciseNotFoundError):
-            self.service.delete_workout_exercise(USER_ID, WORKOUT_ID, ENTRY_ID)
+            self.service.delete(USER_ID, WORKOUT_ID, ENTRY_ID)
 
     def test_write_failures_raise_domain_errors_with_repository_cause(self) -> None:
         failure = WorkoutExerciseRepositoryError("database unavailable")
@@ -187,7 +187,7 @@ class WorkoutExerciseServiceTests(unittest.TestCase):
         cases = (
             (
                 WorkoutExerciseCreationError,
-                lambda: self.service.create_workout_exercise(
+                lambda: self.service.create(
                     USER_ID,
                     WORKOUT_ID,
                     self.data,
@@ -195,7 +195,7 @@ class WorkoutExerciseServiceTests(unittest.TestCase):
             ),
             (
                 WorkoutExerciseUpdateError,
-                lambda: self.service.update_workout_exercise(
+                lambda: self.service.update(
                     USER_ID,
                     WORKOUT_ID,
                     ENTRY_ID,
@@ -204,7 +204,7 @@ class WorkoutExerciseServiceTests(unittest.TestCase):
             ),
             (
                 WorkoutExerciseDeleteError,
-                lambda: self.service.delete_workout_exercise(
+                lambda: self.service.delete(
                     USER_ID,
                     WORKOUT_ID,
                     ENTRY_ID,
