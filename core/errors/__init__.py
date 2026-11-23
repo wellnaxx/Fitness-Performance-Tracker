@@ -38,6 +38,12 @@ from core.errors.meal_item import (
     MealItemNotFoundError,
     MealItemUpdateError,
 )
+from core.errors.progress_photo import (
+    ProgressPhotoCreationError,
+    ProgressPhotoDeleteError,
+    ProgressPhotoNotFoundError,
+    ProgressPhotoUpdateError,
+)
 from core.errors.repository import (
     BodyMeasurementDateConflictRepositoryError,
     BodyMeasurementRepositoryError,
@@ -125,8 +131,12 @@ __all__ = [
     "MealItemUpdateError",
     "MealRepositoryError",
     "MealRowError",
+    "ProgressPhotoCreationError",
+    "ProgressPhotoDeleteError",
+    "ProgressPhotoNotFoundError",
     "ProgressPhotoRepositoryError",
     "ProgressPhotoRowError",
+    "ProgressPhotoUpdateError",
     "RepositoryError",
     "RowValidationError",
     "ServiceError",

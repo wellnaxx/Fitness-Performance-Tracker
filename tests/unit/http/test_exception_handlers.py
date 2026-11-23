@@ -42,6 +42,12 @@ from core.errors.meal_item import (
     MealItemNotFoundError,
     MealItemUpdateError,
 )
+from core.errors.progress_photo import (
+    ProgressPhotoCreationError,
+    ProgressPhotoDeleteError,
+    ProgressPhotoNotFoundError,
+    ProgressPhotoUpdateError,
+)
 from core.errors.repository import BodyWeightEntryDateConflictRepositoryError
 from core.errors.set_entry import (
     SetEntryCreationError,
@@ -257,6 +263,33 @@ class ExceptionHandlerTests(IsolatedAsyncioTestCase):
             ),
             (MealItemUpdateError.update_failed(17), 500, "Failed to update meal item with ID 17."),
             (MealItemDeleteError.delete_failed(17), 500, "Failed to delete meal item with ID 17."),
+        )
+        for error, expected_status, expected_detail in cases:
+            with (
+                self.subTest(error=type(error).__name__, detail=expected_detail),
+                patch("core.exception_handlers.logger") as logger,
+            ):
+                self.error = error
+                response = await request(self.app, "/error")
+                self.assertEqual(response.status, expected_status)
+                self.assertEqual(response.payload, {"detail": expected_detail})
+                self.assertEqual(logger.error.call_count, int(expected_status == 500))
+
+    async def test_progress_photo_errors_have_expected_messages_and_http_statuses(self) -> None:
+        cases: tuple[tuple[Exception, int, str], ...] = (
+            (ProgressPhotoCreationError.create_failed(), 500, "Failed to create progress photo."),
+            (
+                ProgressPhotoNotFoundError.not_found(47),
+                404,
+                "Progress photo with ID 47 not found or does not belong to the user.",
+            ),
+            (
+                ProgressPhotoNotFoundError.not_accessible(47),
+                404,
+                "Progress photo with ID 47 not accessible or does not belong to the user.",
+            ),
+            (ProgressPhotoUpdateError.update_failed(47), 500, "Failed to update progress photo with ID 47."),
+            (ProgressPhotoDeleteError.delete_failed(47), 500, "Failed to delete progress photo with ID 47."),
         )
         for error, expected_status, expected_detail in cases:
             with (

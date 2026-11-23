@@ -38,6 +38,12 @@ from core.errors.meal_item import (
     MealItemNotFoundError,
     MealItemUpdateError,
 )
+from core.errors.progress_photo import (
+    ProgressPhotoCreationError,
+    ProgressPhotoDeleteError,
+    ProgressPhotoNotFoundError,
+    ProgressPhotoUpdateError,
+)
 from core.errors.set_entry import (
     SetEntryCreationError,
     SetEntryDeleteError,
@@ -97,6 +103,7 @@ _ERROR_RESPONSES: dict[type[Exception], tuple[int, str | None]] = {
     SetEntryNotFoundError: (status.HTTP_404_NOT_FOUND, None),
     BodyMeasurementNotFoundError: (status.HTTP_404_NOT_FOUND, None),
     BodyWeightEntryNotFoundError: (status.HTTP_404_NOT_FOUND, None),
+    ProgressPhotoNotFoundError: (status.HTTP_404_NOT_FOUND, None),
     IncorrectOldPasswordError: (status.HTTP_400_BAD_REQUEST, None),
     IdenticalPasswordsError: (status.HTTP_400_BAD_REQUEST, None),
     UserDeleteError: (status.HTTP_400_BAD_REQUEST, None),
@@ -128,6 +135,9 @@ _ERROR_RESPONSES: dict[type[Exception], tuple[int, str | None]] = {
     BodyMeasurementUpdateError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
     BodyWeightEntryCreationError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
     BodyWeightEntryUpdateError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
+    ProgressPhotoCreationError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
+    ProgressPhotoUpdateError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
+    ProgressPhotoDeleteError: (status.HTTP_500_INTERNAL_SERVER_ERROR, None),
     DatabaseError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "Database operation failed."),
     RepositoryError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "Database operation failed."),
     RowValidationError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "Database operation failed."),
