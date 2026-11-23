@@ -8,6 +8,7 @@ from schemas.body_weight_entry_schema import BodyWeightEntryPublic
 from schemas.exercise_schema import ExercisePublic
 from schemas.meal_item_schema import MealItemPublic
 from schemas.meal_schema import MealPublic
+from schemas.progress_photo_schema import ProgressPhotoPublic
 from schemas.set_entry_schema import SetEntryPublic
 from schemas.user_goals_schema import UserGoalPublic
 from schemas.user_schema import UserInternal
@@ -26,6 +27,21 @@ SET_ENTRY_ID = 31
 MEASUREMENT_ID = 37
 WEIGHT_ENTRY_ID = 41
 MEAL_ITEM_ID = 43
+PHOTO_ID = 47
+
+
+def progress_photo() -> ProgressPhotoPublic:
+    """Return a fresh owned photo record with a validated URL and optional metadata."""
+    return ProgressPhotoPublic.model_validate(
+        {
+            "id": PHOTO_ID,
+            "user_id": USER_ID,
+            "photo_url": "https://example.com/progress/front.jpg",
+            "entry_date": TODAY,
+            "notes": "Front view",
+            "created_at": NOW,
+        }
+    )
 
 
 def meal_item() -> MealItemPublic:
