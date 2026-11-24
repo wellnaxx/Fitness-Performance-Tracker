@@ -13,6 +13,7 @@ from ports.repositories.body_weight_entry_repository import BodyWeightEntryRepos
 from ports.repositories.exercise_repository import ExerciseRepositoryPort
 from ports.repositories.meal_item_repository import MealItemRepositoryPort
 from ports.repositories.meal_repository import MealRepositoryPort
+from ports.repositories.progress_photo_repository import ProgressPhotoRepositoryPort
 from ports.repositories.set_entry_repository import SetEntryRepositoryPort
 from ports.repositories.user_goals_repository import UserGoalsRepositoryPort
 from ports.repositories.user_repository import UserRepositoryPort
@@ -24,6 +25,7 @@ from repositories.body_weight_entry_repository import BodyWeightEntryRepository
 from repositories.exercise_repository import ExerciseRepository
 from repositories.meal_item_repository import MealItemRepository
 from repositories.meal_repository import MealRepository
+from repositories.progress_photo_repository import ProgressPhotoRepository
 from repositories.set_entry_repository import SetEntryRepository
 from repositories.user_goals_repository import UserGoalsRepository
 from repositories.user_repository import UserRepository
@@ -34,6 +36,7 @@ from services.body_weight_entry_service import BodyWeightEntryService
 from services.exercise_service import ExerciseService
 from services.meal_item_service import MealItemService
 from services.meal_service import MealService
+from services.progress_photo_service import ProgressPhotoService
 from services.set_entry_service import SetEntryService
 from services.user_goals_service import UserGoalsService
 from services.user_service import UserService
@@ -190,3 +193,26 @@ def get_meal_item_service(
         The service used by meal-item routes.
     """
     return MealItemService(meal_repo, meal_item_repo)
+
+
+def get_progress_photo_repository() -> ProgressPhotoRepositoryPort:
+    """Provide progress-photo persistence without opening a database connection.
+
+    Returns:
+        A repository implementing the progress-photo port.
+    """
+    return ProgressPhotoRepository()
+
+
+def get_progress_photo_service(
+    progress_photo_repo: ProgressPhotoRepositoryPort = Depends(get_progress_photo_repository),
+) -> ProgressPhotoService:
+    """Construct the progress-photo service with its persistence dependency.
+
+    Args:
+        progress_photo_repo: Injected progress-photo repository port.
+
+    Returns:
+        The service used by progress-photo routes.
+    """
+    return ProgressPhotoService(progress_photo_repo)

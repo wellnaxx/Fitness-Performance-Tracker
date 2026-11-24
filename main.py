@@ -11,6 +11,7 @@ from routers.api.body_weight_entry_router import body_weight_entry_router
 from routers.api.exercise_router import exercise_router
 from routers.api.meal_item_router import meal_item_router
 from routers.api.meal_router import meal_router
+from routers.api.progress_photo_router import progress_photo_router
 from routers.api.set_entry_router import set_entry_router
 from routers.api.user_goals_router import user_goals_router
 from routers.api.users_router import users_router
@@ -44,6 +45,7 @@ app.include_router(meal_item_router)
 app.include_router(set_entry_router)
 app.include_router(body_measurement_router)
 app.include_router(body_weight_entry_router)
+app.include_router(progress_photo_router)
 
 
 @app.get("/")
