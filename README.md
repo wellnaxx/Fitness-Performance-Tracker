@@ -3,8 +3,8 @@
 A Python 3.13+ backend built with FastAPI and PostgreSQL for tracking fitness and nutrition.
 
 The API supports authentication and profiles, goals, exercises, workouts, workout
-exercises, set entries, meals, meal items, body measurements, and body-weight entries.
-Progress photos have database support but are not yet exposed through the API.
+exercises, set entries, meals, meal items, body measurements, body-weight entries,
+and progress photos.
 The frontend is a placeholder.
 
 ## Setup
@@ -122,8 +122,8 @@ The coverage command measures only the listed modules.
 
 For manual API testing, import the
 [Postman collection](postman/Fitness-Performance-Tracker.postman_collection.json).
-It does not yet include sets, meal items, body measurements, or body-weight entries;
-use Swagger UI for those routes.
+It does not yet include sets, meal items, body measurements, body-weight entries,
+or progress photos; use Swagger UI for those routes.
 
 ## Logging
 
