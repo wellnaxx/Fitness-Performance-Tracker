@@ -74,6 +74,9 @@ implementations. HTTP error mappings live in `core/exception_handlers.py`.
 CRUD service methods use `create`, `get_by_id`, `update`, and `delete`, with the
 authenticated user ID first. Repository lookups and updates return `None` for
 missing records; deletes return `False`. Services decide when to raise domain errors.
+Repository, service, and unit-of-work instances use `self.logger`; shared ownership
+helpers receive the calling service's logger. Public operations document Args,
+Returns, and Raises. Routers validate positive IDs and declare their HTTP error responses.
 
 Queries live in `data/sql/<entity>/<operation>.sql` and are registered in
 `data/queries.py`. Bind runtime values through `%s` parameters; dynamic SQL

@@ -13,14 +13,22 @@ from services.set_entry_service import SetEntryService
 
 set_entry_router = APIRouter(
     prefix="/sets",
-    tags=[
-        "set_entries",
-        "sets",
-    ],
+    tags=["sets"],
+    responses={
+        500: {"description": "Persistence failure; internal details are excluded from the response."},
+        401: {"description": "Missing, invalid, expired, or revoked Bearer access token."},
+    },
 )
 
 
-@set_entry_router.post("/", status_code=status.HTTP_201_CREATED)
+@set_entry_router.post(
+    "/",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        404: {"description": "The set or a parent record is missing or inaccessible."},
+        400: {"description": "The operation violates set ordering or parent constraints."},
+    },
+)
 def create_set(
     set_entry_data: SetEntryCreate,
     current_user: Annotated[UserInternal, Depends(get_current_user)],
@@ -35,13 +43,35 @@ def create_set(
     Requires a Bearer access token (401 otherwise). Returns 404 for a missing
     parent or inaccessible workout, 400 for an out-of-range position, 422 for
     an invalid body, and 500 for a persistence failure.
+
+    Args:
+        set_entry_data: Validated parent exercise, position, and set details.
+        current_user: User resolved from the Bearer access token; determines ownership.
+        service: Injected service containing business rules and ownership checks.
+
+    Returns:
+        The persisted record with its assigned ID (HTTP 201).
+
+    Raises:
+        HTTPException: HTTP 401. If Bearer authentication fails.
+        WorkoutNotFoundError: HTTP 404. If the workout is missing or unowned.
+        WorkoutExerciseNotFoundError: HTTP 404. If the parent workout exercise is missing.
+        SetEntryValidationError: HTTP 400. If the requested position is invalid.
+        SetEntryCreationError: HTTP 500. If creation fails.
+        RequestValidationError: HTTP 422. If path, query, form, or body values are invalid.
+        DatabaseError: HTTP 500. If persistence or an authentication lookup fails; internal details are
+            hidden.
     """
     return service.create(current_user.id, set_entry_data)
 
 
-@set_entry_router.get("/{set_entry_id}", status_code=status.HTTP_200_OK)
+@set_entry_router.get(
+    "/{set_entry_id}",
+    status_code=status.HTTP_200_OK,
+    responses={404: {"description": "The set or a parent record is missing or inaccessible."}},
+)
 def get_by_id(
-    set_entry_id: Annotated[int, Path(gt=0)],
+    set_entry_id: Annotated[int, Path(gt=0, description="Set entry ID.")],
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[SetEntryService, Depends(get_set_entry_service)],
 ) -> SetEntryPublic:
@@ -50,13 +80,34 @@ def get_by_id(
     The path ID must be a positive integer (422 otherwise). Requires a Bearer
     access token (401 otherwise). Missing sets, parents, and inaccessible
     workouts return 404. Persistence failures return a sanitized 500 response.
+
+    Args:
+        set_entry_id: Positive set entry ID.
+        current_user: User resolved from the Bearer access token; determines ownership.
+        service: Injected service containing business rules and ownership checks.
+
+    Returns:
+        The requested or updated record (HTTP 200).
+
+    Raises:
+        HTTPException: HTTP 401. If Bearer authentication fails.
+        WorkoutNotFoundError: HTTP 404. If the workout is missing or unowned.
+        WorkoutExerciseNotFoundError: HTTP 404. If the parent workout exercise is missing.
+        SetEntryNotFoundError: HTTP 404. If the set is missing or disappears during persistence.
+        RequestValidationError: HTTP 422. If path, query, form, or body values are invalid.
+        DatabaseError: HTTP 500. If persistence or an authentication lookup fails; internal details are
+            hidden.
     """
     return service.get_by_id(current_user.id, set_entry_id)
 
 
-@set_entry_router.get("/workout_exercise/{workout_exercise_id}", status_code=status.HTTP_200_OK)
+@set_entry_router.get(
+    "/workout_exercise/{workout_exercise_id}",
+    status_code=status.HTTP_200_OK,
+    responses={404: {"description": "The set or a parent record is missing or inaccessible."}},
+)
 def list_by_workout_exercise(
-    workout_exercise_id: Annotated[int, Path(gt=0)],
+    workout_exercise_id: Annotated[int, Path(gt=0, description="Parent workout exercise ID.")],
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[SetEntryService, Depends(get_set_entry_service)],
 ) -> list[SetEntryPublic]:
@@ -67,14 +118,37 @@ def list_by_workout_exercise(
     The path ID must be positive (422 otherwise). Requires a Bearer access
     token (401 otherwise). A missing parent or inaccessible workout returns
     404; persistence failures return a sanitized 500 response.
+
+    Args:
+        workout_exercise_id: Positive parent workout exercise ID.
+        current_user: User resolved from the Bearer access token; determines ownership.
+        service: Injected service containing business rules and ownership checks.
+
+    Returns:
+        Matching records in repository order, or [] when none match (HTTP 200).
+
+    Raises:
+        HTTPException: HTTP 401. If Bearer authentication fails.
+        WorkoutNotFoundError: HTTP 404. If the workout is missing or unowned.
+        WorkoutExerciseNotFoundError: HTTP 404. If the parent workout exercise is missing.
+        RequestValidationError: HTTP 422. If path, query, form, or body values are invalid.
+        DatabaseError: HTTP 500. If persistence or an authentication lookup fails; internal details are
+            hidden.
     """
     return service.list_by_workout_exercise(current_user.id, workout_exercise_id)
 
 
-@set_entry_router.patch("/{set_entry_id}", status_code=status.HTTP_200_OK)
+@set_entry_router.patch(
+    "/{set_entry_id}",
+    status_code=status.HTTP_200_OK,
+    responses={
+        404: {"description": "The set or a parent record is missing or inaccessible."},
+        400: {"description": "The operation violates set ordering or parent constraints."},
+    },
+)
 def update(
-    workout_exercise_id: Annotated[int, Query(gt=0)],
-    set_entry_id: Annotated[int, Path(gt=0)],
+    workout_exercise_id: Annotated[int, Query(gt=0, description="Parent workout exercise ID.")],
+    set_entry_id: Annotated[int, Path(gt=0, description="Set entry ID.")],
     update_data: SetEntryUpdate,
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[SetEntryService, Depends(get_set_entry_service)],
@@ -94,14 +168,42 @@ def update(
     resources return 404. Invalid moves or a parent mismatch after ownership
     verification return 400. Invalid IDs, missing query parameters, and invalid
     bodies return 422; persistence failures return a sanitized 500 response.
+
+    Args:
+        workout_exercise_id: Positive parent workout exercise ID.
+        set_entry_id: Positive set entry ID.
+        update_data: Validated partial changes; omitted and null fields preserve stored values.
+        current_user: User resolved from the Bearer access token; determines ownership.
+        service: Injected service containing business rules and ownership checks.
+
+    Returns:
+        The requested or updated record (HTTP 200).
+
+    Raises:
+        HTTPException: HTTP 401. If Bearer authentication fails.
+        WorkoutNotFoundError: HTTP 404. If the workout is missing or unowned.
+        WorkoutExerciseNotFoundError: HTTP 404. If the parent workout exercise is missing.
+        SetEntryNotFoundError: HTTP 404. If the set is missing or disappears during persistence.
+        SetEntryValidationError: HTTP 400. If the requested position is invalid.
+        WorkoutExerciseValidationError: HTTP 400. If the supplied parent differs from the owned set parent.
+        RequestValidationError: HTTP 422. If path, query, form, or body values are invalid.
+        DatabaseError: HTTP 500. If persistence or an authentication lookup fails; internal details are
+            hidden.
     """
     return service.update(current_user.id, workout_exercise_id, set_entry_id, update_data)
 
 
-@set_entry_router.delete("/{set_entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+@set_entry_router.delete(
+    "/{set_entry_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        404: {"description": "The set or a parent record is missing or inaccessible."},
+        400: {"description": "The operation violates set ordering or parent constraints."},
+    },
+)
 def delete(
-    workout_exercise_id: Annotated[int, Query(gt=0)],
-    set_entry_id: Annotated[int, Path(gt=0)],
+    workout_exercise_id: Annotated[int, Query(gt=0, description="Parent workout exercise ID.")],
+    set_entry_id: Annotated[int, Path(gt=0, description="Set entry ID.")],
     current_user: Annotated[UserInternal, Depends(get_current_user)],
     service: Annotated[SetEntryService, Depends(get_set_entry_service)],
 ) -> None:
@@ -116,5 +218,25 @@ def delete(
     resources return 404, including repeated deletion. A parent mismatch after
     ownership verification returns 400. Invalid IDs or a missing parent query
     parameter return 422. Failed deletion or persistence returns 500.
+
+    Args:
+        workout_exercise_id: Positive parent workout exercise ID.
+        set_entry_id: Positive set entry ID.
+        current_user: User resolved from the Bearer access token; determines ownership.
+        service: Injected service containing business rules and ownership checks.
+
+    Returns:
+        An empty response after successful completion (HTTP 204).
+
+    Raises:
+        HTTPException: HTTP 401. If Bearer authentication fails.
+        WorkoutNotFoundError: HTTP 404. If the workout is missing or unowned.
+        WorkoutExerciseNotFoundError: HTTP 404. If the parent workout exercise is missing.
+        SetEntryNotFoundError: HTTP 404. If the set is missing or disappears during persistence.
+        WorkoutExerciseValidationError: HTTP 400. If the supplied parent differs from the owned set parent.
+        SetEntryDeleteError: HTTP 500. If deletion fails.
+        RequestValidationError: HTTP 422. If path, query, form, or body values are invalid.
+        DatabaseError: HTTP 500. If persistence or an authentication lookup fails; internal details are
+            hidden.
     """
     service.delete(current_user.id, workout_exercise_id, set_entry_id)

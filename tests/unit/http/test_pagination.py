@@ -162,17 +162,11 @@ class HttpPaginationTests(IsolatedAsyncioTestCase):
             ("/progress_photos/", self.photos.list_by_user),
         )
 
-    def assert_page_forwarded(self, path: str, method: Mock, limit: int, offset: int) -> None:
+    def assert_page_forwarded(self, _path: str, method: Mock, limit: int, offset: int) -> None:
         method.assert_called_once()
-        if path == "/goals/history":
-            method.assert_called_once_with(self.user.id, limit, offset)
-        else:
-            self.assertEqual(method.call_args.kwargs["limit"], limit)
-            self.assertEqual(method.call_args.kwargs["offset"], offset)
-            if path == "/workouts/":
-                self.assertEqual(method.call_args.args, (USER_ID,))
-            else:
-                self.assertEqual(method.call_args.kwargs["user_id"], USER_ID)
+        self.assertEqual(method.call_args.kwargs["limit"], limit)
+        self.assertEqual(method.call_args.kwargs["offset"], offset)
+        self.assertEqual(method.call_args.kwargs["user_id"], USER_ID)
 
     async def test_all_list_routes_keep_defaults_and_empty_list_responses(self) -> None:
         for path, method in self.routes:
