@@ -295,3 +295,26 @@ class UserServiceTests(unittest.TestCase):
             self.service.refresh_access_token(RefreshRequest(refresh_token="incoming"))
         self.access.assert_not_called()
         self.refresh.assert_not_called()
+
+    def test_registration_failure_keeps_safe_message_and_original_cause(self) -> None:
+        failure = UserRepositoryError("private SQL and registration details")
+        self.repo.create.side_effect = failure
+        with (
+            self.assertLogs("services.user_service", level="ERROR"),
+            self.assertRaises(UserCreationError) as raised,
+        ):
+            self.service.register_user(self.registration)
+        self.assertEqual(str(raised.exception), "Failed to create user.")
+        self.assertIs(raised.exception.__cause__, failure)
+
+    def test_success_logs_use_ids_without_usernames_or_tokens(self) -> None:
+        self.user.username = "private_name"
+        self.access.return_value = "private_access_token"
+        self.refresh.return_value = "private_refresh_token"
+        with self.assertLogs("services.user_service", level="INFO") as logs:
+            self.service.register_user(self.registration)
+            self.service.login_user(UserLogin(email=self.user.email, password="Original123!"))
+            self.service.refresh_access_token(RefreshRequest(refresh_token="private_incoming_token"))
+        self.assertEqual(len(logs.records), 3)
+        self.assertNotIn("private", " ".join(logs.output))
+        self.assertTrue(all(f"user_id={USER_ID}" in message for message in logs.output))

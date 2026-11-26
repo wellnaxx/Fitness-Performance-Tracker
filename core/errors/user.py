@@ -99,10 +99,13 @@ class UserCreationError(UserServiceError):
     """Raised when user creation fails."""
 
     @classmethod
-    def create_failed(cls, exc: Exception | None = None) -> UserCreationError:
-        if exc is None:
-            return cls("Failed to create user.")
-        return cls(str(exc))
+    def create_failed(cls) -> UserCreationError:
+        """Build a public creation failure without exposing persistence details.
+
+        Returns:
+            A safe creation error; services preserve the underlying failure as its cause.
+        """
+        return cls("Failed to create user.")
 
 
 class IncorrectOldPasswordError(UserServiceError):

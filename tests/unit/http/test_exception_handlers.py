@@ -307,7 +307,7 @@ class ExceptionHandlerTests(IsolatedAsyncioTestCase):
             (DatabaseError("private connection details"), "Database operation failed."),
             (RepositoryError("private query details"), "Database operation failed."),
             (RowValidationError("private row details"), "Database operation failed."),
-            (UserCreationError.create_failed(RuntimeError("private insert details")), "Failed to create user."),
+            (UserCreationError("private insert details"), "Failed to create user."),
             (AppError("private application details"), "Internal server error."),
             (ValueError("private programming error"), "Internal server error."),
             (RuntimeError("private runtime details"), "Internal server error."),
