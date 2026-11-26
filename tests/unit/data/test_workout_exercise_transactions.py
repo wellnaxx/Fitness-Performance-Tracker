@@ -14,13 +14,14 @@ from tests.fixtures import ENTRY_ID, EXERCISE_ID, USER_ID, WORKOUT_ID, entry
 
 class WorkoutExerciseTransactionTests(TestCase):
     def setUp(self) -> None:
+        self.repo = WorkoutExerciseRepository()
         self.connection = MagicMock()
         self.connection.__enter__.return_value = self.connection
         self.cursor = MagicMock()
         self.connection.cursor.return_value.__enter__.return_value = self.cursor
         self.enterContext(patch("data.executor.get_connection", return_value=self.connection))
         self.executor_log = self.enterContext(patch("data.executor.logger"))
-        self.enterContext(patch("repositories.workout_exercise_repository.logger"))
+        self.enterContext(patch.object(self.repo, "logger"))
         self.write = self.enterContext(
             patch("repositories.workout_exercise_repository.execute_write_tx", return_value=1)
         )
@@ -31,7 +32,6 @@ class WorkoutExerciseTransactionTests(TestCase):
         self.fetch = self.enterContext(
             patch("repositories.workout_exercise_repository.fetch_one_tx", return_value=self.row)
         )
-        self.repo = WorkoutExerciseRepository()
         self.data = WorkoutExerciseCreate(exercise_id=EXERCISE_ID, order_index=0)
 
     def test_create_validates_result_then_commits_once(self) -> None:

@@ -34,5 +34,8 @@ class UserGoalsUnitOfWorkRepository(UserGoalsRepository):
         Returns:
             True if the owner exists and is locked until transaction completion;
             False if the owner does not exist.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         return self._executor.fetch_one(QUERIES.user_goals.lock_for_user, (user_id,)) is not None

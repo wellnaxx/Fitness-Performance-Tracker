@@ -22,9 +22,6 @@ if TYPE_CHECKING:
     from schemas.workout_schema import WorkoutCreate, WorkoutPublic, WorkoutUpdate
 
 
-logger = logging.getLogger(__name__)
-
-
 class WorkoutRepository:
     """
     Repository for Workout database operations.
@@ -44,9 +41,12 @@ class WorkoutRepository:
         "notes",
     }
 
+    def __init__(self) -> None:
+        """Initialize the repository logger without opening a database connection."""
+        self.logger = logging.getLogger(__name__)
+
     def create(self, user_id: int, workout_data: WorkoutCreate) -> WorkoutPublic:
-        """
-        Create a new workout for a specific user.
+        """Create a new workout for a specific user.
 
         Args:
             user_id: Owner user ID.
@@ -57,6 +57,9 @@ class WorkoutRepository:
 
         Raises:
             WorkoutRepositoryError: If the inserted row cannot be retrieved afterwards.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         sql = QUERIES.workouts.create
         workout_id = execute_insert(
@@ -74,7 +77,7 @@ class WorkoutRepository:
 
         workout = self.get_by_id(workout_id)
         if workout is None:
-            logger.warning("Inserted row missing during readback | entity_id=%s", workout_id)
+            self.logger.warning("Inserted row missing during readback | entity_id=%s", workout_id)
             raise WorkoutRepositoryError.inserted_missing(workout_id)
         return workout
 
@@ -88,6 +91,11 @@ class WorkoutRepository:
             The workout if found, otherwise None.
 
         This lookup does not authorize access; services must verify ownership or visibility.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(QUERIES.workouts.get_by_id, (workout_id,))
         if row is None:
@@ -95,8 +103,7 @@ class WorkoutRepository:
         return map_workout(row)
 
     def get_by_user_and_id(self, user_id: int, workout_id: int) -> WorkoutPublic | None:
-        """
-        Retrieve a workout by ID only if it belongs to the user.
+        """Retrieve a workout by ID only if it belongs to the user.
 
         Args:
             user_id: Owner user ID.
@@ -104,6 +111,11 @@ class WorkoutRepository:
 
         Returns:
             The workout if found and owned by the user, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(
             QUERIES.workouts.get_by_user_and_id,
@@ -121,8 +133,7 @@ class WorkoutRepository:
         date_from: date | None = None,
         date_to: date | None = None,
     ) -> list[WorkoutPublic]:
-        """
-        List workouts for a user with pagination and date filters.
+        """List workouts for a user with pagination and date filters.
 
         Args:
             user_id: Owner user ID.
@@ -133,6 +144,11 @@ class WorkoutRepository:
 
         Returns:
             Workouts ordered from newest to oldest.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         pagination = normalize_pagination(limit, offset)
 
@@ -159,8 +175,7 @@ class WorkoutRepository:
         workout_id: int,
         update_data: WorkoutUpdate,
     ) -> WorkoutPublic | None:
-        """
-        Partially update a workout owned by the user.
+        """Partially update a workout owned by the user.
 
         Args:
             user_id: Owner user ID.
@@ -172,6 +187,9 @@ class WorkoutRepository:
 
         Raises:
             WorkoutRepositoryError: If any provided fields are not allowed to be updated.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         fields = update_data.model_dump(exclude_none=True)
         if not fields:
@@ -179,7 +197,7 @@ class WorkoutRepository:
 
         unknown = set(fields) - self._WORKOUT_UPDATE_WHITELIST
         if unknown:
-            logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
+            self.logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
             raise WorkoutRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
@@ -188,8 +206,7 @@ class WorkoutRepository:
         return self.get_by_user_and_id(user_id, workout_id)
 
     def delete_owned(self, user_id: int, workout_id: int) -> bool:
-        """
-        Delete a workout owned by the user.
+        """Delete a workout owned by the user.
 
         Args:
             user_id: Owner user ID.
@@ -197,6 +214,9 @@ class WorkoutRepository:
 
         Returns:
             True if a row was deleted, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         return (
             execute_write(
@@ -207,8 +227,7 @@ class WorkoutRepository:
         )
 
     def get_visible_by_id(self, user_id: int, workout_id: int) -> WorkoutPublic | None:
-        """
-        Retrieve a workout by ID if it is globally visible or owned by the user.
+        """Retrieve a workout by ID if it is globally visible or owned by the user.
 
         Args:
             workout_id: Workout ID.
@@ -216,6 +235,11 @@ class WorkoutRepository:
 
         Returns:
             The workout if visible to the user, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(
             QUERIES.workouts.get_visible_by_id,
@@ -228,14 +252,13 @@ class WorkoutRepository:
     def get_all_visible_for_user(
         self,
         user_id: int,
-        search: str | None = None,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
+        search: str | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
     ) -> list[WorkoutPublic]:
-        """
-        List workouts for a user with optional search filtering.
+        """List workouts for a user with optional search filtering.
 
         Args:
             user_id: Owner user ID.
@@ -247,6 +270,11 @@ class WorkoutRepository:
 
         Returns:
             Workouts ordered from newest to oldest.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         pagination = normalize_pagination(limit, offset)
 

@@ -29,6 +29,9 @@ class UserGoalsRepositoryPort(Protocol):
 
         Raises:
             UserGoalsRepositoryError: If the goal is inserted but cannot be retrieved afterwards.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -41,6 +44,11 @@ class UserGoalsRepositoryPort(Protocol):
 
         Returns:
             UserGoalPublic if found and belongs to user, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -55,6 +63,11 @@ class UserGoalsRepositoryPort(Protocol):
 
         Returns:
             UserGoalPublic if an active goal exists, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -73,6 +86,11 @@ class UserGoalsRepositoryPort(Protocol):
 
         Returns:
             A list of the user's goals ordered from newest to oldest.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -91,6 +109,9 @@ class UserGoalsRepositoryPort(Protocol):
 
         Raises:
             UserGoalsRepositoryError: If any provided fields are not in the update whitelist.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -102,6 +123,11 @@ class UserGoalsRepositoryPort(Protocol):
 
         Returns:
             The updated goal if it exists, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -118,5 +144,10 @@ class UserGoalsRepositoryPort(Protocol):
         Notes:
             Atomically set one goal as active and deactivate all others for the user.
             Ensures that at most one goal is active per user.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...

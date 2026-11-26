@@ -31,6 +31,9 @@ class WorkoutRepositoryPort(Protocol):
 
         Raises:
             WorkoutRepositoryError: If the inserted row cannot be retrieved afterwards.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -43,6 +46,11 @@ class WorkoutRepositoryPort(Protocol):
 
         Returns:
             The workout if found and owned by the user, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -59,6 +67,9 @@ class WorkoutRepositoryPort(Protocol):
 
         Raises:
             WorkoutRepositoryError: If any provided fields are not allowed to be updated.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -71,6 +82,9 @@ class WorkoutRepositoryPort(Protocol):
 
         Returns:
             True if a row was deleted, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         ...
 
@@ -83,15 +97,20 @@ class WorkoutRepositoryPort(Protocol):
 
         Returns:
             The workout if visible to the user, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
     def get_all_visible_for_user(
         self,
         user_id: int,
-        search: str | None = None,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
+        search: str | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
     ) -> list[WorkoutPublic]:
@@ -107,5 +126,10 @@ class WorkoutRepositoryPort(Protocol):
 
         Returns:
             Workouts ordered from newest to oldest.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...

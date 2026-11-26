@@ -20,13 +20,13 @@ if TYPE_CHECKING:
     from data.executor import Row
     from ports.unit_of_work import UnitOfWorkSetEntryRepositoryPort, UnitOfWorkUserGoalsRepositoryPort
 
-logger = logging.getLogger(__name__)
-
 
 class PostgresUnitOfWork:
     """Own one connection and cursor for all repositories in a service operation."""
 
     def __init__(self) -> None:
+        """Initialize transaction state and its logger without opening a connection."""
+        self.logger = logging.getLogger(__name__)
         self._conn: Connection[Row] | None = None
         self._cursor: Cursor[Row] | None = None
         self._goals: UnitOfWorkUserGoalsRepositoryPort | None = None
@@ -62,7 +62,7 @@ class PostgresUnitOfWork:
             self._close_resources(cursor, conn)
             if isinstance(exc, DatabaseError):
                 raise
-            logger.exception("Failed to open database unit of work")
+            self.logger.exception("Failed to open database unit of work")
             raise DatabaseError.transaction_failed(exc) from exc
 
         self._conn = conn
@@ -70,7 +70,7 @@ class PostgresUnitOfWork:
         self._goals = goals
         self._set_entry = set_entry
         self._committed = False
-        logger.debug("Database unit of work opened")
+        self.logger.debug("Database unit of work opened")
         return self
 
     def __exit__(
@@ -91,7 +91,7 @@ class PostgresUnitOfWork:
                     self.rollback()
                 except Exception as error:
                     rollback_error = error
-                    logger.exception("Failed to roll back database unit of work")
+                    self.logger.exception("Failed to roll back database unit of work")
         finally:
             self._close_resources(self._cursor, self._conn)
             self._cursor = None
@@ -100,7 +100,7 @@ class PostgresUnitOfWork:
             self._set_entry = None
 
         if isinstance(exc, Error):
-            logger.error("Database transaction failed", exc_info=(type(exc), exc, tb))
+            self.logger.error("Database transaction failed", exc_info=(type(exc), exc, tb))
             raise DatabaseError.transaction_failed(exc) from exc
         if exc_type is None and rollback_error is not None:
             raise rollback_error
@@ -114,10 +114,10 @@ class PostgresUnitOfWork:
         except DatabaseError:
             raise
         except Exception as exc:
-            logger.exception("Failed to commit database unit of work")
+            self.logger.exception("Failed to commit database unit of work")
             raise DatabaseError.transaction_failed(exc) from exc
         self._committed = True
-        logger.debug("Database unit of work committed")
+        self.logger.debug("Database unit of work committed")
 
     def rollback(self) -> None:
         if self._conn is None:
@@ -127,20 +127,28 @@ class PostgresUnitOfWork:
         except DatabaseError:
             raise
         except Exception as exc:
-            logger.exception("Failed to roll back database transaction")
+            self.logger.exception("Failed to roll back database transaction")
             raise DatabaseError.transaction_failed(exc) from exc
         self._committed = False
-        logger.debug("Database unit of work rolled back")
+        self.logger.debug("Database unit of work rolled back")
 
-    @staticmethod
-    def _close_resources(cursor: Cursor[Row] | None, conn: Connection[Row] | None) -> None:
+    def _close_resources(self, cursor: Cursor[Row] | None, conn: Connection[Row] | None) -> None:
+        """Close all acquired resources while preserving the original transaction error.
+
+        Args:
+            cursor: Acquired cursor, or None if setup did not reach cursor creation.
+            conn: Acquired connection, or None if opening the connection failed.
+
+        Returns:
+            None; cleanup failures are logged without hiding the original failure.
+        """
         if cursor is not None:
             try:
                 cursor.close()
             except Exception:
-                logger.exception("Failed to close unit-of-work cursor")
+                self.logger.exception("Failed to close unit-of-work cursor")
         if conn is not None:
             try:
                 conn.close()
             except Exception:
-                logger.exception("Failed to close unit-of-work connection")
+                self.logger.exception("Failed to close unit-of-work connection")

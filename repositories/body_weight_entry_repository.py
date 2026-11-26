@@ -29,9 +29,6 @@ if TYPE_CHECKING:
     )
 
 
-logger = logging.getLogger(__name__)
-
-
 def _is_date_conflict(error: DatabaseError) -> bool:
     """Recognize only the PostgreSQL uniqueness constraint on user and measurement date.
 
@@ -64,13 +61,16 @@ class BodyWeightEntryRepository:
         "entry_date",
     }
 
+    def __init__(self) -> None:
+        """Initialize the repository logger without opening a database connection."""
+        self.logger = logging.getLogger(__name__)
+
     def create(
         self,
         user_id: int,
         entry_data: BodyWeightEntryCreate,
     ) -> BodyWeightEntryPublic:
-        """
-        Create a new body weight entry for a user.
+        """Create a new body weight entry for a user.
 
         Args:
             user_id: Owner user ID.
@@ -83,6 +83,9 @@ class BodyWeightEntryRepository:
             BodyWeightEntryRepositoryError: If the inserted row cannot be retrieved afterwards.
             BodyWeightEntryDateConflictRepositoryError: If the user already has an entry on the date,
                 including a concurrent insertion after a service-level availability check.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         try:
             entry_id = execute_insert(
@@ -96,7 +99,7 @@ class BodyWeightEntryRepository:
 
         entry = self.get_by_id(entry_id)
         if entry is None:
-            logger.warning("Inserted row missing during readback | entity_id=%s", entry_id)
+            self.logger.warning("Inserted row missing during readback | entity_id=%s", entry_id)
             raise BodyWeightEntryRepositoryError.inserted_missing(entry_id)
         return entry
 
@@ -110,6 +113,11 @@ class BodyWeightEntryRepository:
             The entry if found, otherwise None.
 
         This lookup does not authorize access; services must verify ownership or visibility.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(QUERIES.body_weight_entries.get_by_id, (entry_id,))
         if row is None:
@@ -121,8 +129,7 @@ class BodyWeightEntryRepository:
         user_id: int,
         entry_id: int,
     ) -> BodyWeightEntryPublic | None:
-        """
-        Retrieve a body weight entry by ID only if it belongs to the user.
+        """Retrieve a body weight entry by ID only if it belongs to the user.
 
         Args:
             user_id: Owner user ID.
@@ -130,6 +137,11 @@ class BodyWeightEntryRepository:
 
         Returns:
             The entry if found and owned by the user, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(
             QUERIES.body_weight_entries.get_by_user_and_id,
@@ -144,8 +156,7 @@ class BodyWeightEntryRepository:
         user_id: int,
         entry_date: date,
     ) -> BodyWeightEntryPublic | None:
-        """
-        Retrieve a body weight entry for a user by date.
+        """Retrieve a body weight entry for a user by date.
 
         Args:
             user_id: Owner user ID.
@@ -153,6 +164,11 @@ class BodyWeightEntryRepository:
 
         Returns:
             The entry if found, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(
             QUERIES.body_weight_entries.get_by_user_and_date,
@@ -163,14 +179,18 @@ class BodyWeightEntryRepository:
         return map_body_weight_entry(row)
 
     def get_latest_for_user(self, user_id: int) -> BodyWeightEntryPublic | None:
-        """
-        Retrieve the most recent body weight entry for a user.
+        """Retrieve the most recent body weight entry for a user.
 
         Args:
             user_id: Owner user ID.
 
         Returns:
             The latest entry if one exists, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(
             QUERIES.body_weight_entries.get_latest_for_user,
@@ -188,8 +208,7 @@ class BodyWeightEntryRepository:
         date_from: date | None = None,
         date_to: date | None = None,
     ) -> list[BodyWeightEntryPublic]:
-        """
-        List body weight entries for a user with pagination and date filters.
+        """List body weight entries for a user with pagination and date filters.
 
         Args:
             user_id: Owner user ID.
@@ -200,6 +219,11 @@ class BodyWeightEntryRepository:
 
         Returns:
             Entries ordered from newest to oldest.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         pagination = normalize_pagination(limit, offset)
 
@@ -226,8 +250,7 @@ class BodyWeightEntryRepository:
         entry_id: int,
         update_data: BodyWeightEntryUpdate,
     ) -> BodyWeightEntryPublic | None:
-        """
-        Partially update a body weight entry owned by the user.
+        """Partially update a body weight entry owned by the user.
 
         Args:
             user_id: Owner user ID.
@@ -241,6 +264,9 @@ class BodyWeightEntryRepository:
             BodyWeightEntryRepositoryError: If any provided fields are not allowed to be updated.
             BodyWeightEntryDateConflictRepositoryError: If another entry for this user occupies
                 the requested date. Keeping the current date is valid.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         fields = update_data.model_dump(exclude_none=True)
         if not fields:
@@ -248,7 +274,7 @@ class BodyWeightEntryRepository:
 
         unknown = set(fields) - self._BODY_WEIGHT_ENTRY_UPDATE_WHITELIST
         if unknown:
-            logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
+            self.logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
             raise BodyWeightEntryRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
@@ -262,8 +288,7 @@ class BodyWeightEntryRepository:
         return self.get_by_user_and_id(user_id, entry_id)
 
     def delete_owned(self, user_id: int, entry_id: int) -> bool:
-        """
-        Delete a body weight entry owned by the user.
+        """Delete a body weight entry owned by the user.
 
         Args:
             user_id: Owner user ID.
@@ -271,6 +296,9 @@ class BodyWeightEntryRepository:
 
         Returns:
             True if a row was deleted, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         return (
             execute_write(

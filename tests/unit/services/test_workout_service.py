@@ -55,7 +55,9 @@ class WorkoutServiceTests(unittest.TestCase):
                     date_to=TODAY,
                 )
                 self.assertEqual(actual, results)
-                self.repo.get_all_visible_for_user.assert_called_with(USER_ID, "Strength", 2, 3, TODAY, TODAY)
+                self.repo.get_all_visible_for_user.assert_called_with(
+                    user_id=USER_ID, limit=2, offset=3, search="Strength", date_from=TODAY, date_to=TODAY
+                )
 
     def test_update_owned_record(self) -> None:
         self.repo.update_owned.return_value = self.record.model_copy(update={"name": "Changed"})

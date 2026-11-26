@@ -31,6 +31,9 @@ class MealRepositoryPort(Protocol):
 
         Raises:
             MealRepositoryError: If the inserted meal cannot be retrieved afterwards.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -43,6 +46,11 @@ class MealRepositoryPort(Protocol):
 
         Returns:
             The meal if found and owned by the user, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -67,6 +75,11 @@ class MealRepositoryPort(Protocol):
 
         Returns:
             A list of meals ordered from newest to oldest.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -83,6 +96,9 @@ class MealRepositoryPort(Protocol):
 
         Raises:
             MealRepositoryError: If any provided fields are not allowed to be updated.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -95,5 +111,8 @@ class MealRepositoryPort(Protocol):
 
         Returns:
             True if a row was deleted, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         ...

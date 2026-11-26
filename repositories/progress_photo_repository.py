@@ -26,9 +26,6 @@ if TYPE_CHECKING:
     )
 
 
-logger = logging.getLogger(__name__)
-
-
 class ProgressPhotoRepository:
     """
     Repository for ProgressPhoto database operations.
@@ -45,13 +42,16 @@ class ProgressPhotoRepository:
         "notes",
     }
 
+    def __init__(self) -> None:
+        """Initialize the repository logger without opening a database connection."""
+        self.logger = logging.getLogger(__name__)
+
     def create(
         self,
         user_id: int,
         photo_data: ProgressPhotoCreate,
     ) -> ProgressPhotoPublic:
-        """
-        Create a new progress photo entry for a user.
+        """Create a new progress photo entry for a user.
 
         Args:
             user_id: Owner user ID.
@@ -62,6 +62,9 @@ class ProgressPhotoRepository:
 
         Raises:
             ProgressPhotoRepositoryError: If the inserted row cannot be retrieved afterwards.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         photo_id = execute_insert(
             QUERIES.progress_photos.create,
@@ -70,7 +73,7 @@ class ProgressPhotoRepository:
 
         photo = self.get_by_id(photo_id)
         if photo is None:
-            logger.warning("Inserted row missing during readback | entity_id=%s", photo_id)
+            self.logger.warning("Inserted row missing during readback | entity_id=%s", photo_id)
             raise ProgressPhotoRepositoryError.inserted_missing(photo_id)
         return photo
 
@@ -84,6 +87,11 @@ class ProgressPhotoRepository:
             The progress photo if found, otherwise None.
 
         This lookup does not authorize access; services must verify ownership or visibility.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(QUERIES.progress_photos.get_by_id, (photo_id,))
         if row is None:
@@ -95,8 +103,7 @@ class ProgressPhotoRepository:
         user_id: int,
         photo_id: int,
     ) -> ProgressPhotoPublic | None:
-        """
-        Retrieve a progress photo by ID only if it belongs to the user.
+        """Retrieve a progress photo by ID only if it belongs to the user.
 
         Args:
             user_id: Owner user ID.
@@ -104,6 +111,11 @@ class ProgressPhotoRepository:
 
         Returns:
             The photo if found and owned by the user, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(
             QUERIES.progress_photos.get_by_user_and_id,
@@ -121,8 +133,7 @@ class ProgressPhotoRepository:
         date_from: date | None = None,
         date_to: date | None = None,
     ) -> list[ProgressPhotoPublic]:
-        """
-        List progress photos for a user with pagination and date filters.
+        """List progress photos for a user with pagination and date filters.
 
         Args:
             user_id: Owner user ID.
@@ -133,6 +144,11 @@ class ProgressPhotoRepository:
 
         Returns:
             Progress photos ordered from newest to oldest.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         pagination = normalize_pagination(limit, offset)
 
@@ -159,8 +175,7 @@ class ProgressPhotoRepository:
         photo_id: int,
         update_data: ProgressPhotoUpdate,
     ) -> ProgressPhotoPublic | None:
-        """
-        Partially update a progress photo owned by the user.
+        """Partially update a progress photo owned by the user.
 
         Args:
             user_id: Owner user ID.
@@ -172,6 +187,9 @@ class ProgressPhotoRepository:
 
         Raises:
             ProgressPhotoRepositoryError: If any provided fields are not allowed to be updated.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         fields = update_data.model_dump(exclude_none=True)
         if not fields:
@@ -182,7 +200,7 @@ class ProgressPhotoRepository:
 
         unknown = set(fields) - self._PROGRESS_PHOTO_UPDATE_WHITELIST
         if unknown:
-            logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
+            self.logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
             raise ProgressPhotoRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
@@ -191,8 +209,7 @@ class ProgressPhotoRepository:
         return self.get_by_user_and_id(user_id, photo_id)
 
     def delete_owned(self, user_id: int, photo_id: int) -> bool:
-        """
-        Delete a progress photo owned by the user.
+        """Delete a progress photo owned by the user.
 
         Args:
             user_id: Owner user ID.
@@ -200,6 +217,9 @@ class ProgressPhotoRepository:
 
         Returns:
             True if a row was deleted, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         return (
             execute_write(

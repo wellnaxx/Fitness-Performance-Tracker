@@ -27,6 +27,9 @@ class MealItemRepositoryPort(Protocol):
 
         Raises:
             MealItemRepositoryError: If the inserted item cannot be retrieved afterwards.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -38,6 +41,11 @@ class MealItemRepositoryPort(Protocol):
 
         Returns:
             The matching item, or None if it does not exist.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -50,6 +58,11 @@ class MealItemRepositoryPort(Protocol):
 
         Returns:
             The matching item, or None if missing or belonging to another meal.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -61,6 +74,11 @@ class MealItemRepositoryPort(Protocol):
 
         Returns:
             Items in ascending ID order, or an empty list when none match.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -83,6 +101,9 @@ class MealItemRepositoryPort(Protocol):
 
         Raises:
             MealItemRepositoryError: If unsupported update fields are supplied.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -95,5 +116,8 @@ class MealItemRepositoryPort(Protocol):
 
         Returns:
             True if deleted; False if missing or belonging to another meal.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         ...

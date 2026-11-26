@@ -93,8 +93,7 @@ class WorkoutService:
         date_from: date | None = None,
         date_to: date | None = None,
     ) -> list[WorkoutPublic]:
-        """
-        List workouts visible to the user with pagination.
+        """List workouts visible to the user with pagination.
 
         Args:
             user_id: ID of the user requesting the workouts
@@ -106,9 +105,14 @@ class WorkoutService:
 
         Returns:
             List of WorkoutPublic schemas for the visible workouts
+
+        Raises:
+            DatabaseError: If the listing fails.
+            RowValidationError: If a stored row has invalid types.
+            ValidationError: If a stored row violates the public schema.
         """
         workouts = self.workout_repository.get_all_visible_for_user(
-            user_id, search, limit, offset, date_from, date_to
+            user_id=user_id, limit=limit, offset=offset, search=search, date_from=date_from, date_to=date_to
         )
         self.logger.debug(
             "Listed %s workouts for user %s with limit %s and offset %s.", len(workouts), user_id, limit, offset

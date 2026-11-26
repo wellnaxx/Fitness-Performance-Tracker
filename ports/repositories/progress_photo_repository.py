@@ -33,6 +33,9 @@ class ProgressPhotoRepositoryPort(Protocol):
 
         Raises:
             ProgressPhotoRepositoryError: If the inserted row cannot be retrieved afterwards.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -46,6 +49,11 @@ class ProgressPhotoRepositoryPort(Protocol):
             The progress photo if found, otherwise None.
 
         This lookup does not authorize access; services must verify ownership or visibility.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -58,6 +66,11 @@ class ProgressPhotoRepositoryPort(Protocol):
 
         Returns:
             The photo if found and owned by the user, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -80,6 +93,11 @@ class ProgressPhotoRepositoryPort(Protocol):
 
         Returns:
             Progress photos ordered from newest to oldest.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -102,6 +120,9 @@ class ProgressPhotoRepositoryPort(Protocol):
 
         Raises:
             ProgressPhotoRepositoryError: If any provided fields are not allowed to be updated.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -115,5 +136,8 @@ class ProgressPhotoRepositoryPort(Protocol):
         Returns:
             True if the record was deleted; False if missing or owned by another user.
             The image at the stored URL is unaffected.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         ...

@@ -19,9 +19,6 @@ if TYPE_CHECKING:
     from schemas.meal_item_schema import MealItemCreate, MealItemPublic, MealItemUpdate
 
 
-logger = logging.getLogger(__name__)
-
-
 class MealItemRepository:
     """
     Repository for MealItem database operations.
@@ -41,9 +38,12 @@ class MealItemRepository:
         "fats",
     }
 
+    def __init__(self) -> None:
+        """Initialize the repository logger without opening a database connection."""
+        self.logger = logging.getLogger(__name__)
+
     def create(self, meal_item_data: MealItemCreate) -> MealItemPublic:
-        """
-        Create a new item inside a meal.
+        """Create a new item inside a meal.
 
         Args:
             meal_item_data: Meal item creation payload.
@@ -53,6 +53,9 @@ class MealItemRepository:
 
         Raises:
             MealItemRepositoryError: If the inserted item cannot be retrieved afterwards.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         sql = QUERIES.meal_items.create
         meal_item_id = execute_insert(
@@ -70,7 +73,7 @@ class MealItemRepository:
 
         meal_item = self.get_by_id(meal_item_id)
         if meal_item is None:
-            logger.warning("Inserted row missing during readback | entity_id=%s", meal_item_id)
+            self.logger.warning("Inserted row missing during readback | entity_id=%s", meal_item_id)
             raise MealItemRepositoryError.inserted_missing(meal_item_id)
         return meal_item
 
@@ -84,6 +87,11 @@ class MealItemRepository:
             The meal item if found, otherwise None.
 
         This lookup does not authorize access; services must verify ownership or visibility.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(QUERIES.meal_items.get_by_id, (meal_item_id,))
         if row is None:
@@ -91,8 +99,7 @@ class MealItemRepository:
         return map_meal_item(row)
 
     def get_by_meal_and_id(self, meal_id: int, meal_item_id: int) -> MealItemPublic | None:
-        """
-        Retrieve a meal item by ID only if it belongs to the specified meal.
+        """Retrieve a meal item by ID only if it belongs to the specified meal.
 
         Args:
             meal_id: Parent meal ID.
@@ -100,6 +107,11 @@ class MealItemRepository:
 
         Returns:
             The meal item if found in the meal, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(
             QUERIES.meal_items.get_by_meal_and_id,
@@ -110,14 +122,18 @@ class MealItemRepository:
         return map_meal_item(row)
 
     def list_by_meal(self, meal_id: int) -> list[MealItemPublic]:
-        """
-        List all items for a given meal.
+        """List all items for a given meal.
 
         Args:
             meal_id: Parent meal ID.
 
         Returns:
             Meal items ordered by insertion ID.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         rows = fetch_all(
             QUERIES.meal_items.list_by_meal,
@@ -131,8 +147,7 @@ class MealItemRepository:
         meal_item_id: int,
         update_data: MealItemUpdate,
     ) -> MealItemPublic | None:
-        """
-        Partially update an item within a meal.
+        """Partially update an item within a meal.
 
         Args:
             meal_id: Parent meal ID.
@@ -144,6 +159,9 @@ class MealItemRepository:
 
         Raises:
             MealItemRepositoryError: If any provided fields are not allowed to be updated.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         fields = update_data.model_dump(exclude_none=True)
         if not fields:
@@ -151,7 +169,7 @@ class MealItemRepository:
 
         unknown = set(fields) - self._MEAL_ITEM_UPDATE_WHITELIST
         if unknown:
-            logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
+            self.logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
             raise MealItemRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
@@ -160,8 +178,7 @@ class MealItemRepository:
         return self.get_by_meal_and_id(meal_id, meal_item_id)
 
     def delete_in_meal(self, meal_id: int, meal_item_id: int) -> bool:
-        """
-        Delete a meal item from the specified meal.
+        """Delete a meal item from the specified meal.
 
         Args:
             meal_id: Parent meal ID.
@@ -169,6 +186,9 @@ class MealItemRepository:
 
         Returns:
             True if a row was deleted, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         return (
             execute_write(

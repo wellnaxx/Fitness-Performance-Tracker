@@ -37,6 +37,9 @@ class SetEntryUnitOfWorkRepository(SetEntryRepository):
         Returns:
             True if the parent exists and is locked until transaction completion;
             False if the parent does not exist.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         return (
             self._executor.fetch_one(QUERIES.set_entries.lock_for_workout_exercise, (workout_exercise_id,))

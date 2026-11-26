@@ -27,6 +27,9 @@ class UserRepositoryPort(Protocol):
 
         Raises:
             UserRepositoryError: If the inserted user cannot be retrieved afterwards.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -38,6 +41,9 @@ class UserRepositoryPort(Protocol):
 
         Returns:
             True if a matching user exists, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         ...
 
@@ -49,6 +55,9 @@ class UserRepositoryPort(Protocol):
 
         Returns:
             True if a matching user exists, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         ...
 
@@ -62,6 +71,11 @@ class UserRepositoryPort(Protocol):
             The user if found, otherwise None.
 
         This lookup does not authorize access; services must verify ownership or visibility.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -73,6 +87,11 @@ class UserRepositoryPort(Protocol):
 
         Returns:
             The user if found, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -91,6 +110,9 @@ class UserRepositoryPort(Protocol):
 
         Raises:
             UserRepositoryError: If unsupported profile fields are supplied.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -103,6 +125,11 @@ class UserRepositoryPort(Protocol):
 
         Returns:
             The updated user if found, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -115,6 +142,9 @@ class UserRepositoryPort(Protocol):
 
         Returns:
             True if a row was updated, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         ...
 
@@ -126,5 +156,8 @@ class UserRepositoryPort(Protocol):
 
         Returns:
             True if a row was deleted, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         ...

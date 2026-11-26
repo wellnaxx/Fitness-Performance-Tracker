@@ -20,9 +20,6 @@ if TYPE_CHECKING:
     from schemas.exercise_schema import ExerciseCreate, ExercisePublic, ExerciseUpdate
 
 
-logger = logging.getLogger(__name__)
-
-
 class ExerciseRepository:
     """
     Repository for Exercise database operations.
@@ -41,9 +38,12 @@ class ExerciseRepository:
         "is_compound",
     }
 
+    def __init__(self) -> None:
+        """Initialize the repository logger without opening a database connection."""
+        self.logger = logging.getLogger(__name__)
+
     def create(self, user_id: int, exercise_data: ExerciseCreate) -> ExercisePublic:
-        """
-        Create a new custom exercise in the database.
+        """Create a new custom exercise in the database.
 
         Args:
             exercise_data (ExerciseCreate): The data for the new exercise.
@@ -54,6 +54,9 @@ class ExerciseRepository:
 
         Raises:
             ExerciseRepositoryError: If the exercise could not be retrieved after creation.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         sql = QUERIES.exercises.create
         exercise_id = execute_insert(
@@ -71,7 +74,7 @@ class ExerciseRepository:
 
         exercise = self.get_by_id(exercise_id)
         if exercise is None:
-            logger.warning("Inserted row missing during readback | entity_id=%s", exercise_id)
+            self.logger.warning("Inserted row missing during readback | entity_id=%s", exercise_id)
             raise ExerciseRepositoryError.inserted_missing(exercise_id)
         return exercise
 
@@ -85,6 +88,11 @@ class ExerciseRepository:
             ExercisePublic: The exercise data if found, otherwise None.
 
         This lookup does not authorize access; services must verify ownership or visibility.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         sql = QUERIES.exercises.get_by_id
         row = fetch_one(sql, (exercise_id,))
@@ -93,8 +101,7 @@ class ExerciseRepository:
         return map_exercise(row)
 
     def get_visible_by_id(self, user_id: int, exercise_id: int) -> ExercisePublic | None:
-        """
-        Retrieve an exercise by its ID if it is visible to the specified user.
+        """Retrieve an exercise by its ID if it is visible to the specified user.
 
         An exercise is considered visible if it is either a predefined exercise (created_by IS NULL)
         or a custom exercise created by the user.
@@ -105,6 +112,11 @@ class ExerciseRepository:
 
         Returns:
             ExercisePublic: The exercise data if found and visible, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         exercise = self.get_by_id(exercise_id)
         if exercise is None:
@@ -124,8 +136,7 @@ class ExerciseRepository:
         is_compound: bool | None = None,
         is_custom: bool | None = None,
     ) -> list[ExercisePublic]:
-        """
-        List all exercises visible to the specified user.
+        """List all exercises visible to the specified user.
 
         An exercise is considered visible if it is either a predefined exercise (created_by IS NULL)
         or a custom exercise created by the user.
@@ -142,6 +153,11 @@ class ExerciseRepository:
 
         Returns:
             list[ExercisePublic]: A list of visible exercises.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         pagination = normalize_pagination(limit, offset)
         filters: list[str] = []
@@ -172,8 +188,7 @@ class ExerciseRepository:
         return [map_exercise(row) for row in rows]
 
     def update_owned(self, user_id: int, exercise_id: int, updates: ExerciseUpdate) -> ExercisePublic | None:
-        """
-        Update an existing exercise owned by the specified user.
+        """Update an existing exercise owned by the specified user.
 
         Args:
             user_id (int): The ID of the user who owns the exercise.
@@ -184,6 +199,9 @@ class ExerciseRepository:
             ExercisePublic: The updated exercise data if the update was successful, otherwise None.
         Raises:
             ExerciseRepositoryError: If invalid update fields are provided.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
 
         fields = updates.model_dump(exclude_none=True)
@@ -192,7 +210,7 @@ class ExerciseRepository:
 
         unknown = set(fields) - self._EXERCISE_UPDATE_WHITELIST
         if unknown:
-            logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
+            self.logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
             raise ExerciseRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
@@ -206,8 +224,7 @@ class ExerciseRepository:
         return self.get_visible_by_id(user_id, exercise_id)
 
     def delete_owned(self, user_id: int, exercise_id: int) -> bool:
-        """
-        Delete an existing exercise owned by the specified user.
+        """Delete an existing exercise owned by the specified user.
 
         Args:
             user_id (int): The ID of the user who owns the exercise.
@@ -215,6 +232,9 @@ class ExerciseRepository:
 
         Returns:
             bool: True if the exercise was deleted, False if it was not found or not owned by the user.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         sql = QUERIES.exercises.delete_owned
         rows_affected = execute_write(sql, (exercise_id, user_id))
@@ -226,8 +246,7 @@ class ExerciseRepository:
         name: str,
         exclude_exercise_id: int | None = None,
     ) -> bool:
-        """
-        Check if an exercise with the given name exists and is visible to the specified user.
+        """Check if an exercise with the given name exists and is visible to the specified user.
 
         Args:
             name (str): The name of the exercise to check for existence.
@@ -236,6 +255,9 @@ class ExerciseRepository:
 
         Returns:
             bool: True if an exercise with the given name exists and is visible, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         filters: list[str] = []
         params: list[object] = [name, user_id]

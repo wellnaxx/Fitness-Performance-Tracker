@@ -20,9 +20,6 @@ if TYPE_CHECKING:
     from schemas.user_schema import UserCreate, UserInternal
 
 
-logger = logging.getLogger(__name__)
-
-
 class UserRepository:
     """
     Repository for User database operations.
@@ -43,9 +40,12 @@ class UserRepository:
         "measurement_unit_preference",
     }
 
+    def __init__(self) -> None:
+        """Initialize the repository logger without opening a database connection."""
+        self.logger = logging.getLogger(__name__)
+
     def create(self, user_data: UserCreate, password_hash: str) -> UserInternal:
-        """
-        Create a new user account.
+        """Create a new user account.
 
         Args:
             user_data: User creation payload.
@@ -56,6 +56,9 @@ class UserRepository:
 
         Raises:
             UserRepositoryError: If the inserted user cannot be retrieved afterwards.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         sql = QUERIES.users.create
         user_id = execute_insert(
@@ -72,19 +75,21 @@ class UserRepository:
 
         user = self.get_by_id(user_id)
         if user is None:
-            logger.warning("Inserted row missing during readback | entity_id=%s", user_id)
+            self.logger.warning("Inserted row missing during readback | entity_id=%s", user_id)
             raise UserRepositoryError.inserted_missing(user_id)
         return user
 
     def username_exists(self, username: str) -> bool:
-        """
-        Check whether a username already exists.
+        """Check whether a username already exists.
 
         Args:
             username: Username to look up.
 
         Returns:
             True if a matching user exists, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         return (
             fetch_one(
@@ -95,14 +100,16 @@ class UserRepository:
         )
 
     def email_exists(self, email: str) -> bool:
-        """
-        Check whether an email address already exists.
+        """Check whether an email address already exists.
 
         Args:
             email: Email address to look up.
 
         Returns:
             True if a matching user exists, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         return (
             fetch_one(
@@ -122,6 +129,11 @@ class UserRepository:
             The user if found, otherwise None.
 
         This lookup does not authorize access; services must verify ownership or visibility.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(QUERIES.users.get_by_id, (user_id,))
         if row is None:
@@ -129,14 +141,18 @@ class UserRepository:
         return map_user(row)
 
     def get_by_username(self, username: str) -> UserInternal | None:
-        """
-        Retrieve a user by username.
+        """Retrieve a user by username.
 
         Args:
             username: Username value.
 
         Returns:
             The user if found, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(QUERIES.users.get_by_username, (username,))
         if row is None:
@@ -144,14 +160,18 @@ class UserRepository:
         return map_user(row)
 
     def get_by_email(self, email: str) -> UserInternal | None:
-        """
-        Retrieve a user by email address.
+        """Retrieve a user by email address.
 
         Args:
             email: Email value.
 
         Returns:
             The user if found, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(QUERIES.users.get_by_email, (email,))
         if row is None:
@@ -159,8 +179,7 @@ class UserRepository:
         return map_user(row)
 
     def get_all(self, limit: int = DEFAULT_LIMIT, offset: int = DEFAULT_OFFSET) -> list[UserInternal]:
-        """
-        Retrieve users with pagination.
+        """Retrieve users with pagination.
 
         Args:
             limit: Maximum number of rows to return.
@@ -168,6 +187,11 @@ class UserRepository:
 
         Returns:
             Users ordered from newest to oldest.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         pagination = normalize_pagination(limit, offset)
 
@@ -192,13 +216,16 @@ class UserRepository:
 
         Raises:
             UserRepositoryError: If unsupported profile fields are supplied.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         if not updates:
             return self.get_by_id(user_id)
 
         unknown = set(updates.keys()) - self._PROFILE_UPDATE_WHITELIST
         if unknown:
-            logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
+            self.logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
             raise UserRepositoryError.invalid_update_fields(unknown)
 
         filtered: dict[str, object] = {key: value for key, value in updates.items() if value is not None}
@@ -216,8 +243,7 @@ class UserRepository:
         user_id: int,
         profile_picture_url: str | None,
     ) -> UserInternal | None:
-        """
-        Set or clear the profile picture URL for a user.
+        """Set or clear the profile picture URL for a user.
 
         Args:
             user_id: User ID.
@@ -225,6 +251,11 @@ class UserRepository:
 
         Returns:
             The updated user if found, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         execute_write(
             QUERIES.users.set_profile_picture_url,
@@ -237,8 +268,7 @@ class UserRepository:
         user_id: int,
         weight_unit_preference: str,
     ) -> UserInternal | None:
-        """
-        Update the user's preferred weight unit.
+        """Update the user's preferred weight unit.
 
         Args:
             user_id: User ID.
@@ -246,6 +276,11 @@ class UserRepository:
 
         Returns:
             The updated user if found, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         execute_write(
             QUERIES.users.set_weight_unit_preference,
@@ -258,8 +293,7 @@ class UserRepository:
         user_id: int,
         measurement_unit_preference: str,
     ) -> UserInternal | None:
-        """
-        Update the user's preferred body measurement unit.
+        """Update the user's preferred body measurement unit.
 
         Args:
             user_id: User ID.
@@ -267,6 +301,11 @@ class UserRepository:
 
         Returns:
             The updated user if found, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         execute_write(
             QUERIES.users.set_measurement_unit_preference,
@@ -275,8 +314,7 @@ class UserRepository:
         return self.get_by_id(user_id)
 
     def update_password(self, user_id: int, new_password_hash: str) -> bool:
-        """
-        Update the stored password hash and revoke existing tokens.
+        """Update the stored password hash and revoke existing tokens.
 
         Args:
             user_id: User ID.
@@ -284,6 +322,9 @@ class UserRepository:
 
         Returns:
             True if a row was updated, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         return (
             execute_write(
@@ -294,14 +335,16 @@ class UserRepository:
         )
 
     def bump_token_version(self, user_id: int) -> bool:
-        """
-        Increment the token version for a user.
+        """Increment the token version for a user.
 
         Args:
             user_id: User ID.
 
         Returns:
             True if a row was updated, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         return (
             execute_write(
@@ -312,13 +355,15 @@ class UserRepository:
         )
 
     def delete(self, user_id: int) -> bool:
-        """
-        Delete a user by ID.
+        """Delete a user by ID.
 
         Args:
             user_id: User ID.
 
         Returns:
             True if a row was deleted, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         return execute_write(QUERIES.users.delete, (user_id,)) > 0

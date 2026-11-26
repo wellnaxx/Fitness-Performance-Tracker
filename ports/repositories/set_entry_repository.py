@@ -30,6 +30,9 @@ class SetEntryRepositoryPort(Protocol):
 
         Raises:
             SetEntryRepositoryError: If the inserted entry cannot be retrieved.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -41,6 +44,11 @@ class SetEntryRepositoryPort(Protocol):
 
         Returns:
             The matching entry, or None if it does not exist.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -57,6 +65,11 @@ class SetEntryRepositoryPort(Protocol):
 
         Returns:
             The entry, or None if absent or associated with another exercise.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -71,6 +84,11 @@ class SetEntryRepositoryPort(Protocol):
 
         Returns:
             All matching entries, or an empty list when there are none.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -96,6 +114,9 @@ class SetEntryRepositoryPort(Protocol):
 
         Raises:
             SetEntryRepositoryError: If an update contains unsupported fields.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -112,6 +133,9 @@ class SetEntryRepositoryPort(Protocol):
 
         Returns:
             True if deleted; False if absent or under another exercise.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         ...
 
@@ -130,6 +154,9 @@ class SetEntryRepositoryPort(Protocol):
 
         Returns:
             None. No matching entries is a no-op.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         ...
 
@@ -154,6 +181,9 @@ class SetEntryRepositoryPort(Protocol):
             None. No matching entries or start greater than end is a no-op.
 
         The caller coordinates this shift and the target update in one transaction.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         ...
 
@@ -167,5 +197,8 @@ class SetEntryRepositoryPort(Protocol):
 
         Returns:
             None. An exercise without entries is a no-op.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         ...

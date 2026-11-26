@@ -144,7 +144,7 @@ class PostgresUnitOfWorkTests(TestCase):
                 failure = DatabaseError.missing_returning_id()
                 getattr(self.conn, method).side_effect = failure
                 with (
-                    patch("data.unit_of_work.logger"),
+                    patch.object(self.uow, "logger"),
                     self.assertRaises(DatabaseError) as raised,
                     self.uow as uow,
                 ):
@@ -188,7 +188,7 @@ class PostgresUnitOfWorkTests(TestCase):
         for failure in (OperationalError("connection failed"), DatabaseError.missing_returning_id()):
             with self.subTest(error=type(failure).__name__):
                 self.connect.side_effect = failure
-                with patch("data.unit_of_work.logger"), self.assertRaises(DatabaseError) as raised:
+                with patch.object(self.uow, "logger"), self.assertRaises(DatabaseError) as raised:
                     self.uow.__enter__()
                 if isinstance(failure, DatabaseError):
                     self.assertIs(raised.exception, failure)

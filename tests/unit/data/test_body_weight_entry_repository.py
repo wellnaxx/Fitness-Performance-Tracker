@@ -63,7 +63,7 @@ class BodyWeightEntryRepositoryTests(TestCase):
         self.write = self.enterContext(
             patch("repositories.body_weight_entry_repository.execute_write", return_value=1)
         )
-        self.enterContext(patch("repositories.body_weight_entry_repository.logger"))
+        self.enterContext(patch.object(self.repo, "logger"))
 
     def test_create_binds_all_values_and_reads_back_assigned_id(self) -> None:
         self.assertEqual(self.repo.create(USER_ID, self.data), self.entry)

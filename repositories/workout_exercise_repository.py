@@ -30,9 +30,6 @@ if TYPE_CHECKING:
     )
 
 
-logger = logging.getLogger(__name__)
-
-
 class _WorkoutExerciseDisappearedError(WorkoutExerciseRepositoryError):
     """Abort and roll back reordering when the target disappears during an update."""
 
@@ -53,6 +50,10 @@ class WorkoutExerciseRepository:
         "rest_seconds",
         "notes",
     }
+
+    def __init__(self) -> None:
+        """Initialize the repository logger without opening a database connection."""
+        self.logger = logging.getLogger(__name__)
 
     def create(
         self,
@@ -102,7 +103,9 @@ class WorkoutExerciseRepository:
                     (workout_exercise_id,),
                 )
                 if row is None:
-                    logger.warning("Inserted row missing during readback | entity_id=%s", workout_exercise_id)
+                    self.logger.warning(
+                        "Inserted row missing during readback | entity_id=%s", workout_exercise_id
+                    )
                     raise WorkoutExerciseRepositoryError.inserted_missing(workout_exercise_id)  # noqa: TRY301
                 created = map_workout_exercise(row)
         except WorkoutExerciseRepositoryError:
@@ -122,6 +125,11 @@ class WorkoutExerciseRepository:
             The workout exercise if found, otherwise None.
 
         This lookup does not authorize access; services must verify ownership or visibility.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(QUERIES.workout_exercises.get_by_id, (workout_exercise_id,))
         if row is None:
@@ -133,8 +141,7 @@ class WorkoutExerciseRepository:
         workout_id: int,
         workout_exercise_id: int,
     ) -> WorkoutExercisePublic | None:
-        """
-        Retrieve a workout exercise by ID only if it belongs to the workout.
+        """Retrieve a workout exercise by ID only if it belongs to the workout.
 
         Args:
             workout_id: Parent workout ID.
@@ -142,6 +149,11 @@ class WorkoutExerciseRepository:
 
         Returns:
             The workout exercise if found, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(
             QUERIES.workout_exercises.get_by_workout_and_id,
@@ -152,14 +164,18 @@ class WorkoutExerciseRepository:
         return map_workout_exercise(row)
 
     def list_by_workout(self, workout_id: int) -> list[WorkoutExercisePublic]:
-        """
-        List workout exercises for a workout.
+        """List workout exercises for a workout.
 
         Args:
             workout_id: Parent workout ID.
 
         Returns:
             Workout exercises ordered by `order_index`.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         rows = fetch_all(
             QUERIES.workout_exercises.list_by_workout,
@@ -288,5 +304,5 @@ class WorkoutExerciseRepository:
         """Ensure that only allowed fields are being updated."""
         unknown = set(fields) - self._WORKOUT_EXERCISE_UPDATE_WHITELIST
         if unknown:
-            logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
+            self.logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
             raise WorkoutExerciseRepositoryError.invalid_update_fields(unknown)

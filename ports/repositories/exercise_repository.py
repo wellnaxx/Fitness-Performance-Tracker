@@ -29,6 +29,9 @@ class ExerciseRepositoryPort(Protocol):
 
         Raises:
             ExerciseRepositoryError: If the exercise could not be retrieved after creation.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -44,6 +47,11 @@ class ExerciseRepositoryPort(Protocol):
 
         Returns:
             ExercisePublic: The exercise data if found and visible, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -75,6 +83,11 @@ class ExerciseRepositoryPort(Protocol):
 
         Returns:
             list[ExercisePublic]: A list of visible exercises.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -90,6 +103,9 @@ class ExerciseRepositoryPort(Protocol):
             ExercisePublic: The updated exercise data if the update was successful, otherwise None.
         Raises:
             ExerciseRepositoryError: If invalid update fields are provided.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -102,6 +118,9 @@ class ExerciseRepositoryPort(Protocol):
 
         Returns:
             bool: True if the exercise was deleted, False if it was not found or not owned by the user.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         ...
 
@@ -115,5 +134,8 @@ class ExerciseRepositoryPort(Protocol):
 
         Returns:
             bool: True if an exercise with the given name exists and is visible, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         ...

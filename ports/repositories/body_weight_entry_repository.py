@@ -37,6 +37,9 @@ class BodyWeightEntryRepositoryPort(Protocol):
         Raises:
             BodyWeightEntryRepositoryError: If the inserted entry cannot be retrieved afterwards.
             BodyWeightEntryDateConflictRepositoryError: If the database rejects an occupied user/date.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -48,6 +51,11 @@ class BodyWeightEntryRepositoryPort(Protocol):
 
         Returns:
             The matching entry, or None if absent. Use get_by_user_and_id for an owned lookup.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -60,6 +68,11 @@ class BodyWeightEntryRepositoryPort(Protocol):
 
         Returns:
             The owned entry, or None if missing or owned by another user.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -72,6 +85,11 @@ class BodyWeightEntryRepositoryPort(Protocol):
 
         Returns:
             The matching entry, or None if the user has no entry on that date.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -83,6 +101,11 @@ class BodyWeightEntryRepositoryPort(Protocol):
 
         Returns:
             The latest entry by entry date, then ID, or None for an empty history.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -105,6 +128,11 @@ class BodyWeightEntryRepositoryPort(Protocol):
 
         Returns:
             Matching entries, or an empty list when none match.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -128,6 +156,9 @@ class BodyWeightEntryRepositoryPort(Protocol):
             BodyWeightEntryRepositoryError: If unsupported fields are supplied.
             BodyWeightEntryDateConflictRepositoryError: If another entry for this user occupies
                 the requested date, including a concurrent write after an availability check.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -140,5 +171,8 @@ class BodyWeightEntryRepositoryPort(Protocol):
 
         Returns:
             True if deleted; False if missing or owned by another user.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         ...

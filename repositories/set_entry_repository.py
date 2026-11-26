@@ -20,9 +20,6 @@ if TYPE_CHECKING:
     from schemas.set_entry_schema import SetEntryCreate, SetEntryPublic, SetEntryUpdate
 
 
-logger = logging.getLogger(__name__)
-
-
 class SetEntryRepository:
     """
     Repository for SetEntry database operations.
@@ -52,11 +49,11 @@ class SetEntryRepository:
         Args:
             executor: Query executor; use the unit-of-work executor to share a transaction.
         """
+        self.logger = logging.getLogger(__name__)
         self._executor = executor
 
     def create(self, set_entry_data: SetEntryCreate) -> SetEntryPublic:
-        """
-        Create a new set entry for a workout exercise.
+        """Create a new set entry for a workout exercise.
 
         Args:
             set_entry_data: Set entry creation payload.
@@ -66,6 +63,9 @@ class SetEntryRepository:
 
         Raises:
             SetEntryRepositoryError: If the inserted row cannot be retrieved afterwards.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         sql = QUERIES.set_entries.create
         set_entry_id = self._executor.execute_insert(
@@ -83,7 +83,7 @@ class SetEntryRepository:
 
         set_entry = self.get_by_id(set_entry_id)
         if set_entry is None:
-            logger.warning("Inserted row missing during readback | entity_id=%s", set_entry_id)
+            self.logger.warning("Inserted row missing during readback | entity_id=%s", set_entry_id)
             raise SetEntryRepositoryError.inserted_missing(set_entry_id)
         return set_entry
 
@@ -97,6 +97,11 @@ class SetEntryRepository:
             The set entry if found, otherwise None.
 
         This lookup does not authorize access; services must verify ownership or visibility.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = self._executor.fetch_one(QUERIES.set_entries.get_by_id, (set_entry_id,))
         if row is None:
@@ -108,8 +113,7 @@ class SetEntryRepository:
         workout_exercise_id: int,
         set_entry_id: int,
     ) -> SetEntryPublic | None:
-        """
-        Retrieve a set entry by ID only if it belongs to the workout exercise.
+        """Retrieve a set entry by ID only if it belongs to the workout exercise.
 
         Args:
             workout_exercise_id: Parent workout exercise ID.
@@ -117,6 +121,11 @@ class SetEntryRepository:
 
         Returns:
             The set entry if found, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = self._executor.fetch_one(
             QUERIES.set_entries.get_by_workout_exercise_and_id,
@@ -130,14 +139,18 @@ class SetEntryRepository:
         self,
         workout_exercise_id: int,
     ) -> list[SetEntryPublic]:
-        """
-        List set entries for a workout exercise.
+        """List set entries for a workout exercise.
 
         Args:
             workout_exercise_id: Parent workout exercise ID.
 
         Returns:
             Set entries ordered by set number.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         rows = self._executor.fetch_all(
             QUERIES.set_entries.list_by_workout_exercise,
@@ -151,8 +164,7 @@ class SetEntryRepository:
         set_entry_id: int,
         update_data: SetEntryUpdate,
     ) -> SetEntryPublic | None:
-        """
-        Partially update a set entry within a workout exercise.
+        """Partially update a set entry within a workout exercise.
 
         Ignore None-valued fields, including nullable rpe. Preserve zero and False.
         Empty updates return the matching entry without issuing an UPDATE.
@@ -167,6 +179,9 @@ class SetEntryRepository:
 
         Raises:
             SetEntryRepositoryError: If any provided fields are not allowed to be updated.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         fields = update_data.model_dump(exclude_none=True)
         if not fields:
@@ -174,7 +189,7 @@ class SetEntryRepository:
 
         unknown = set(fields) - self._SET_ENTRY_UPDATE_WHITELIST
         if unknown:
-            logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
+            self.logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
             raise SetEntryRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
@@ -187,8 +202,7 @@ class SetEntryRepository:
         workout_exercise_id: int,
         set_entry_id: int,
     ) -> bool:
-        """
-        Delete a set entry from a workout exercise.
+        """Delete a set entry from a workout exercise.
 
         Args:
             workout_exercise_id: Parent workout exercise ID.
@@ -196,6 +210,9 @@ class SetEntryRepository:
 
         Returns:
             True if a row was deleted, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         return (
             self._executor.execute_write(
@@ -220,6 +237,9 @@ class SetEntryRepository:
 
         Returns:
             None after successful completion.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         self._executor.execute_write(
             QUERIES.set_entries.shift_set_numbers,
@@ -248,6 +268,9 @@ class SetEntryRepository:
 
         Returns:
             None after successful completion.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         self._executor.execute_write(
             QUERIES.set_entries.shift_set_numbers_in_range,
@@ -262,6 +285,9 @@ class SetEntryRepository:
 
         Returns:
             None after successful completion.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         self._executor.execute_write(
             QUERIES.set_entries.normalize_set_numbers,

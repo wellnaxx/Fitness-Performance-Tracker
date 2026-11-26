@@ -22,9 +22,6 @@ if TYPE_CHECKING:
     from schemas.meal_schema import MealCreate, MealPublic, MealUpdate
 
 
-logger = logging.getLogger(__name__)
-
-
 class MealRepository:
     """
     Repository for Meal database operations.
@@ -43,9 +40,12 @@ class MealRepository:
         "notes",
     }
 
+    def __init__(self) -> None:
+        """Initialize the repository logger without opening a database connection."""
+        self.logger = logging.getLogger(__name__)
+
     def create(self, user_id: int, meal_data: MealCreate) -> MealPublic:
-        """
-        Create a new meal for a specific user.
+        """Create a new meal for a specific user.
 
         Args:
             user_id: ID of the user who owns the meal.
@@ -56,6 +56,9 @@ class MealRepository:
 
         Raises:
             MealRepositoryError: If the inserted meal cannot be retrieved afterwards.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         sql = QUERIES.meals.create
         meal_id = execute_insert(
@@ -72,7 +75,7 @@ class MealRepository:
 
         meal = self.get_by_id(meal_id)
         if meal is None:
-            logger.warning("Inserted row missing during readback | entity_id=%s", meal_id)
+            self.logger.warning("Inserted row missing during readback | entity_id=%s", meal_id)
             raise MealRepositoryError.inserted_missing(meal_id)
         return meal
 
@@ -86,6 +89,11 @@ class MealRepository:
             The meal if found, otherwise None.
 
         This lookup does not authorize access; services must verify ownership or visibility.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(QUERIES.meals.get_by_id, (meal_id,))
         if row is None:
@@ -93,8 +101,7 @@ class MealRepository:
         return map_meal(row)
 
     def get_by_user_and_id(self, user_id: int, meal_id: int) -> MealPublic | None:
-        """
-        Retrieve a meal by ID only if it belongs to the specified user.
+        """Retrieve a meal by ID only if it belongs to the specified user.
 
         Args:
             user_id: Owner user ID.
@@ -102,6 +109,11 @@ class MealRepository:
 
         Returns:
             The meal if found and owned by the user, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         row = fetch_one(
             QUERIES.meals.get_by_user_and_id,
@@ -120,8 +132,7 @@ class MealRepository:
         date_to: date | None = None,
         meal_type: str | None = None,
     ) -> list[MealPublic]:
-        """
-        List meals for a user with pagination and optional filters.
+        """List meals for a user with pagination and optional filters.
 
         Args:
             user_id: Owner user ID.
@@ -133,6 +144,11 @@ class MealRepository:
 
         Returns:
             A list of meals ordered from newest to oldest.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         pagination = normalize_pagination(limit, offset)
 
@@ -163,8 +179,7 @@ class MealRepository:
         meal_id: int,
         update_data: MealUpdate,
     ) -> MealPublic | None:
-        """
-        Partially update a meal owned by the specified user.
+        """Partially update a meal owned by the specified user.
 
         Args:
             user_id: Owner user ID.
@@ -176,6 +191,9 @@ class MealRepository:
 
         Raises:
             MealRepositoryError: If any provided fields are not allowed to be updated.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         fields = update_data.model_dump(exclude_none=True)
         if not fields:
@@ -183,7 +201,7 @@ class MealRepository:
 
         unknown = set(fields) - self._MEAL_UPDATE_WHITELIST
         if unknown:
-            logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
+            self.logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
             raise MealRepositoryError.invalid_update_fields(unknown)
 
         set_clause = ", ".join(f"{field} = %s" for field in fields)
@@ -192,8 +210,7 @@ class MealRepository:
         return self.get_by_user_and_id(user_id, meal_id)
 
     def delete_owned(self, user_id: int, meal_id: int) -> bool:
-        """
-        Delete a meal owned by the specified user.
+        """Delete a meal owned by the specified user.
 
         Args:
             user_id: Owner user ID.
@@ -201,6 +218,9 @@ class MealRepository:
 
         Returns:
             True if a row was deleted, otherwise False.
+
+        Raises:
+            DatabaseError: If the database operation fails.
         """
         return (
             execute_write(

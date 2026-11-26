@@ -75,7 +75,7 @@ class SetEntryTransactionTests(TestCase):
         self.enterContext(
             patch("data.executor.get_connection", side_effect=AssertionError("Standalone connection"))
         )
-        self.enterContext(patch("data.unit_of_work.logger"))
+        self.enterContext(patch.object(self.uow, "logger"))
 
     def seed(self, count: int) -> None:
         self.database.execute("DELETE FROM set_entries")

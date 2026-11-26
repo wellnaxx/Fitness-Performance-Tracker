@@ -21,9 +21,6 @@ if TYPE_CHECKING:
     from schemas.user_goals_schema import UserGoalCreate, UserGoalPublic, UserGoalUpdate
 
 
-logger = logging.getLogger(__name__)
-
-
 class UserGoalsRepository:
     """
     Repository for user goal database operations.
@@ -56,11 +53,11 @@ class UserGoalsRepository:
         Args:
             executor: Query executor; use the unit-of-work executor to share a transaction.
         """
+        self.logger = logging.getLogger(__name__)
         self._executor = executor
 
     def create(self, user_id: int, goal_data: UserGoalCreate) -> UserGoalPublic:
-        """
-        Create a new goal for a specific user.
+        """Create a new goal for a specific user.
 
         Args:
             user_id: ID of the user who owns the goal.
@@ -71,6 +68,9 @@ class UserGoalsRepository:
 
         Raises:
             UserGoalsRepositoryError: If the goal is inserted but cannot be retrieved afterwards.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
 
         sql = QUERIES.user_goals.create
@@ -91,7 +91,7 @@ class UserGoalsRepository:
         )
         goal = self.get_by_id(goal_id)
         if goal is None:
-            logger.warning("Inserted row missing during readback | entity_id=%s", goal_id)
+            self.logger.warning("Inserted row missing during readback | entity_id=%s", goal_id)
             raise UserGoalsRepositoryError.inserted_missing(goal_id)
         return goal
 
@@ -105,6 +105,11 @@ class UserGoalsRepository:
             UserGoalPublic if found, otherwise None.
 
         This lookup does not authorize access; services must verify ownership or visibility.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
 
         sql = QUERIES.user_goals.get_by_id
@@ -114,8 +119,7 @@ class UserGoalsRepository:
         return map_user_goal(row)
 
     def get_by_user_and_id(self, user_id: int, goal_id: int) -> UserGoalPublic | None:
-        """
-        Retrieve a goal by its ID, but only if it belongs to the specified user.
+        """Retrieve a goal by its ID, but only if it belongs to the specified user.
 
         Args:
             user_id: Owner user ID.
@@ -123,6 +127,11 @@ class UserGoalsRepository:
 
         Returns:
             UserGoalPublic if found and belongs to user, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
 
         sql = QUERIES.user_goals.get_by_user_and_id
@@ -132,8 +141,7 @@ class UserGoalsRepository:
         return map_user_goal(row)
 
     def get_active_goal(self, user_id: int) -> UserGoalPublic | None:
-        """
-        Retrieve the currently active goal for a user.
+        """Retrieve the currently active goal for a user.
 
         If multiple active goals exist unexpectedly, the most recent one by
         start_date is returned.
@@ -143,6 +151,11 @@ class UserGoalsRepository:
 
         Returns:
             UserGoalPublic if an active goal exists, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
 
         sql = QUERIES.user_goals.get_active_goal
@@ -157,8 +170,7 @@ class UserGoalsRepository:
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
     ) -> list[UserGoalPublic]:
-        """
-        Retrieve all goals for a specific user with pagination.
+        """Retrieve all goals for a specific user with pagination.
 
         Args:
             user_id: Owner user ID.
@@ -167,6 +179,11 @@ class UserGoalsRepository:
 
         Returns:
             A list of the user's goals ordered from newest to oldest.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
 
         pagination = normalize_pagination(limit, offset)
@@ -175,8 +192,7 @@ class UserGoalsRepository:
         return [map_user_goal(row) for row in rows]
 
     def update(self, goal_id: int, update_data: UserGoalUpdate) -> UserGoalPublic | None:
-        """
-        Partially update a goal by ID.
+        """Partially update a goal by ID.
 
         Only fields in the repository whitelist are applied. Fields with value None
         are ignored.
@@ -190,6 +206,9 @@ class UserGoalsRepository:
 
         Raises:
             UserGoalsRepositoryError: If any provided fields are not in the update whitelist.
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
 
         fields = update_data.model_dump(exclude_none=True)
@@ -198,7 +217,7 @@ class UserGoalsRepository:
             return self.get_by_id(goal_id)
         unknown = set(fields) - self._GOAL_UPDATE_WHITELIST
         if unknown:
-            logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
+            self.logger.warning("Unsupported update fields rejected | field_count=%s", len(unknown))
             raise UserGoalsRepositoryError.invalid_update_fields(unknown)
         set_clause = ", ".join(f"{k} = %s" for k in fields)
         sql = QUERIES.user_goals.update.format(set_clause=set_clause)
@@ -206,14 +225,18 @@ class UserGoalsRepository:
         return self.get_by_id(goal_id)
 
     def deactivate_goal(self, goal_id: int) -> UserGoalPublic | None:
-        """
-        Mark a goal as inactive.
+        """Mark a goal as inactive.
 
         Args:
             goal_id: Goal ID.
 
         Returns:
             The updated goal if it exists, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
 
         sql = QUERIES.user_goals.deactivate_goal
@@ -221,8 +244,7 @@ class UserGoalsRepository:
         return self.get_by_id(goal_id)
 
     def activate_goal(self, user_id: int, goal_id: int) -> UserGoalPublic | None:
-        """
-        Mark a goal as active.
+        """Mark a goal as active.
 
         Args:
             user_id: User ID.
@@ -234,6 +256,11 @@ class UserGoalsRepository:
         Notes:
             Atomically set one goal as active and deactivate all others for the user.
             Ensures that at most one goal is active per user.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
 
         sql = QUERIES.user_goals.activate_goal

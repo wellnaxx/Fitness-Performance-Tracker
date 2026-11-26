@@ -45,6 +45,11 @@ class WorkoutExerciseRepositoryPort(Protocol):
             The workout exercise if found, otherwise None.
 
         This lookup does not authorize access; services must verify ownership or visibility.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -57,6 +62,11 @@ class WorkoutExerciseRepositoryPort(Protocol):
 
         Returns:
             The workout exercise if found, otherwise None.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
@@ -68,6 +78,11 @@ class WorkoutExerciseRepositoryPort(Protocol):
 
         Returns:
             Workout exercises ordered by `order_index`.
+
+        Raises:
+            DatabaseError: If the database operation fails.
+            RowValidationError: If a stored row has invalid field types.
+            ValidationError: If a stored row violates the public schema.
         """
         ...
 
