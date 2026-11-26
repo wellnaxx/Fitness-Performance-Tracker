@@ -59,7 +59,7 @@ class MealItemService:
             RowValidationError: If a stored row cannot be mapped to a valid item or meal.
             MealRepositoryError: If the ownership lookup fails at the repository level.
         """
-        require_owned_meal(self.meal_repo, user_id, meal_item_data.meal_id)
+        require_owned_meal(self.meal_repo, user_id, meal_item_data.meal_id, logger=self.logger)
 
         try:
             meal_item = self.meal_item_repo.create(meal_item_data)
@@ -95,7 +95,7 @@ class MealItemService:
             RowValidationError: If a stored item or meal row is invalid.
             RepositoryError: If either repository reports a lookup failure.
         """
-        require_owned_meal(self.meal_repo, user_id, meal_id)
+        require_owned_meal(self.meal_repo, user_id, meal_id, logger=self.logger)
 
         meal_item = self.meal_item_repo.get_by_meal_and_id(meal_id, meal_item_id)
         if meal_item is None:
@@ -123,7 +123,7 @@ class MealItemService:
             RowValidationError: If a stored item or meal row is invalid.
             RepositoryError: If either repository reports a lookup failure.
         """
-        require_owned_meal(self.meal_repo, user_id, meal_id)
+        require_owned_meal(self.meal_repo, user_id, meal_id, logger=self.logger)
 
         meal_items = self.meal_item_repo.list_by_meal(meal_id)
         self.logger.debug(
@@ -159,7 +159,7 @@ class MealItemService:
             RowValidationError: If a stored item or meal row is invalid.
             RepositoryError: If a repository lookup fails before the update.
         """
-        require_owned_meal(self.meal_repo, user_id, meal_id)
+        require_owned_meal(self.meal_repo, user_id, meal_id, logger=self.logger)
 
         meal_item = self.meal_item_repo.get_by_meal_and_id(meal_id, meal_item_id)
         if meal_item is None:
@@ -206,7 +206,7 @@ class MealItemService:
             RowValidationError: If a stored item or meal row is invalid.
             RepositoryError: If a repository lookup fails before deletion.
         """
-        require_owned_meal(self.meal_repo, user_id, meal_id)
+        require_owned_meal(self.meal_repo, user_id, meal_id, logger=self.logger)
 
         meal_item = self.meal_item_repo.get_by_meal_and_id(meal_id, meal_item_id)
         if meal_item is None:

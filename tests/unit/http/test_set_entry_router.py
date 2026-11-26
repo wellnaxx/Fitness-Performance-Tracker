@@ -518,7 +518,10 @@ class SetEntryRouterTests(IsolatedAsyncioTestCase):
             }
         )
         for route in self.routes():
-            with self.subTest(method=route.method, path=route.path), patch("services.ownership.logger"):
+            with (
+                self.subTest(method=route.method, path=route.path),
+                self.assertLogs("services.set_entry_service", level="WARNING"),
+            ):
                 workouts.reset_mock()
                 # An incorrect parent must not reveal a mismatch before ownership.
                 path = route.path.replace(f"workout_exercise_id={ENTRY_ID}", "workout_exercise_id=999")

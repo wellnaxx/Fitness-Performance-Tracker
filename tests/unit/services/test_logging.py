@@ -97,7 +97,12 @@ class TransactionOutcomeLoggingTests(TestCase):
 
     def test_success_is_logged_only_after_commit_and_context_exit(self) -> None:
         for module, operation in self.mutations():
-            with self.subTest(operation=operation), patch(f"{module}.logger") as logger:
+            with (
+                self.subTest(operation=operation),
+                patch.object(
+                    self.sets if module == "services.set_entry_service" else self.goals, "logger"
+                ) as logger,
+            ):
                 events = Mock()
                 events.attach_mock(self.uow.commit, "commit")
                 events.attach_mock(self.uow.__exit__, "exit")
@@ -114,7 +119,9 @@ class TransactionOutcomeLoggingTests(TestCase):
                 with (
                     self.subTest(step=failing_step, operation=operation),
                     patch.object(self.uow, failing_step, side_effect=failure),
-                    patch(f"{module}.logger") as logger,
+                    patch.object(
+                        self.sets if module == "services.set_entry_service" else self.goals, "logger"
+                    ) as logger,
                     self.assertRaises(DatabaseError) as raised,
                 ):
                     operation()

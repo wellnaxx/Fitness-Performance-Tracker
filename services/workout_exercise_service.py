@@ -73,7 +73,7 @@ class WorkoutExerciseService:
             WorkoutNotFoundError: If the workout does not exist or is not accessible to the user
             ExerciseNotFoundError: If the exercise does not exist or is not accessible to the user
         """
-        require_owned_workout(self.workout_repository, user_id, workout_id)
+        require_owned_workout(self.workout_repository, user_id, workout_id, logger=self.logger)
         self._validate_target_exercise(user_id, workout_exercise_data.exercise_id)
 
         existing_entries = self.workout_exercise_repository.list_by_workout(workout_id)
@@ -109,7 +109,7 @@ class WorkoutExerciseService:
             or not visible to the user
             WorkoutNotFoundError: If the workout does not exist or is not accessible to the user
         """
-        require_owned_workout(self.workout_repository, user_id, workout_id)
+        require_owned_workout(self.workout_repository, user_id, workout_id, logger=self.logger)
         workout_exercise = self._get_workout_exercise_or_raise(workout_id, workout_exercise_id)
 
         self.logger.debug(
@@ -131,7 +131,7 @@ class WorkoutExerciseService:
         Raises:
             WorkoutNotFoundError: If the workout does not exist or is not accessible to the user
         """
-        require_owned_workout(self.workout_repository, user_id, workout_id)
+        require_owned_workout(self.workout_repository, user_id, workout_id, logger=self.logger)
 
         workout_exercises = self.workout_exercise_repository.list_by_workout(workout_id)
         self.logger.debug(
@@ -164,15 +164,15 @@ class WorkoutExerciseService:
             ExerciseNotFoundError: If the new exercise does not exist or is not accessible to the user
             WorkoutExerciseUpdateError: If updating the workout exercise fails
         """
-        require_owned_workout(self.workout_repository, user_id, workout_id)
+        require_owned_workout(self.workout_repository, user_id, workout_id, logger=self.logger)
 
         self._get_workout_exercise_or_raise(workout_id, workout_exercise_id)
 
         if workout_exercise_data.exercise_id is not None:
             self._validate_target_exercise(user_id, workout_exercise_data.exercise_id)
 
-        existing_entries = self.workout_exercise_repository.list_by_workout(workout_id)
         if workout_exercise_data.order_index is not None:
+            existing_entries = self.workout_exercise_repository.list_by_workout(workout_id)
             current_count = len(existing_entries)
             self._validate_update_order_index(workout_exercise_data.order_index, current_count)
 
@@ -216,7 +216,7 @@ class WorkoutExerciseService:
         Returns:
             None after successful completion.
         """
-        require_owned_workout(self.workout_repository, user_id, workout_id)
+        require_owned_workout(self.workout_repository, user_id, workout_id, logger=self.logger)
         self._get_workout_exercise_or_raise(workout_id, workout_exercise_id)
 
         try:
@@ -244,6 +244,20 @@ class WorkoutExerciseService:
         workout_id: int,
         workout_exercise_id: int,
     ) -> WorkoutExercisePublic:
+        """Resolve an entry within a workout whose ownership was already verified.
+
+        Args:
+            workout_id: Owned parent workout ID.
+            workout_exercise_id: Requested child entry ID.
+
+        Returns:
+            The entry belonging to the requested workout.
+
+        Raises:
+            WorkoutExerciseNotFoundError: If the entry is absent from the workout.
+            DatabaseError: If the lookup fails.
+            RowValidationError: If a stored row cannot be mapped.
+        """
         workout_exercise = self.workout_exercise_repository.get_by_workout_and_id(
             workout_id,
             workout_exercise_id,
@@ -259,6 +273,19 @@ class WorkoutExerciseService:
         return workout_exercise
 
     def _validate_target_exercise(self, user_id: int, exercise_id: int) -> None:
+        """Verify that a catalog exercise is visible to the user.
+
+        Args:
+            user_id: Authenticated user ID.
+            exercise_id: Requested catalog exercise ID.
+
+        Returns:
+            None after successful validation.
+
+        Raises:
+            ExerciseNotFoundError: If the exercise is missing or not visible.
+            DatabaseError: If the lookup fails.
+        """
         if not self.exercise_repository.get_visible_by_id(user_id, exercise_id):
             self.logger.warning(
                 "Exercise with ID %s not found or not visible to user %s.", exercise_id, user_id
@@ -266,11 +293,35 @@ class WorkoutExerciseService:
             raise ExerciseNotFoundError.not_accessible(exercise_id=exercise_id)
 
     def _validate_order_index(self, order_index: int, current_count: int) -> None:
+        """Validate a new entry's zero-based insertion position.
+
+        Args:
+            order_index: Requested position in the inclusive range 0..current_count.
+            current_count: Number of entries already in the workout.
+
+        Returns:
+            None for a valid position.
+
+        Raises:
+            WorkoutExerciseValidationError: If the position is outside the permitted range.
+        """
         if order_index < 0 or order_index > current_count:
             self.logger.warning("Invalid order index %s for workout.", order_index)
             raise WorkoutExerciseValidationError.invalid_create_order_index(order_index=order_index)
 
     def _validate_update_order_index(self, order_index: int, current_count: int) -> None:
+        """Validate a moved entry's position without allowing an extra slot.
+
+        Args:
+            order_index: Requested position in the inclusive range 0..current_count - 1.
+            current_count: Number of entries in the workout, including the target.
+
+        Returns:
+            None for a valid position.
+
+        Raises:
+            WorkoutExerciseValidationError: If the position is outside the permitted range.
+        """
         max_index = current_count - 1
         if order_index < 0 or order_index > max_index:
             self.logger.warning("Invalid order index %s for workout update.", order_index)

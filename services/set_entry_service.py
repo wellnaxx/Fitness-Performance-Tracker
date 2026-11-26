@@ -19,8 +19,6 @@ from ports.unit_of_work import UnitOfWorkPort
 from schemas.set_entry_schema import SetEntryCreate, SetEntryPublic, SetEntryUpdate
 from services.ownership import require_owned_workout
 
-logger = logging.getLogger(__name__)
-
 
 class SetEntryService:
     """Enforce the set -> workout exercise -> owned workout access chain.
@@ -49,6 +47,7 @@ class SetEntryService:
             workout_repo: Repository contract for verifying parent workout ownership.
             unit_of_work: Transaction contract for related writes and locking.
         """
+        self.logger = logging.getLogger(__name__)
         self.set_entry_repo = set_entry_repo
         self.workout_exercise_repo = workout_exercise_repo
         self.workout_repo = workout_repo
@@ -58,13 +57,19 @@ class SetEntryService:
     def _set_entry_transaction(self, workout_exercise_id: int) -> Generator[UnitOfWorkPort]:
         """Lock the parent before reading positions; roll back unless the caller commits.
 
+        Args:
+            workout_exercise_id: Parent workout exercise ID to lock.
+
+        Returns:
+            A context manager yielding the unit of work with its parent row locked.
+
         Raises:
             WorkoutExerciseNotFoundError: If the parent disappeared before locking.
             DatabaseError: If opening, locking, committing, or rolling back fails.
         """
         with self.unit_of_work as uow:
             if not uow.set_entry.lock_for_workout_exercise(workout_exercise_id):
-                logger.warning(
+                self.logger.warning(
                     "Set transaction rejected: parent missing | workout_exercise_id=%s", workout_exercise_id
                 )
                 raise WorkoutExerciseNotFoundError.not_found(workout_exercise_id)
@@ -91,20 +96,20 @@ class SetEntryService:
         """
         workout_exercise = self.workout_exercise_repo.get_by_id(set_entry_data.workout_exercise_id)
         if workout_exercise is None:
-            logger.warning(
+            self.logger.warning(
                 "Set creation rejected: parent missing | user_id=%s workout_exercise_id=%s",
                 user_id,
                 set_entry_data.workout_exercise_id,
             )
             raise WorkoutExerciseNotFoundError.not_found(set_entry_data.workout_exercise_id)
 
-        require_owned_workout(self.workout_repo, user_id, workout_exercise.workout_id)
+        require_owned_workout(self.workout_repo, user_id, workout_exercise.workout_id, logger=self.logger)
 
         with self._set_entry_transaction(set_entry_data.workout_exercise_id) as uow:
             count = len(uow.set_entry.list_by_workout_exercise(workout_exercise.id))
             set_number = set_entry_data.set_number
             if set_number > count + 1:
-                logger.warning(
+                self.logger.warning(
                     "Set insertion position out of range | user_id=%s "
                     "workout_exercise_id=%s position=%s count=%s",
                     user_id,
@@ -119,12 +124,12 @@ class SetEntryService:
             try:
                 set_entry = uow.set_entry.create(set_entry_data)
             except SetEntryRepositoryError as exc:
-                logger.exception(
+                self.logger.exception(
                     "Set creation failed | user_id=%s workout_exercise_id=%s", user_id, workout_exercise.id
                 )
                 raise SetEntryCreationError.create_failed() from exc
             uow.commit()
-        logger.info(
+        self.logger.info(
             "Set created | user_id=%s workout_exercise_id=%s set_entry_id=%s",
             user_id,
             workout_exercise.id,
@@ -149,17 +154,17 @@ class SetEntryService:
         """
         set_entry = self.set_entry_repo.get_by_id(set_entry_id)
         if set_entry is None:
-            logger.warning("Set not found | user_id=%s set_entry_id=%s", user_id, set_entry_id)
+            self.logger.warning("Set not found | user_id=%s set_entry_id=%s", user_id, set_entry_id)
             raise SetEntryNotFoundError.not_found(set_entry_id)
 
         workout_exercise = self.workout_exercise_repo.get_by_id(set_entry.workout_exercise_id)
         if workout_exercise is None:
-            logger.warning("Set parent missing | user_id=%s set_entry_id=%s", user_id, set_entry_id)
+            self.logger.warning("Set parent missing | user_id=%s set_entry_id=%s", user_id, set_entry_id)
             raise WorkoutExerciseNotFoundError.not_found(set_entry.workout_exercise_id)
 
-        require_owned_workout(self.workout_repo, user_id, workout_exercise.workout_id)
+        require_owned_workout(self.workout_repo, user_id, workout_exercise.workout_id, logger=self.logger)
 
-        logger.debug("Set retrieved | user_id=%s set_entry_id=%s", user_id, set_entry_id)
+        self.logger.debug("Set retrieved | user_id=%s set_entry_id=%s", user_id, set_entry_id)
         return set_entry
 
     def list_by_workout_exercise(self, user_id: int, workout_exercise_id: int) -> list[SetEntryPublic]:
@@ -178,17 +183,17 @@ class SetEntryService:
         """
         workout_exercise = self.workout_exercise_repo.get_by_id(workout_exercise_id)
         if workout_exercise is None:
-            logger.warning(
+            self.logger.warning(
                 "Set listing rejected: parent missing | user_id=%s workout_exercise_id=%s",
                 user_id,
                 workout_exercise_id,
             )
             raise WorkoutExerciseNotFoundError.not_found(workout_exercise_id)
 
-        require_owned_workout(self.workout_repo, user_id, workout_exercise.workout_id)
+        require_owned_workout(self.workout_repo, user_id, workout_exercise.workout_id, logger=self.logger)
 
         sets = self.set_entry_repo.list_by_workout_exercise(workout_exercise_id)
-        logger.debug(
+        self.logger.debug(
             "Sets listed | user_id=%s workout_exercise_id=%s count=%s", user_id, workout_exercise_id, len(sets)
         )
         return sets
@@ -221,20 +226,22 @@ class SetEntryService:
         """
         set_entry = self.set_entry_repo.get_by_id(set_entry_id)
         if set_entry is None:
-            logger.warning("Set not found during update | user_id=%s set_entry_id=%s", user_id, set_entry_id)
+            self.logger.warning(
+                "Set not found during update | user_id=%s set_entry_id=%s", user_id, set_entry_id
+            )
             raise SetEntryNotFoundError.not_found(set_entry_id)
 
         workout_exercise = self.workout_exercise_repo.get_by_id(set_entry.workout_exercise_id)
         if workout_exercise is None:
-            logger.warning(
+            self.logger.warning(
                 "Set parent missing during update | user_id=%s set_entry_id=%s", user_id, set_entry_id
             )
             raise WorkoutExerciseNotFoundError.not_found(set_entry.workout_exercise_id)
 
-        require_owned_workout(self.workout_repo, user_id, workout_exercise.workout_id)
+        require_owned_workout(self.workout_repo, user_id, workout_exercise.workout_id, logger=self.logger)
 
         if workout_exercise_id != workout_exercise.id:
-            logger.warning(
+            self.logger.warning(
                 "Set update rejected: parent mismatch | user_id=%s set_entry_id=%s requested_parent_id=%s",
                 user_id,
                 set_entry_id,
@@ -248,7 +255,7 @@ class SetEntryService:
         with self._set_entry_transaction(workout_exercise_id) as uow:
             current = uow.set_entry.get_by_workout_exercise_and_id(workout_exercise_id, set_entry_id)
             if current is None:
-                logger.warning(
+                self.logger.warning(
                     "Set disappeared before update | user_id=%s set_entry_id=%s", user_id, set_entry_id
                 )
                 raise SetEntryNotFoundError.not_found(set_entry_id)
@@ -256,7 +263,7 @@ class SetEntryService:
             new_set_number = update_data.set_number
             if new_set_number is not None:
                 if old_set_number == new_set_number:
-                    logger.warning(
+                    self.logger.warning(
                         "Set update rejected: unchanged position | user_id=%s set_entry_id=%s",
                         user_id,
                         set_entry_id,
@@ -265,7 +272,7 @@ class SetEntryService:
 
                 count = len(uow.set_entry.list_by_workout_exercise(workout_exercise.id))
                 if new_set_number > count:
-                    logger.warning(
+                    self.logger.warning(
                         "Set update position out of range | user_id=%s set_entry_id=%s position=%s count=%s",
                         user_id,
                         set_entry_id,
@@ -295,13 +302,13 @@ class SetEntryService:
             updated = uow.set_entry.update_in_workout_exercise(workout_exercise_id, set_entry_id, update_data)
 
             if updated is None:
-                logger.warning(
+                self.logger.warning(
                     "Set disappeared during update | user_id=%s set_entry_id=%s", user_id, set_entry_id
                 )
                 raise SetEntryNotFoundError.not_found(set_entry_id)
 
             uow.commit()
-        logger.info(
+        self.logger.info(
             "Set updated | user_id=%s workout_exercise_id=%s set_entry_id=%s",
             user_id,
             workout_exercise_id,
@@ -332,20 +339,22 @@ class SetEntryService:
         """
         set_entry = self.set_entry_repo.get_by_id(set_entry_id)
         if set_entry is None:
-            logger.warning("Set not found during deletion | user_id=%s set_entry_id=%s", user_id, set_entry_id)
+            self.logger.warning(
+                "Set not found during deletion | user_id=%s set_entry_id=%s", user_id, set_entry_id
+            )
             raise SetEntryNotFoundError.not_found(set_entry_id)
 
         workout_exercise = self.workout_exercise_repo.get_by_id(set_entry.workout_exercise_id)
         if workout_exercise is None:
-            logger.warning(
+            self.logger.warning(
                 "Set parent missing during deletion | user_id=%s set_entry_id=%s", user_id, set_entry_id
             )
             raise WorkoutExerciseNotFoundError.not_found(set_entry.workout_exercise_id)
 
-        require_owned_workout(self.workout_repo, user_id, workout_exercise.workout_id)
+        require_owned_workout(self.workout_repo, user_id, workout_exercise.workout_id, logger=self.logger)
 
         if workout_exercise_id != workout_exercise.id:
-            logger.warning(
+            self.logger.warning(
                 "Set deletion rejected: parent mismatch | user_id=%s set_entry_id=%s requested_parent_id=%s",
                 user_id,
                 set_entry_id,
@@ -359,14 +368,14 @@ class SetEntryService:
         with self._set_entry_transaction(workout_exercise_id) as uow:
             current = uow.set_entry.get_by_workout_exercise_and_id(workout_exercise_id, set_entry_id)
             if current is None:
-                logger.warning(
+                self.logger.warning(
                     "Set disappeared before deletion | user_id=%s set_entry_id=%s", user_id, set_entry_id
                 )
                 raise SetEntryNotFoundError.not_found(set_entry_id)
 
             deleted = uow.set_entry.delete_in_workout_exercise(workout_exercise_id, set_entry_id)
             if not deleted:
-                logger.warning(
+                self.logger.warning(
                     "Set deletion affected no row | user_id=%s set_entry_id=%s", user_id, set_entry_id
                 )
                 raise SetEntryDeleteError.delete_failed(set_entry_id)
@@ -374,7 +383,7 @@ class SetEntryService:
             uow.set_entry.normalize_set_numbers(workout_exercise_id)
 
             uow.commit()
-        logger.info(
+        self.logger.info(
             "Set deleted and positions normalized | user_id=%s workout_exercise_id=%s set_entry_id=%s",
             user_id,
             workout_exercise_id,

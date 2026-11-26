@@ -32,7 +32,7 @@ class ExerciseErrorContractTests(IsolatedAsyncioTestCase):
                 clear=True,
             )
         )
-        self.enterContext(patch("services.exercise_service.logger"))
+        self.enterContext(patch("services.exercise_service.logging.getLogger"))
         self.enterContext(patch("core.exception_handlers.logger"))
 
     async def test_missing_or_unowned_update_is_404_before_duplicate_validation(self) -> None:

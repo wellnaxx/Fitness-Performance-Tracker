@@ -109,7 +109,6 @@ class MealItemRouterTests(IsolatedAsyncioTestCase):
         items.delete_in_meal.return_value = True
         app.dependency_overrides[get_meal_repository] = lambda: meals
         app.dependency_overrides[get_meal_item_repository] = lambda: items
-        self.enterContext(patch("services.ownership.logger"))
         self.enterContext(patch("services.meal_item_service.logging.getLogger"))
         return meals, items
 

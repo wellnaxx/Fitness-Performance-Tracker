@@ -87,8 +87,7 @@ class MealService:
         date_to: date | None = None,
         meal_type: str | None = None,
     ) -> list[MealPublic]:
-        """
-        List meals belonging to the user with pagination and filters.
+        """List meals belonging to the user with pagination and filters.
 
         Args:
             user_id: ID of the user requesting the meals
@@ -100,6 +99,11 @@ class MealService:
 
         Returns:
             List of MealPublic schemas for the user's meals
+
+        Raises:
+            DatabaseError: If the listing fails.
+            RowValidationError: If a stored row has invalid types.
+            ValidationError: If a stored row violates the public schema.
         """
         meals = self.meal_repository.list_by_user(
             user_id=user_id,

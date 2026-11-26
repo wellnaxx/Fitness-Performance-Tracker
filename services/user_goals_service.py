@@ -18,8 +18,6 @@ from schemas.user_goals_schema import (
 )
 from utils.pagination import DEFAULT_LIMIT, DEFAULT_OFFSET
 
-logger = logging.getLogger(__name__)
-
 
 class UserGoalsService:
     """
@@ -38,6 +36,7 @@ class UserGoalsService:
             goals_repo: Repository contract for goal queries.
             unit_of_work: Transaction contract for related writes and locking.
         """
+        self.logger = logging.getLogger(__name__)
         self.goals_repo = goals_repo
         self.unit_of_work = unit_of_work
 
@@ -57,7 +56,7 @@ class UserGoalsService:
         """
         with self.unit_of_work as uow:
             if not uow.goals.lock_for_user(user_id):
-                logger.warning("Goal transaction rejected: user missing | user_id=%s", user_id)
+                self.logger.warning("Goal transaction rejected: user missing | user_id=%s", user_id)
                 raise UserNotFoundError.not_found(user_id)
             yield uow
 
@@ -92,10 +91,10 @@ class UserGoalsService:
             try:
                 goal = uow.goals.create(user_id, goal_data)
             except UserGoalsRepositoryError as exc:
-                logger.exception("Goal creation failed | user_id=%s", user_id)
+                self.logger.exception("Goal creation failed | user_id=%s", user_id)
                 raise UserGoalCreationError.create_failed() from exc
             uow.commit()
-        logger.info("Goal created | user_id=%s goal_id=%s", user_id, goal.id)
+        self.logger.info("Goal created | user_id=%s goal_id=%s", user_id, goal.id)
         return goal
 
     def get_current(self, user_id: int) -> UserGoalPublic | None:
@@ -113,7 +112,7 @@ class UserGoalsService:
             RepositoryError: If an unhandled repository operation fails.
         """
         goal = self.goals_repo.get_active_goal(user_id)
-        logger.debug("Current goal retrieved | user_id=%s found=%s", user_id, goal is not None)
+        self.logger.debug("Current goal retrieved | user_id=%s found=%s", user_id, goal is not None)
         return goal
 
     def list_by_user(
@@ -138,7 +137,7 @@ class UserGoalsService:
             RepositoryError: If an unhandled repository operation fails.
         """
         goals = self.goals_repo.get_all(user_id, limit, offset)
-        logger.debug(
+        self.logger.debug(
             "Goal history listed | user_id=%s count=%s limit=%s offset=%s",
             user_id,
             len(goals),
@@ -169,9 +168,9 @@ class UserGoalsService:
         """
         goal = self.goals_repo.get_by_user_and_id(user_id, goal_id)
         if goal is None:
-            logger.warning("Goal not found or inaccessible | user_id=%s goal_id=%s", user_id, goal_id)
+            self.logger.warning("Goal not found or inaccessible | user_id=%s goal_id=%s", user_id, goal_id)
             raise UserGoalNotFoundError.not_found(goal_id=goal_id)
-        logger.debug("Goal retrieved | user_id=%s goal_id=%s", user_id, goal_id)
+        self.logger.debug("Goal retrieved | user_id=%s goal_id=%s", user_id, goal_id)
         return goal
 
     def update(
@@ -202,7 +201,7 @@ class UserGoalsService:
         with self._goal_transaction(user_id) as uow:
             existing_goal = uow.goals.get_by_user_and_id(user_id, goal_id)
             if existing_goal is None:
-                logger.warning("Goal not found during update | user_id=%s goal_id=%s", user_id, goal_id)
+                self.logger.warning("Goal not found during update | user_id=%s goal_id=%s", user_id, goal_id)
                 raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
             next_start_date = (
@@ -210,7 +209,7 @@ class UserGoalsService:
             )
             next_end_date = update_data.end_date if update_data.end_date is not None else existing_goal.end_date
             if next_end_date is not None and next_end_date < next_start_date:
-                logger.warning(
+                self.logger.warning(
                     "Goal update rejected: invalid date range | user_id=%s goal_id=%s", user_id, goal_id
                 )
                 raise UserGoalValidationError.end_date_before_start_date()
@@ -222,11 +221,11 @@ class UserGoalsService:
 
             updated_goal = uow.goals.update(goal_id, update_data)
             if updated_goal is None:
-                logger.warning("Goal disappeared during update | user_id=%s goal_id=%s", user_id, goal_id)
+                self.logger.warning("Goal disappeared during update | user_id=%s goal_id=%s", user_id, goal_id)
                 raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
             uow.commit()
-        logger.info("Goal updated | user_id=%s goal_id=%s", user_id, goal_id)
+        self.logger.info("Goal updated | user_id=%s goal_id=%s", user_id, goal_id)
         return updated_goal
 
     def activate_goal(
@@ -253,16 +252,20 @@ class UserGoalsService:
         with self._goal_transaction(user_id) as uow:
             goal = uow.goals.get_by_user_and_id(user_id, goal_id)
             if goal is None:
-                logger.warning("Goal not found during activation | user_id=%s goal_id=%s", user_id, goal_id)
+                self.logger.warning(
+                    "Goal not found during activation | user_id=%s goal_id=%s", user_id, goal_id
+                )
                 raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
             activated_goal = uow.goals.activate_goal(user_id, goal_id)
             if activated_goal is None:
-                logger.warning("Goal disappeared during activation | user_id=%s goal_id=%s", user_id, goal_id)
+                self.logger.warning(
+                    "Goal disappeared during activation | user_id=%s goal_id=%s", user_id, goal_id
+                )
                 raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
             uow.commit()
-        logger.info("Goal activated | user_id=%s goal_id=%s", user_id, goal_id)
+        self.logger.info("Goal activated | user_id=%s goal_id=%s", user_id, goal_id)
         return activated_goal
 
     def deactivate_goal(
@@ -289,14 +292,18 @@ class UserGoalsService:
         with self._goal_transaction(user_id) as uow:
             goal = uow.goals.get_by_user_and_id(user_id, goal_id)
             if goal is None:
-                logger.warning("Goal not found during deactivation | user_id=%s goal_id=%s", user_id, goal_id)
+                self.logger.warning(
+                    "Goal not found during deactivation | user_id=%s goal_id=%s", user_id, goal_id
+                )
                 raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
             updated_goal = uow.goals.deactivate_goal(goal_id)
             if updated_goal is None:
-                logger.warning("Goal disappeared during deactivation | user_id=%s goal_id=%s", user_id, goal_id)
+                self.logger.warning(
+                    "Goal disappeared during deactivation | user_id=%s goal_id=%s", user_id, goal_id
+                )
                 raise UserGoalNotFoundError.not_found(goal_id=goal_id)
 
             uow.commit()
-        logger.info("Goal deactivated | user_id=%s goal_id=%s", user_id, goal_id)
+        self.logger.info("Goal deactivated | user_id=%s goal_id=%s", user_id, goal_id)
         return updated_goal

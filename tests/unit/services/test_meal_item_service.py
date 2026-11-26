@@ -34,7 +34,6 @@ class MealItemServiceTests(TestCase):
         self.items = create_autospec(MealItemRepositoryPort, instance=True, spec_set=True)
         self.service = MealItemService(self.meals, self.items)
         self.logger = self.enterContext(patch.object(self.service, "logger"))
-        self.enterContext(patch("services.ownership.logger"))
         self.events = Mock()
         self.events.attach_mock(self.meals, "meals")
         self.events.attach_mock(self.items, "items")

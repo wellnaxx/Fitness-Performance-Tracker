@@ -65,7 +65,6 @@ class MealItemFlowTests(TestCase):
         self.before_write: Callable[[], None] | None = None
         self.writes: list[tuple[str, tuple[object, ...]]] = []
         self.enterContext(patch("data.executor.get_connection", side_effect=self._connection))
-        self.enterContext(patch("services.ownership.logger"))
         self.enterContext(patch("services.meal_item_service.logging.getLogger"))
         self.enterContext(patch("data.executor.logger"))
         self.service = MealItemService(MealRepository(), MealItemRepository())

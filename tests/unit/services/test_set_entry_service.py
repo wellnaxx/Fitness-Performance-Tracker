@@ -113,7 +113,7 @@ class SetEntryServiceTests(TestCase):
         for name, operation in self.operations().items():
             with (
                 self.subTest(operation=name),
-                self.assertLogs("services.ownership", level="WARNING"),
+                self.assertLogs("services.set_entry_service", level="WARNING"),
                 self.assertRaises(WorkoutNotFoundError),
             ):
                 operation()
@@ -142,7 +142,7 @@ class SetEntryServiceTests(TestCase):
         for operation in operations:
             with (
                 self.subTest(operation=operation),
-                self.assertLogs("services.ownership", level="WARNING"),
+                self.assertLogs("services.set_entry_service", level="WARNING"),
                 self.assertRaises(WorkoutNotFoundError),
             ):
                 operation()

@@ -219,3 +219,16 @@ class WorkoutExerciseServiceTests(unittest.TestCase):
             ):
                 operation()
             self.assertIs(raised.exception.__cause__, failure)
+
+    def test_updates_without_position_changes_skip_loading_sibling_entries(self) -> None:
+        for updates in (
+            WorkoutExerciseUpdate(),
+            WorkoutExerciseUpdate(order_index=None, notes=None),
+            WorkoutExerciseUpdate(notes="Changed"),
+            WorkoutExerciseUpdate(exercise_id=EXERCISE_ID),
+        ):
+            with self.subTest(updates=updates):
+                self.repo.reset_mock()
+                self.service.update(USER_ID, WORKOUT_ID, ENTRY_ID, updates)
+                self.repo.list_by_workout.assert_not_called()
+                self.repo.update.assert_called_once_with(WORKOUT_ID, ENTRY_ID, updates)
