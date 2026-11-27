@@ -166,6 +166,8 @@ class WorkoutExerciseQueries:
     update: str
     delete: str
     normalize_order_indexes: str
+    lock_for_workout: str
+    lock_visible_exercise: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -344,6 +346,8 @@ class QueryRegistry:
             update=load_sql("workout_exercises/update.sql"),
             delete=load_sql("workout_exercises/delete.sql"),
             normalize_order_indexes=load_sql("workout_exercises/normalize_order_indexes.sql"),
+            lock_for_workout=load_sql("workout_exercises/lock_for_workout.sql"),
+            lock_visible_exercise=load_sql("workout_exercises/lock_visible_exercise.sql"),
         )
 
     @cached_property

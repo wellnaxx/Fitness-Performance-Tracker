@@ -1,15 +1,16 @@
 """SQL asset loading and repository query assembly regression tests."""
 
-from contextlib import chdir, nullcontext
+from contextlib import chdir
 from dataclasses import fields
 from datetime import date
 from functools import cached_property
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import create_autospec, patch
 
 from core.errors.repository import UserRepositoryError
+from data.executor import QueryExecutor
 from data.loader import SQL_DIR, load_sql
 from data.queries import QueryRegistry
 from repositories.exercise_repository import ExerciseRepository
@@ -140,8 +141,8 @@ class RepositoryQueryTests(TestCase):
             UserRepository().update(7, **{"id = 1; --": "bad"})
         write.assert_not_called()
 
-    def test_workout_exercise_insert_uses_one_cursor_for_shift_insert_and_read(self) -> None:
-        cursor = object()
+    def test_workout_exercise_insert_uses_one_executor_for_shift_insert_and_read(self) -> None:
+        executor = create_autospec(QueryExecutor, instance=True, spec_set=True)
         row: dict[str, object] = {
             "id": 17,
             "workout_id": 11,
@@ -150,29 +151,21 @@ class RepositoryQueryTests(TestCase):
             "rest_seconds": 60,
             "notes": None,
         }
-        with (
-            patch(
-                "repositories.workout_exercise_repository.transaction_cursor", return_value=nullcontext(cursor)
-            ),
-            patch("repositories.workout_exercise_repository.execute_write_tx") as write,
-            patch("repositories.workout_exercise_repository.execute_insert_tx", return_value=17) as insert,
-            patch("repositories.workout_exercise_repository.fetch_one_tx", return_value=row) as fetch,
-        ):
-            result = WorkoutExerciseRepository().create(
-                11, WorkoutExerciseCreate(exercise_id=9, order_index=2, rest_seconds=60)
-            )
+        executor.execute_insert.return_value = 17
+        executor.fetch_one.return_value = row
+        result = WorkoutExerciseRepository(executor).create(
+            11, WorkoutExerciseCreate(exercise_id=9, order_index=2, rest_seconds=60)
+        )
         self.assertEqual(result.id, 17)
-        for call in (write.call_args, insert.call_args, fetch.call_args):
-            self.assertIs(call.args[0], cursor)
-        self.assertIn("order_index = order_index + 1", write.call_args.args[1])
-        self.assertEqual(write.call_args.args[2], (11, 2))
-        self.assertEqual(insert.call_args.args[2], (11, 9, 2, 60, None))
-        self.assertEqual(fetch.call_args.args[2], (17,))
+        self.assertIn("order_index = order_index + 1", executor.execute_write.call_args.args[0])
+        self.assertEqual(executor.execute_write.call_args.args[1], (11, 2))
+        self.assertEqual(executor.execute_insert.call_args.args[1], (11, 9, 2, 60, None))
+        self.assertEqual(executor.fetch_one.call_args.args[1], (17,))
 
     def test_workout_exercise_reorder_preserves_both_shift_directions(self) -> None:
         for new_index, shift, expected_params in ((1, "+ 1", (11, 1, 3)), (5, "- 1", (11, 3, 5))):
             with self.subTest(new_index=new_index):
-                cursor = object()
+                executor = create_autospec(QueryExecutor, instance=True, spec_set=True)
                 row: dict[str, object] = {
                     "id": 17,
                     "workout_id": 11,
@@ -181,48 +174,27 @@ class RepositoryQueryTests(TestCase):
                     "rest_seconds": 60,
                     "notes": None,
                 }
-                with (
-                    patch(
-                        "repositories.workout_exercise_repository.transaction_cursor",
-                        return_value=nullcontext(cursor),
-                    ),
-                    patch("repositories.workout_exercise_repository.execute_write_tx", return_value=1) as write,
-                    patch(
-                        "repositories.workout_exercise_repository.fetch_one_tx",
-                        side_effect=[row, {**row, "order_index": new_index}],
-                    ),
-                ):
-                    result = WorkoutExerciseRepository().update(
-                        11, 17, WorkoutExerciseUpdate(order_index=new_index)
-                    )
+                executor.fetch_one.side_effect = [row, {**row, "order_index": new_index}]
+                result = WorkoutExerciseRepository(executor).update(
+                    11, 17, WorkoutExerciseUpdate(order_index=new_index)
+                )
                 if result is None:
                     self.fail("Expected the reordered workout exercise to be returned")
                 self.assertEqual(result.order_index, new_index)
-                self.assertEqual(write.call_count, 2)
-                first, second = write.call_args_list
-                self.assertIs(first.args[0], cursor)
-                self.assertIn(f"order_index = order_index {shift}", first.args[1])
-                self.assertEqual(first.args[2], expected_params)
-                self.assertIs(second.args[0], cursor)
-                self.assertEqual(second.args[2], (new_index, 11, 17))
+                self.assertEqual(executor.execute_write.call_count, 2)
+                first, second = executor.execute_write.call_args_list
+                self.assertIn(f"order_index = order_index {shift}", first.args[0])
+                self.assertEqual(first.args[1], expected_params)
+                self.assertEqual(second.args[1], (new_index, 11, 17))
 
     def test_delete_normalizes_order_only_when_an_exercise_was_deleted(self) -> None:
         for deleted in (0, 1):
             with self.subTest(deleted=deleted):
-                cursor = object()
-                with (
-                    patch(
-                        "repositories.workout_exercise_repository.transaction_cursor",
-                        return_value=nullcontext(cursor),
-                    ),
-                    patch(
-                        "repositories.workout_exercise_repository.execute_write_tx", return_value=deleted
-                    ) as write,
-                ):
-                    self.assertEqual(WorkoutExerciseRepository().delete(11, 17), bool(deleted))
-                self.assertEqual(write.call_count, 1 + deleted)
-                self.assertEqual(write.call_args_list[0].args[2], (11, 17))
+                executor = create_autospec(QueryExecutor, instance=True, spec_set=True)
+                executor.execute_write.return_value = deleted
+                self.assertEqual(WorkoutExerciseRepository(executor).delete(11, 17), bool(deleted))
+                self.assertEqual(executor.execute_write.call_count, 1 + deleted)
+                self.assertEqual(executor.execute_write.call_args_list[0].args[1], (11, 17))
                 if deleted:
-                    self.assertIs(write.call_args.args[0], cursor)
-                    self.assertIn("ROW_NUMBER()", write.call_args.args[1])
-                    self.assertEqual(write.call_args.args[2], (11,))
+                    self.assertIn("ROW_NUMBER()", executor.execute_write.call_args.args[0])
+                    self.assertEqual(executor.execute_write.call_args.args[1], (11,))
