@@ -106,9 +106,9 @@ def get_workout_exercise_repository() -> WorkoutExerciseRepositoryPort:
 def get_workout_exercise_service(
     workout_exercise_repo: WorkoutExerciseRepositoryPort = Depends(get_workout_exercise_repository),
     workout_repo: WorkoutRepositoryPort = Depends(get_workout_repository),
-    exercise_repo: ExerciseRepositoryPort = Depends(get_exercise_repository),
+    unit_of_work: UnitOfWorkPort = Depends(get_unit_of_work),
 ) -> WorkoutExerciseService:
-    return WorkoutExerciseService(workout_exercise_repo, workout_repo, exercise_repo)
+    return WorkoutExerciseService(workout_exercise_repo, workout_repo, unit_of_work)
 
 
 def get_set_entry_repository() -> SetEntryRepositoryPort:

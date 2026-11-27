@@ -15,6 +15,7 @@ from dependencies.providers import get_unit_of_work, get_user_goals_service
 from repositories.set_entry_unit_of_work_repository import SetEntryUnitOfWorkRepository
 from repositories.user_goals_repository import UserGoalsRepository
 from repositories.user_goals_unit_of_work_repository import UserGoalsUnitOfWorkRepository
+from repositories.workout_exercise_unit_of_work_repository import WorkoutExerciseUnitOfWorkRepository
 from schemas.user_goals_schema import UserGoalCreate, UserGoalUpdate
 from tests.fixtures import GOAL_ID, USER_ID, goal, user
 
@@ -34,7 +35,7 @@ class PostgresUnitOfWorkTests(TestCase):
     def assert_closed(self) -> None:
         self.cursor.close.assert_called_once_with()
         self.conn.close.assert_called_once_with()
-        for repository in ("goals", "set_entry"):
+        for repository in ("goals", "set_entry", "workout_exercise"):
             with self.assertRaises(DatabaseError):
                 getattr(self.uow, repository)
 
@@ -47,6 +48,7 @@ class PostgresUnitOfWorkTests(TestCase):
             self.assertIs(uow, self.uow)
             self.assertIsInstance(uow.goals, UserGoalsUnitOfWorkRepository)
             self.assertIsInstance(uow.set_entry, SetEntryUnitOfWorkRepository)
+            self.assertIsInstance(uow.workout_exercise, WorkoutExerciseUnitOfWorkRepository)
             self.conn.commit.assert_not_called()
             uow.commit()
         self.connect.assert_called_once_with()
@@ -245,6 +247,41 @@ class PostgresUnitOfWorkTests(TestCase):
         self.conn.rollback.assert_called_once_with()
         self.assert_closed()
 
+    def test_workout_exercise_repository_setup_failure_closes_both_resources(self) -> None:
+        failure = RuntimeError("workout exercise repository setup failed")
+        with (
+            patch("data.unit_of_work.WorkoutExerciseUnitOfWorkRepository", side_effect=failure),
+            self.assertLogs("data.unit_of_work", level="ERROR"),
+            self.assertRaises(DatabaseError) as raised,
+        ):
+            self.uow.__enter__()
+        self.assertIs(raised.exception.__cause__, failure)
+        self.assert_closed()
+
+    def test_workout_and_catalog_locks_share_the_active_cursor_and_report_absence(self) -> None:
+        self.cursor.description = [SimpleNamespace(name="id")]
+        self.cursor.fetchone.side_effect = [(11,), None, (13,), None]
+        with self.uow as uow:
+            self.assertTrue(uow.workout_exercise.lock_for_workout(7, 11))
+            self.assertFalse(uow.workout_exercise.lock_for_workout(7, 99))
+            self.assertTrue(uow.workout_exercise.lock_visible_exercise(7, 13))
+            self.assertFalse(uow.workout_exercise.lock_visible_exercise(7, 99))
+        self.assertEqual(
+            self.cursor.execute.call_args_list,
+            [
+                call(QUERIES.workout_exercises.lock_for_workout, (11, 7)),
+                call(QUERIES.workout_exercises.lock_for_workout, (99, 7)),
+                call(QUERIES.workout_exercises.lock_visible_exercise, (13, 7)),
+                call(QUERIES.workout_exercises.lock_visible_exercise, (99, 7)),
+            ],
+        )
+        self.assertIn("FOR UPDATE", QUERIES.workout_exercises.lock_for_workout)
+        self.assertIn("user_id = %s", QUERIES.workout_exercises.lock_for_workout)
+        self.assertIn("FOR SHARE", QUERIES.workout_exercises.lock_visible_exercise)
+        self.assertIn("created_by IS NULL OR created_by = %s", QUERIES.workout_exercises.lock_visible_exercise)
+        self.conn.commit.assert_not_called()
+        self.assert_closed()
+
     def test_close_failures_are_logged_and_connection_close_is_still_attempted(self) -> None:
         self.cursor.close.side_effect = OperationalError("cursor close failed")
         self.conn.close.side_effect = OperationalError("connection close failed")
@@ -265,6 +302,7 @@ class PostgresUnitOfWorkTests(TestCase):
             self.uow.rollback,
             lambda: self.uow.goals,
             lambda: self.uow.set_entry,
+            lambda: self.uow.workout_exercise,
         ):
             with self.subTest(operation=operation), self.assertRaises(DatabaseError):
                 operation()
@@ -288,10 +326,12 @@ class PostgresUnitOfWorkTests(TestCase):
         with self.uow as uow:
             first_repository = uow.goals
             first_sets = uow.set_entry
+            first_workout_exercises = uow.workout_exercise
             uow.commit()
         with self.uow as uow:
             self.assertIsNot(uow.goals, first_repository)
             self.assertIsNot(uow.set_entry, first_sets)
+            self.assertIsNot(uow.workout_exercise, first_workout_exercises)
         self.conn.rollback.assert_not_called()
         second_conn.rollback.assert_called_once_with()
         second_cursor.close.assert_called_once_with()

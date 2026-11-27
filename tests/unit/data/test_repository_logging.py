@@ -4,7 +4,7 @@ from contextlib import ExitStack
 from decimal import Decimal
 from importlib import import_module
 from unittest import TestCase
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 from core.errors.base import RepositoryError
 from repositories.body_measurement_repository import BodyMeasurementRepository
@@ -38,8 +38,9 @@ class RepositoryLoggingTests(TestCase):
             data.model_dump.return_value = {"private-field": "private-value"}
             with self.subTest(repository=name), ExitStack() as stack:
                 if name == "workout_exercise_repository":
-                    stack.enter_context(patch.object(module, "transaction_cursor", return_value=MagicMock()))
-                    stack.enter_context(patch.object(module, "fetch_one_tx", return_value=workout_exercise_row))
+                    stack.enter_context(
+                        patch.object(module.default_executor, "fetch_one", return_value=workout_exercise_row)
+                    )
                 logs = stack.enter_context(self.assertLogs(f"repositories.{name}", level="WARNING"))
                 with self.assertRaises(RepositoryError):
                     if name == "user_repository":

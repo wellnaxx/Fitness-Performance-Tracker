@@ -20,7 +20,11 @@ class WorkoutExerciseRepositoryPort(Protocol):
     """
 
     def create(self, workout_id: int, workout_exercise_data: WorkoutExerciseCreate) -> WorkoutExercisePublic:
-        """Create a workout exercise and shift later order indexes in one transaction.
+        """Create an entry and shift later order indexes using the selected executor.
+
+        Ordering writes must use the unit-of-work repository after the service
+        locks the owned parent and validates the insertion position. The caller
+        owns commit and rollback, including failures during mapping or readback.
 
         Args:
             workout_id: Parent workout ID.
@@ -89,7 +93,10 @@ class WorkoutExerciseRepositoryPort(Protocol):
     def update(
         self, workout_id: int, workout_exercise_id: int, update_data: WorkoutExerciseUpdate
     ) -> WorkoutExercisePublic | None:
-        """Update an item and reorder its siblings in one transaction.
+        """Update an item and reorder siblings using the selected executor.
+
+        The service must lock the parent and validate the position inside a unit
+        of work before calling this operation. This method does not commit.
 
         Args:
             workout_id: Parent workout ID; caller must verify ownership.
@@ -98,7 +105,8 @@ class WorkoutExerciseRepositoryPort(Protocol):
 
         Returns:
             The updated item, current values for an empty update, or None if absent
-            from the workout. A target disappearing during the write rolls back all shifts.
+            from the workout. The caller must raise on a missing write readback
+            inside its unit of work to roll back all shifts.
 
         Raises:
             WorkoutExerciseRepositoryError: If validation, mapping, or the transaction fails.
@@ -106,7 +114,10 @@ class WorkoutExerciseRepositoryPort(Protocol):
         ...
 
     def delete(self, workout_id: int, workout_exercise_id: int) -> bool:
-        """Delete a workout exercise and normalize order indexes in one transaction.
+        """Delete an entry and normalize order indexes using the selected executor.
+
+        Call through the unit of work after locking the owned parent. The caller
+        commits only after deletion and normalization both succeed.
 
         Args:
             workout_id: Parent workout ID.

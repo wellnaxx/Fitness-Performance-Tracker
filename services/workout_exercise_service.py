@@ -16,6 +16,7 @@ import logging
 
 from core.errors.exercise import ExerciseNotFoundError
 from core.errors.repository import WorkoutExerciseRepositoryError
+from core.errors.workout import WorkoutNotFoundError
 from core.errors.workout_exercise import (
     WorkoutExerciseCreationError,
     WorkoutExerciseDeleteError,
@@ -23,9 +24,9 @@ from core.errors.workout_exercise import (
     WorkoutExerciseUpdateError,
     WorkoutExerciseValidationError,
 )
-from ports.repositories.exercise_repository import ExerciseRepositoryPort
 from ports.repositories.workout_exercise_repository import WorkoutExerciseRepositoryPort
 from ports.repositories.workout_repository import WorkoutRepositoryPort
+from ports.unit_of_work import UnitOfWorkPort, UnitOfWorkWorkoutExerciseRepositoryPort
 from schemas.workout_exercises_schema import (
     WorkoutExerciseCreate,
     WorkoutExercisePublic,
@@ -39,7 +40,7 @@ class WorkoutExerciseService:
         self,
         workout_exercise_repository: WorkoutExerciseRepositoryPort,
         workout_repository: WorkoutRepositoryPort,
-        exercise_repository: ExerciseRepositoryPort,
+        unit_of_work: UnitOfWorkPort,
     ) -> None:
         """
         Initialize WorkoutExerciseService with repository dependencies.
@@ -47,18 +48,21 @@ class WorkoutExerciseService:
         Args:
             workout_exercise_repository: WorkoutExerciseRepositoryPort instance for database operations
             workout_repository: WorkoutRepositoryPort instance for database operations
-            exercise_repository: ExerciseRepositoryPort instance for database operations
+            unit_of_work: Transaction boundary for locked ordering writes
         """
         self.workout_exercise_repository = workout_exercise_repository
         self.workout_repository = workout_repository
-        self.exercise_repository = exercise_repository
+        self.unit_of_work = unit_of_work
         self.logger = logging.getLogger(__name__)
 
     def create(
         self, user_id: int, workout_id: int, workout_exercise_data: WorkoutExerciseCreate
     ) -> WorkoutExercisePublic:
         """
-        Add a new exercise to a workout.
+        Add an exercise after locking the owned workout and visible catalog exercise.
+
+        Count, position validation, shifting, insertion, and readback share one
+        transaction. Commit explicitly after mapping succeeds; failures roll back.
 
         Args:
             user_id: ID of the user adding the exercise
@@ -69,19 +73,23 @@ class WorkoutExerciseService:
             WorkoutExercisePublic schema of the created workout exercise
 
         Raises:
-            WorkoutExerciseCreationError: If adding the exercise fails, or if the order index is invalid
+            WorkoutExerciseCreationError: If insertion or its readback fails.
+            WorkoutExerciseValidationError: If the position is outside 0..current_count.
             WorkoutNotFoundError: If the workout does not exist or is not accessible to the user
             ExerciseNotFoundError: If the exercise does not exist or is not accessible to the user
+            DatabaseError: If opening, locking, counting, committing, or cleanup fails.
+            RowValidationError: If an existing sibling row cannot be mapped.
+            ValidationError: If an existing sibling violates the public schema.
         """
-        require_owned_workout(self.workout_repository, user_id, workout_id, logger=self.logger)
-        self._validate_target_exercise(user_id, workout_exercise_data.exercise_id)
-
-        existing_entries = self.workout_exercise_repository.list_by_workout(workout_id)
-        current_count = len(existing_entries)
-        self._validate_order_index(workout_exercise_data.order_index, current_count)
-
         try:
-            workout_exercise = self.workout_exercise_repository.create(workout_id, workout_exercise_data)
+            with self.unit_of_work as uow:
+                repo = uow.workout_exercise
+                self._lock_owned_workout(repo, user_id, workout_id)
+                self._validate_target_exercise(repo, user_id, workout_exercise_data.exercise_id)
+                current_count = len(repo.list_by_workout(workout_id))
+                self._validate_order_index(workout_exercise_data.order_index, current_count)
+                workout_exercise = repo.create(workout_id, workout_exercise_data)
+                uow.commit()
         except WorkoutExerciseRepositoryError as exc:
             self.logger.exception("Failed to add exercise to workout for user %s!", user_id)
             raise WorkoutExerciseCreationError.create_failed() from exc
@@ -110,7 +118,9 @@ class WorkoutExerciseService:
             WorkoutNotFoundError: If the workout does not exist or is not accessible to the user
         """
         require_owned_workout(self.workout_repository, user_id, workout_id, logger=self.logger)
-        workout_exercise = self._get_workout_exercise_or_raise(workout_id, workout_exercise_id)
+        workout_exercise = self._get_workout_exercise_or_raise(
+            self.workout_exercise_repository, workout_id, workout_exercise_id
+        )
 
         self.logger.debug(
             "Workout exercise with ID %s retrieved successfully for user %s.", workout_exercise_id, user_id
@@ -146,7 +156,10 @@ class WorkoutExerciseService:
         workout_exercise_id: int,
         workout_exercise_data: WorkoutExerciseUpdate,
     ) -> WorkoutExercisePublic:
-        """Update a workout exercise's details.
+        """Update details and positions under the owned workout lock.
+
+        Validation and readback use the active transaction. A missing target or
+        failed readback aborts all shifts; success is logged after commit and cleanup.
 
         Args:
             workout_id: Parent workout ID.
@@ -163,36 +176,35 @@ class WorkoutExerciseService:
             WorkoutNotFoundError: If the workout does not exist or is not accessible to the user
             ExerciseNotFoundError: If the new exercise does not exist or is not accessible to the user
             WorkoutExerciseUpdateError: If updating the workout exercise fails
+            WorkoutExerciseValidationError: If the requested position is outside the existing range.
+            DatabaseError: If opening, locking, reading, committing, or cleanup fails.
+            RowValidationError: If an existing child or sibling row cannot be mapped.
+            ValidationError: If an existing row violates the public schema.
         """
-        require_owned_workout(self.workout_repository, user_id, workout_id, logger=self.logger)
-
-        self._get_workout_exercise_or_raise(workout_id, workout_exercise_id)
-
-        if workout_exercise_data.exercise_id is not None:
-            self._validate_target_exercise(user_id, workout_exercise_data.exercise_id)
-
-        if workout_exercise_data.order_index is not None:
-            existing_entries = self.workout_exercise_repository.list_by_workout(workout_id)
-            current_count = len(existing_entries)
-            self._validate_update_order_index(workout_exercise_data.order_index, current_count)
-
         try:
-            updated = self.workout_exercise_repository.update(
-                workout_id, workout_exercise_id, workout_exercise_data
-            )
+            with self.unit_of_work as uow:
+                repo = uow.workout_exercise
+                self._lock_owned_workout(repo, user_id, workout_id)
+                self._get_workout_exercise_or_raise(repo, workout_id, workout_exercise_id)
+                if workout_exercise_data.exercise_id is not None:
+                    self._validate_target_exercise(repo, user_id, workout_exercise_data.exercise_id)
+                if workout_exercise_data.order_index is not None:
+                    current_count = len(repo.list_by_workout(workout_id))
+                    self._validate_update_order_index(workout_exercise_data.order_index, current_count)
+                updated = repo.update(workout_id, workout_exercise_id, workout_exercise_data)
+                if updated is None:
+                    self.logger.warning(
+                        "Workout exercise disappeared during update | user_id=%s workout_exercise_id=%s",
+                        user_id,
+                        workout_exercise_id,
+                    )
+                    raise WorkoutExerciseNotFoundError.not_found(workout_exercise_id)
+                uow.commit()
         except WorkoutExerciseRepositoryError as exc:
             self.logger.exception(
                 "Failed to update workout exercise with ID %s for user %s.", workout_exercise_id, user_id
             )
             raise WorkoutExerciseUpdateError.update_failed(workout_exercise_id=workout_exercise_id) from exc
-
-        if updated is None:
-            self.logger.warning(
-                "Workout exercise with ID %s not found after update attempt for user %s.",
-                workout_exercise_id,
-                user_id,
-            )
-            raise WorkoutExerciseNotFoundError.not_accessible(workout_exercise_id=workout_exercise_id)
 
         self.logger.info(
             "Workout exercise with ID %s updated successfully for user %s.", workout_exercise_id, user_id
@@ -200,40 +212,45 @@ class WorkoutExerciseService:
         return updated
 
     def delete(self, user_id: int, workout_id: int, workout_exercise_id: int) -> None:
-        """Remove an exercise from a workout.
+        """Delete an entry and normalize siblings under the owned workout lock.
+
+        Missing targets and failed writes abort the transaction, preserving ordering.
 
         Args:
             user_id: ID of the user requesting the deletion
             workout_id: ID of the workout to remove the exercise from
             workout_exercise_id: ID of the workout exercise to delete
 
+        Returns:
+            None after successful completion.
+
         Raises:
             WorkoutExerciseNotFoundError: If the workout exercise is not found, not in the specified
             workout, or not visible to the user
             WorkoutNotFoundError: If the workout does not exist or is not accessible to the user
             WorkoutExerciseDeleteError: If deleting the workout exercise fails
-
-        Returns:
-            None after successful completion.
+            DatabaseError: If opening, locking, reading, committing, or cleanup fails.
+            RowValidationError: If the stored child cannot be mapped.
+            ValidationError: If the stored child violates the public schema.
         """
-        require_owned_workout(self.workout_repository, user_id, workout_id, logger=self.logger)
-        self._get_workout_exercise_or_raise(workout_id, workout_exercise_id)
-
         try:
-            deleted = self.workout_exercise_repository.delete(workout_id, workout_exercise_id)
+            with self.unit_of_work as uow:
+                repo = uow.workout_exercise
+                self._lock_owned_workout(repo, user_id, workout_id)
+                self._get_workout_exercise_or_raise(repo, workout_id, workout_exercise_id)
+                if not repo.delete(workout_id, workout_exercise_id):
+                    self.logger.warning(
+                        "Workout exercise disappeared during deletion | user_id=%s workout_exercise_id=%s",
+                        user_id,
+                        workout_exercise_id,
+                    )
+                    raise WorkoutExerciseNotFoundError.not_found(workout_exercise_id)
+                uow.commit()
         except WorkoutExerciseRepositoryError as exc:
             self.logger.exception(
                 "Failed to delete workout exercise with ID %s for user %s.", workout_exercise_id, user_id
             )
             raise WorkoutExerciseDeleteError.delete_failed(workout_exercise_id=workout_exercise_id) from exc
-
-        if not deleted:
-            self.logger.warning(
-                "Workout exercise with ID %s not found after delete attempt for user %s.",
-                workout_exercise_id,
-                user_id,
-            )
-            raise WorkoutExerciseNotFoundError.not_accessible(workout_exercise_id=workout_exercise_id)
 
         self.logger.info(
             "Workout exercise with ID %s deleted successfully for user %s.", workout_exercise_id, user_id
@@ -241,12 +258,14 @@ class WorkoutExerciseService:
 
     def _get_workout_exercise_or_raise(
         self,
+        repository: WorkoutExerciseRepositoryPort,
         workout_id: int,
         workout_exercise_id: int,
     ) -> WorkoutExercisePublic:
         """Resolve an entry within a workout whose ownership was already verified.
 
         Args:
+            repository: Read repository or the active transaction repository.
             workout_id: Owned parent workout ID.
             workout_exercise_id: Requested child entry ID.
 
@@ -258,7 +277,7 @@ class WorkoutExerciseService:
             DatabaseError: If the lookup fails.
             RowValidationError: If a stored row cannot be mapped.
         """
-        workout_exercise = self.workout_exercise_repository.get_by_workout_and_id(
+        workout_exercise = repository.get_by_workout_and_id(
             workout_id,
             workout_exercise_id,
         )
@@ -272,12 +291,38 @@ class WorkoutExerciseService:
             )
         return workout_exercise
 
-    def _validate_target_exercise(self, user_id: int, exercise_id: int) -> None:
-        """Verify that a catalog exercise is visible to the user.
+    def _lock_owned_workout(
+        self, repository: UnitOfWorkWorkoutExerciseRepositoryPort, user_id: int, workout_id: int
+    ) -> None:
+        """Authorize and lock the workout before reading its child records.
+
+        Args:
+            repository: Active transaction repository.
+            user_id: Authenticated owner ID.
+            workout_id: Requested parent workout ID.
+
+        Returns:
+            None while the owned workout remains locked until transaction completion.
+
+        Raises:
+            WorkoutNotFoundError: If the workout is missing, global, or foreign-owned.
+            DatabaseError: If the lock query fails.
+        """
+        if not repository.lock_for_workout(user_id, workout_id):
+            self.logger.warning(
+                "Workout unavailable for ordering write | user_id=%s workout_id=%s", user_id, workout_id
+            )
+            raise WorkoutNotFoundError.not_accessible(workout_id)
+
+    def _validate_target_exercise(
+        self, repository: UnitOfWorkWorkoutExerciseRepositoryPort, user_id: int, exercise_id: int
+    ) -> None:
+        """Lock a visible catalog exercise until the write completes.
 
         Args:
             user_id: Authenticated user ID.
             exercise_id: Requested catalog exercise ID.
+            repository: Active transaction repository providing the visibility lock.
 
         Returns:
             None after successful validation.
@@ -286,7 +331,7 @@ class WorkoutExerciseService:
             ExerciseNotFoundError: If the exercise is missing or not visible.
             DatabaseError: If the lookup fails.
         """
-        if not self.exercise_repository.get_visible_by_id(user_id, exercise_id):
+        if not repository.lock_visible_exercise(user_id, exercise_id):
             self.logger.warning(
                 "Exercise with ID %s not found or not visible to user %s.", exercise_id, user_id
             )

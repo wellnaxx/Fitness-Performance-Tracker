@@ -11,27 +11,17 @@ import logging
 from typing import TYPE_CHECKING, Final
 
 from core.errors.repository import WorkoutExerciseRepositoryError
-from data.executor import (
-    execute_insert_tx,
-    execute_write_tx,
-    fetch_all,
-    fetch_one,
-    fetch_one_tx,
-    transaction_cursor,
-)
+from data import executor as default_executor
 from data.mappers.workout_exercise import map_workout_exercise
 from data.queries import QUERIES
 
 if TYPE_CHECKING:
+    from data.executor import QueryExecutor
     from schemas.workout_exercises_schema import (
         WorkoutExerciseCreate,
         WorkoutExercisePublic,
         WorkoutExerciseUpdate,
     )
-
-
-class _WorkoutExerciseDisappearedError(WorkoutExerciseRepositoryError):
-    """Abort and roll back reordering when the target disappears during an update."""
 
 
 class WorkoutExerciseRepository:
@@ -51,9 +41,14 @@ class WorkoutExerciseRepository:
         "notes",
     }
 
-    def __init__(self) -> None:
-        """Initialize the repository logger without opening a database connection."""
+    def __init__(self, executor: QueryExecutor = default_executor) -> None:
+        """Select standalone reads or the unit of work's shared transaction.
+
+        Args:
+            executor: Shared executor; ordering writes require a unit of work.
+        """
         self.logger = logging.getLogger(__name__)
+        self._executor = executor
 
     def create(
         self,
@@ -61,7 +56,10 @@ class WorkoutExerciseRepository:
         workout_exercise_data: WorkoutExerciseCreate,
     ) -> WorkoutExercisePublic:
         """
-        Create a workout exercise and shift later order indexes in one transaction.
+        Create an entry and shift later indexes using the selected executor.
+
+        Call through a unit of work after locking and validating the parent.
+        The transaction-bound executor never commits or opens a nested transaction.
 
         Args:
             workout_id: Parent workout ID.
@@ -75,39 +73,33 @@ class WorkoutExerciseRepository:
             or if the transactional write fails.
         """
         try:
-            with transaction_cursor() as cursor:
-                execute_write_tx(
-                    cursor,
-                    QUERIES.workout_exercises.shift_for_insert,
-                    (
-                        workout_id,
-                        workout_exercise_data.order_index,
-                    ),
-                )
+            self._executor.execute_write(
+                QUERIES.workout_exercises.shift_for_insert,
+                (
+                    workout_id,
+                    workout_exercise_data.order_index,
+                ),
+            )
 
-                workout_exercise_id = execute_insert_tx(
-                    cursor,
-                    QUERIES.workout_exercises.create,
-                    (
-                        workout_id,
-                        workout_exercise_data.exercise_id,
-                        workout_exercise_data.order_index,
-                        workout_exercise_data.rest_seconds,
-                        workout_exercise_data.notes,
-                    ),
-                )
+            workout_exercise_id = self._executor.execute_insert(
+                QUERIES.workout_exercises.create,
+                (
+                    workout_id,
+                    workout_exercise_data.exercise_id,
+                    workout_exercise_data.order_index,
+                    workout_exercise_data.rest_seconds,
+                    workout_exercise_data.notes,
+                ),
+            )
 
-                row = fetch_one_tx(
-                    cursor,
-                    QUERIES.workout_exercises.get_by_id,
-                    (workout_exercise_id,),
-                )
-                if row is None:
-                    self.logger.warning(
-                        "Inserted row missing during readback | entity_id=%s", workout_exercise_id
-                    )
-                    raise WorkoutExerciseRepositoryError.inserted_missing(workout_exercise_id)  # noqa: TRY301
-                created = map_workout_exercise(row)
+            row = self._executor.fetch_one(
+                QUERIES.workout_exercises.get_by_id,
+                (workout_exercise_id,),
+            )
+            if row is None:
+                self.logger.warning("Inserted row missing during readback | entity_id=%s", workout_exercise_id)
+                raise WorkoutExerciseRepositoryError.inserted_missing(workout_exercise_id)  # noqa: TRY301
+            created = map_workout_exercise(row)
         except WorkoutExerciseRepositoryError:
             raise
         except Exception as exc:
@@ -131,7 +123,7 @@ class WorkoutExerciseRepository:
             RowValidationError: If a stored row has invalid field types.
             ValidationError: If a stored row violates the public schema.
         """
-        row = fetch_one(QUERIES.workout_exercises.get_by_id, (workout_exercise_id,))
+        row = self._executor.fetch_one(QUERIES.workout_exercises.get_by_id, (workout_exercise_id,))
         if row is None:
             return None
         return map_workout_exercise(row)
@@ -155,7 +147,7 @@ class WorkoutExerciseRepository:
             RowValidationError: If a stored row has invalid field types.
             ValidationError: If a stored row violates the public schema.
         """
-        row = fetch_one(
+        row = self._executor.fetch_one(
             QUERIES.workout_exercises.get_by_workout_and_id,
             (workout_id, workout_exercise_id),
         )
@@ -177,7 +169,7 @@ class WorkoutExerciseRepository:
             RowValidationError: If a stored row has invalid field types.
             ValidationError: If a stored row violates the public schema.
         """
-        rows = fetch_all(
+        rows = self._executor.fetch_all(
             QUERIES.workout_exercises.list_by_workout,
             (workout_id,),
         )
@@ -189,7 +181,9 @@ class WorkoutExerciseRepository:
         workout_exercise_id: int,
         update_data: WorkoutExerciseUpdate,
     ) -> WorkoutExercisePublic | None:
-        """Update an item and reorder its siblings in one transaction.
+        """Update an item and reorder siblings using the selected executor.
+
+        Call through a unit of work after locking and validating the parent.
 
         Args:
             workout_id: Parent workout ID; caller must verify ownership.
@@ -198,66 +192,60 @@ class WorkoutExerciseRepository:
 
         Returns:
             The updated item, current values for an empty update, or None if absent
-            from the workout. A target disappearing during the write rolls back all shifts.
+            from the workout. The caller must raise on a missing write readback
+            inside its unit of work to roll back all shifts.
 
         Raises:
             WorkoutExerciseRepositoryError: If validation, mapping, or the transaction fails.
         """
         try:
-            with transaction_cursor() as cursor:
-                existing = fetch_one_tx(
-                    cursor,
-                    QUERIES.workout_exercises.get_by_workout_and_id,
-                    (workout_id, workout_exercise_id),
-                )
-                if existing is None:
-                    return None
+            existing = self._executor.fetch_one(
+                QUERIES.workout_exercises.get_by_workout_and_id,
+                (workout_id, workout_exercise_id),
+            )
+            if existing is None:
+                return None
 
-                existing_exercise = map_workout_exercise(existing)
+            existing_exercise = map_workout_exercise(existing)
 
-                fields = update_data.model_dump(exclude_none=True)
-                if not fields:
-                    return existing_exercise
+            fields = update_data.model_dump(exclude_none=True)
+            if not fields:
+                return existing_exercise
 
-                self._validate_update_fields(fields)
+            self._validate_update_fields(fields)
 
-                new_order_index = fields.get("order_index")
-                if isinstance(new_order_index, int) and new_order_index != existing_exercise.order_index:
-                    if new_order_index < existing_exercise.order_index:
-                        execute_write_tx(
-                            cursor,
-                            QUERIES.workout_exercises.shift_toward_end,
-                            (
-                                workout_id,
-                                new_order_index,
-                                existing_exercise.order_index,
-                            ),
-                        )
-                    else:
-                        execute_write_tx(
-                            cursor,
-                            QUERIES.workout_exercises.shift_toward_start,
-                            (
-                                workout_id,
-                                existing_exercise.order_index,
-                                new_order_index,
-                            ),
-                        )
+            new_order_index = fields.get("order_index")
+            if isinstance(new_order_index, int) and new_order_index != existing_exercise.order_index:
+                if new_order_index < existing_exercise.order_index:
+                    self._executor.execute_write(
+                        QUERIES.workout_exercises.shift_toward_end,
+                        (
+                            workout_id,
+                            new_order_index,
+                            existing_exercise.order_index,
+                        ),
+                    )
+                else:
+                    self._executor.execute_write(
+                        QUERIES.workout_exercises.shift_toward_start,
+                        (
+                            workout_id,
+                            existing_exercise.order_index,
+                            new_order_index,
+                        ),
+                    )
 
-                set_clause = ", ".join(f"{field} = %s" for field in fields)
-                sql = QUERIES.workout_exercises.update.format(set_clause=set_clause)
-                execute_write_tx(cursor, sql, (*fields.values(), workout_id, workout_exercise_id))
+            set_clause = ", ".join(f"{field} = %s" for field in fields)
+            sql = QUERIES.workout_exercises.update.format(set_clause=set_clause)
+            self._executor.execute_write(sql, (*fields.values(), workout_id, workout_exercise_id))
 
-                updated_row = fetch_one_tx(
-                    cursor,
-                    QUERIES.workout_exercises.get_by_workout_and_id,
-                    (workout_id, workout_exercise_id),
-                )
-                if updated_row is None:
-                    raise _WorkoutExerciseDisappearedError  # noqa: TRY301 - abort before ordering changes commit
-                updated = map_workout_exercise(updated_row)
-        except _WorkoutExerciseDisappearedError:
-            return None
+            updated_row = self._executor.fetch_one(
+                QUERIES.workout_exercises.get_by_workout_and_id,
+                (workout_id, workout_exercise_id),
+            )
+            if updated_row is None:
+                return None
+            updated = map_workout_exercise(updated_row)
         except WorkoutExerciseRepositoryError:
             raise
         except Exception as exc:
@@ -267,7 +255,9 @@ class WorkoutExerciseRepository:
 
     def delete(self, workout_id: int, workout_exercise_id: int) -> bool:
         """
-        Delete a workout exercise and normalize order indexes in one transaction.
+        Delete an entry and normalize indexes using the selected executor.
+
+        Call through a unit of work after locking the owned parent.
 
         Args:
             workout_id: Parent workout ID.
@@ -280,25 +270,23 @@ class WorkoutExerciseRepository:
             WorkoutExerciseRepositoryError: If the transactional write fails.
         """
         try:
-            with transaction_cursor() as cursor:
-                deleted = execute_write_tx(
-                    cursor,
-                    QUERIES.workout_exercises.delete,
-                    (workout_id, workout_exercise_id),
+            deleted = self._executor.execute_write(
+                QUERIES.workout_exercises.delete,
+                (workout_id, workout_exercise_id),
+            )
+
+            if deleted > 0:
+                self._executor.execute_write(
+                    QUERIES.workout_exercises.normalize_order_indexes,
+                    (workout_id,),
                 )
 
-                if deleted > 0:
-                    execute_write_tx(
-                        cursor,
-                        QUERIES.workout_exercises.normalize_order_indexes,
-                        (workout_id,),
-                    )
-
-                return deleted > 0
         except WorkoutExerciseRepositoryError:
             raise
         except Exception as exc:
             raise WorkoutExerciseRepositoryError.transaction_failed(exc) from exc
+
+        return deleted > 0
 
     def _validate_update_fields(self, fields: dict[str, object]) -> None:
         """Ensure that only allowed fields are being updated."""
