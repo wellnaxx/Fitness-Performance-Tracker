@@ -11,6 +11,7 @@ from core.errors.database import DatabaseError
 from data.connection import get_connection
 from repositories.set_entry_unit_of_work_repository import SetEntryUnitOfWorkRepository
 from repositories.user_goals_unit_of_work_repository import UserGoalsUnitOfWorkRepository
+from repositories.workout_exercise_unit_of_work_repository import WorkoutExerciseUnitOfWorkRepository
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -18,7 +19,11 @@ if TYPE_CHECKING:
     from psycopg import Connection, Cursor
 
     from data.executor import Row
-    from ports.unit_of_work import UnitOfWorkSetEntryRepositoryPort, UnitOfWorkUserGoalsRepositoryPort
+    from ports.unit_of_work import (
+        UnitOfWorkSetEntryRepositoryPort,
+        UnitOfWorkUserGoalsRepositoryPort,
+        UnitOfWorkWorkoutExerciseRepositoryPort,
+    )
 
 
 class PostgresUnitOfWork:
@@ -31,6 +36,7 @@ class PostgresUnitOfWork:
         self._cursor: Cursor[Row] | None = None
         self._goals: UnitOfWorkUserGoalsRepositoryPort | None = None
         self._set_entry: UnitOfWorkSetEntryRepositoryPort | None = None
+        self._workout_exercise: UnitOfWorkWorkoutExerciseRepositoryPort | None = None
         self._committed = False
 
     @property
@@ -46,8 +52,15 @@ class PostgresUnitOfWork:
             raise DatabaseError.no_active_transaction()
         return self._set_entry
 
+    @property
+    def workout_exercise(self) -> UnitOfWorkWorkoutExerciseRepositoryPort:
+        """Return the workout-exercise repository only while the transaction is active."""
+        if self._workout_exercise is None:
+            raise DatabaseError.no_active_transaction()
+        return self._workout_exercise
+
     def __enter__(self) -> PostgresUnitOfWork:
-        """Open one cursor for goal and set repositories; clean up partial setup failures."""
+        """Open one shared cursor for repositories; clean up partial setup failures."""
         if self._conn is not None:
             raise DatabaseError.transaction_already_active()
 
@@ -58,6 +71,7 @@ class PostgresUnitOfWork:
             cursor = conn.cursor()
             goals = UserGoalsUnitOfWorkRepository(cursor)
             set_entry = SetEntryUnitOfWorkRepository(cursor)
+            workout_exercise = WorkoutExerciseUnitOfWorkRepository(cursor)
         except Exception as exc:
             self._close_resources(cursor, conn)
             if isinstance(exc, DatabaseError):
@@ -69,6 +83,7 @@ class PostgresUnitOfWork:
         self._cursor = cursor
         self._goals = goals
         self._set_entry = set_entry
+        self._workout_exercise = workout_exercise
         self._committed = False
         self.logger.debug("Database unit of work opened")
         return self
@@ -98,6 +113,7 @@ class PostgresUnitOfWork:
             self._conn = None
             self._goals = None
             self._set_entry = None
+            self._workout_exercise = None
 
         if isinstance(exc, Error):
             self.logger.error("Database transaction failed", exc_info=(type(exc), exc, tb))
