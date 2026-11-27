@@ -84,11 +84,13 @@ structure must use whitelisted columns. Include the SQL files when deploying and
 restart the process after editing cached queries.
 
 Row conversion belongs in `data/mappers/`, using the shared helpers in
-`data/validation.py`. Goal and set-entry writes use the unit of work in
+`data/validation.py`. Goal, set-entry, and workout-exercise writes use the unit of work in
 `data/unit_of_work.py` with explicit commits and rollback on failure. Goal writes
 lock the user row; set writes lock the parent workout exercise.
-Workout-exercise ordering writes use a repository transaction that validates the
-readback before committing and rolls back reordering if the target disappears.
+Workout-exercise writes authorize and lock the parent workout before looking up
+children or validating positions. Catalog exercise references are locked for shared
+access to preserve visibility through the write. Counts, reordering, write readbacks,
+and mapping share the same cursor, with rollback if any step fails.
 
 Paginated list endpoints use `limit=100` and `offset=0` by default. Limits must be
 from 1 to 1000; offsets must be nonnegative. Set-entry, workout-exercise, and
